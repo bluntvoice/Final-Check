@@ -1,0 +1,24 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor-local state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local Agent state
+.codex-remote/
+
+# Temporary files and logs
+*.log
+*.tmp
+*.temp
