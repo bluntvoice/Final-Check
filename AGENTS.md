@@ -67,7 +67,7 @@ Final Check 必须保持轻量。新增大型依赖、native binary、浏览器 
 
 For long-running or multi-stage work, the repository is the source of truth for implementation state.
 
-If task state becomes unclear because of context compaction, session interruption, device switching, or other causes, do not rely solely on conversational memory or summaries to infer progress.
+If task state becomes unclear because of context compaction, session interruption, or other causes, do not rely solely on conversational memory or summaries to infer progress.
 
 Before continuing:
 
@@ -80,7 +80,39 @@ Before continuing:
 
 Do not repeat already completed work, silently skip incomplete requirements, or assume a task is complete because it was previously discussed.
 
-For multi-phase tasks, update the active task file as phases are completed so that work can be resumed safely after context compaction or interruption.
+## Multi-device development and phase checkpoints
+
+Final Check is developed across multiple computers. The remote Git repository is the authoritative synchronization point for completed development progress; conversational memory and an unpushed local working tree are not substitutes for a remote checkpoint.
+
+For every multi-phase task under `docs/tasks/`, complete this sequence for each Phase before starting the next one:
+
+1. Complete the Phase as a coherent unit of work.
+2. Run the tests and checks required by that Phase and confirm relevant existing behavior has not regressed.
+3. Update the active task file with the Phase status and an accurate description of what was completed and verified.
+4. Create a logically complete, understandable Phase commit whose message reflects the actual implementation.
+5. Push the Phase commit normally to the remote repository and confirm the push succeeded.
+6. Only then begin the next Phase.
+
+Do not wait until an entire large task is complete before the first push. A Phase commit is a meaningful development milestone, not a reason to commit every small edit; keep minor related edits together until the Phase or a safe checkpoint is coherent.
+
+If development must move to another computer before a Phase is complete:
+
+- Prefer reaching a safe checkpoint that builds and has the relevant tests passing.
+- Mark the Phase `IN PROGRESS` in the active task file.
+- Record the completed work, remaining work, current test results, and known issues.
+- If the checkpoint is coherent and will not break the normal branch, commit it with a clear checkpoint message and push it normally.
+- If the work is explicitly incomplete or would leave the normal branch broken, create and push a temporary work branch instead of pushing broken code to the main branch.
+
+Before continuing on another computer:
+
+1. Fetch and safely pull the latest remote state.
+2. Re-read `AGENTS.md`.
+3. Re-read the active task file.
+4. Inspect recent commits.
+5. Inspect `git status`.
+6. Continue from the repository's actual state rather than conversational memory.
+
+Multi-device synchronization does not permit destructive Git shortcuts. The prohibitions in `Git 操作安全` continue to apply, especially force push, `reset --hard`, history rewriting, and other operations that could discard or overwrite work.
 
 ## 修改范围原则
 
