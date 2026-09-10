@@ -46,8 +46,7 @@ internal static class Program
         services.AddSingleton<IDocumentParser, OpenXmlDocumentParser>();
         services.AddSingleton<IDocumentSnapshotSerializer, JsonDocumentSnapshotSerializer>();
         services.AddSingleton<IDocumentPreviewRenderer, SnapshotHtmlPreviewRenderer>();
-        services.AddSingleton<IStructureMatcher, PositionalStructureMatcher>();
-        services.AddSingleton<ITextDiffService, WholeTextDiffService>();
+        services.AddSingleton<IStructureMatcher, MultiSignalParagraphMatcher>();
         services.AddSingleton<IComparisonEngine, BasicComparisonEngine>();
         services.AddSingleton<MainViewModel>();
 

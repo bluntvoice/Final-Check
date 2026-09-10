@@ -1,67 +1,75 @@
+using System.Security.Cryptography;
+using System.Text;
+using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
 
 namespace FinalCheck.Comparison;
 
-public sealed class PositionalStructureMatcher : IStructureMatcher
+public sealed class BasicComparisonEngine(IStructureMatcher structureMatcher) : IComparisonEngine
 {
-    public IReadOnlyList<(DocumentParagraphSnapshot? Source, DocumentParagraphSnapshot? Target)> Match(
-        DocumentSnapshot source,
-        DocumentSnapshot target)
-    {
-        var count = Math.Max(source.Paragraphs.Count, target.Paragraphs.Count);
-        var matches = new List<(DocumentParagraphSnapshot?, DocumentParagraphSnapshot?)>(count);
-        for (var index = 0; index < count; index++)
-        {
-            matches.Add((
-                index < source.Paragraphs.Count ? source.Paragraphs[index] : null,
-                index < target.Paragraphs.Count ? target.Paragraphs[index] : null));
-        }
+    public const string AlgorithmVersion = "comparison-v0.1";
 
-        return matches;
+    public ComparisonResult Compare(
+        DocumentSnapshot baseline,
+        DocumentSnapshot current,
+        IProgress<ComparisonProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(baseline);
+        ArgumentNullException.ThrowIfNull(current);
+        cancellationToken.ThrowIfCancellationRequested();
+        progress?.Report(new ComparisonProgress(ComparisonStage.Preparing, 0, null));
+        progress?.Report(new ComparisonProgress(
+            ComparisonStage.MatchingStructure,
+            0,
+            baseline.Paragraphs.Count + current.Paragraphs.Count));
+        var matchResult = structureMatcher.Match(baseline, current, cancellationToken);
+        var lowConfidenceCount = matchResult.Mappings.Count(mapping =>
+            mapping.Confidence == ComparisonConfidenceLevel.Low);
+        var result = new ComparisonResult(
+            ComparisonResult.CurrentSchemaVersion,
+            new ComparisonMetadata(
+                SnapshotIdentity(baseline),
+                SnapshotIdentity(current),
+                baseline.SnapshotSchemaVersion,
+                current.SnapshotSchemaVersion,
+                AlgorithmVersion),
+            matchResult.Mappings,
+            [],
+            [],
+            matchResult.Diagnostics,
+            ComparisonStatistics.Empty with { LowConfidenceMappings = lowConfidenceCount });
+        progress?.Report(new ComparisonProgress(
+            ComparisonStage.Completed,
+            baseline.Paragraphs.Count + current.Paragraphs.Count,
+            baseline.Paragraphs.Count + current.Paragraphs.Count));
+        return result;
     }
-}
 
-public sealed class WholeTextDiffService : ITextDiffService
-{
-    public TextDifference Compare(string oldText, string newText) => new(oldText, newText);
-}
-
-public sealed class BasicComparisonEngine(
-    IStructureMatcher structureMatcher,
-    ITextDiffService textDiffService) : IComparisonEngine
-{
-    public ComparisonResult Compare(DocumentSnapshot source, DocumentSnapshot target)
+    private static string SnapshotIdentity(DocumentSnapshot snapshot)
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(target);
-
-        var changes = new List<ComparisonChange>();
-        foreach (var (sourceParagraph, targetParagraph) in structureMatcher.Match(source, target))
+        if (!string.IsNullOrWhiteSpace(snapshot.Metadata.Sha256))
         {
-            if (sourceParagraph is null && targetParagraph is not null)
+            return "sha256:" + snapshot.Metadata.Sha256;
+        }
+
+        var builder = new StringBuilder();
+        builder.Append(snapshot.SnapshotSchemaVersion).Append('|');
+        foreach (var paragraph in snapshot.Paragraphs)
+        {
+            builder.Append(paragraph.NodeId).Append(':').Append(paragraph.DisplayText).Append('|');
+        }
+
+        foreach (var table in snapshot.Tables)
+        {
+            builder.Append(table.NodeId).Append(':');
+            foreach (var cell in table.Rows.SelectMany(row => row.Cells))
             {
-                changes.Add(new ComparisonChange(
-                    ComparisonChangeKind.Added,
-                    targetParagraph.NodeId,
-                    textDiffService.Compare(string.Empty, targetParagraph.Text)));
-            }
-            else if (sourceParagraph is not null && targetParagraph is null)
-            {
-                changes.Add(new ComparisonChange(
-                    ComparisonChangeKind.Removed,
-                    sourceParagraph.NodeId,
-                    textDiffService.Compare(sourceParagraph.Text, string.Empty)));
-            }
-            else if (sourceParagraph is not null && targetParagraph is not null &&
-                     !string.Equals(sourceParagraph.Text, targetParagraph.Text, StringComparison.Ordinal))
-            {
-                changes.Add(new ComparisonChange(
-                    ComparisonChangeKind.Modified,
-                    targetParagraph.NodeId,
-                    textDiffService.Compare(sourceParagraph.Text, targetParagraph.Text)));
+                builder.Append(cell.NodeId).Append('=').Append(cell.DisplayText).Append(';');
             }
         }
 
-        return new ComparisonResult(changes);
+        return "derived-sha256:" + Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString()))).ToLowerInvariant();
     }
 }

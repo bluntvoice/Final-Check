@@ -1,3 +1,4 @@
+using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
 
 namespace FinalCheck.Core.Abstractions;
@@ -20,6 +21,13 @@ public interface IDocumentSnapshotSerializer
     byte[] Serialize(DocumentSnapshot snapshot);
 
     DocumentSnapshot Deserialize(ReadOnlySpan<byte> payload);
+}
+
+public interface IComparisonResultSerializer
+{
+    byte[] Serialize(ComparisonResult result);
+
+    ComparisonResult Deserialize(ReadOnlySpan<byte> payload);
 }
 
 public interface IDocumentFormatService

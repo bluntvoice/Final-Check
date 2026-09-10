@@ -8,6 +8,8 @@ Final Check v0.1.0 使用 .NET 10、C#、Avalonia UI、MVVM、Open XML SDK、SQL
 
 Document Engine v0 的解析管线、Snapshot schema 与已知限制见 [`document-engine.md`](document-engine.md)；schema 与 payload 持久化决策见 [`ADR-0002-document-snapshot-schema-and-persistence.md`](ADR-0002-document-snapshot-schema-and-persistence.md)。
 
+Comparison Engine v0 的结果模型、匹配管线和确定性规则见 [`comparison-engine.md`](comparison-engine.md)；Comparison 领域模型归属与多信号段落匹配决策见 [`ADR-0003-comparison-model-and-paragraph-matching.md`](ADR-0003-comparison-model-and-paragraph-matching.md)。
+
 ## Solution 分层
 
 | 项目 | 职责 | 允许的主要依赖 |
@@ -38,4 +40,4 @@ Document Engine v0 的解析管线、Snapshot schema 与已知限制见 [`docume
 - SQLite 初始 Migration 与 UTC 时间转换。
 - `DocumentNodeMapping` 格式恢复映射预留。
 
-当前 Comparison 仅为可替换的最小位置匹配/整段差异骨架，不代表 PRD 所需完整合同 Diff 已完成。
+Comparison Engine v0 当前已完成 Phase 1 的多信号段落匹配；文字 Diff、结构变化、格式 Diff 及修订/批注归并按任务文件后续 Phase 继续实现。

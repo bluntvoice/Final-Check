@@ -1,6 +1,6 @@
 # Final Check — Comparison Engine v0
 
-> Status: Planned
+> Status: In Progress
 > Version: v0.1.0 development
 > Scope: Comparison Engine
 > Depends on: Document Engine v0
@@ -1108,7 +1108,9 @@ Commit message 应按实际 Phase 内容命名，不固定重复同一条信息�
 
 由 Codex 持续维护：
 
-- Phase 1 — Paragraph Matching：TODO
+- Phase 1 — Paragraph Matching：DONE
+  - 实际完成：建立 `ComparisonResult` schema v1、统一 `ChangeItem` / `NodeMapping` / confidence / evidence / diagnostics / statistics 模型；实现保留原文的 Unicode、空白、Tab、Break normalization；实现结构位置、规范文本、标题编号、样式、Token、长度及相邻上下文多信号段落匹配；对重复和歧义候选保持确定性并输出诊断；候选生成采用位置窗口、Token 倒排索引及标题键缩减，不做全量段落笛卡尔积比较。
+  - 测试结果：Comparison Debug tests 9/9 通过，覆盖完全相同、单词修改、插入、删除、前部插入偏移、重复短段落、标题编号、中英文混排、Run 边界与取消。
 - Phase 2 — Text Diff：TODO
 - Phase 3 — Insert/Delete/Move：TODO
 - Phase 4 — Format Diff：TODO
