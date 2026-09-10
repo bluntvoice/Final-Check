@@ -36,6 +36,12 @@ Snapshot 没有内容哈希时，比较引擎根据 schema 与节点内容生成
 - 所有候选 tie-break 均使用位置和稳定文档顺序。
 - 取消请求在各匹配阶段和候选计算循环内被检查。
 
+## Phase 2：局部文字 Diff
+
+成功映射且实际文本不同的段落使用 `ITextDiffService` 独立比较，不回退到全文级 Diff。`ITextTokenizer` 将中文字符、英文单词、数字、连续空白和标点分别建模，并保留每个 Token 在原始字符串中的 UTF-16 offset 与 length。
+
+v0 使用最长公共子序列生成稳定的 Token 编辑序列，再把相邻插入与删除合并成 Replace span。每个 `DifferenceSpan` 同时保存基准与当前文本的 start、length 和原文，因此 UI 可以只突出真正变化的字、词、数字或标点。Tokenization 与 Diff 都不依赖 Word Run 边界，第三方类型也不会进入 Core 模型。
+
 ## 后续 Phase
 
-Phase 2 至 Phase 5 将在同一结果 schema 上依次增加局部文字 Diff、段落插入/删除/移动、有效格式与表格比较，以及修订/批注整合、规则归并和持久化。当前阶段不实现格式恢复、正式业务 UI 或 AI 语义分析。
+Phase 3 至 Phase 5 将在同一结果 schema 上依次增加段落插入/删除/移动、有效格式与表格比较，以及修订/批注整合、规则归并和持久化。当前阶段不实现格式恢复、正式业务 UI 或 AI 语义分析。

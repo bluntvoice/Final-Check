@@ -5,7 +5,9 @@ using FinalCheck.Core.Documents;
 
 namespace FinalCheck.Comparison;
 
-public sealed class BasicComparisonEngine(IStructureMatcher structureMatcher) : IComparisonEngine
+public sealed class BasicComparisonEngine(
+    IStructureMatcher structureMatcher,
+    ITextDiffService textDiffService) : IComparisonEngine
 {
     public const string AlgorithmVersion = "comparison-v0.1";
 
@@ -26,6 +28,50 @@ public sealed class BasicComparisonEngine(IStructureMatcher structureMatcher) : 
         var matchResult = structureMatcher.Match(baseline, current, cancellationToken);
         var lowConfidenceCount = matchResult.Mappings.Count(mapping =>
             mapping.Confidence == ComparisonConfidenceLevel.Low);
+        progress?.Report(new ComparisonProgress(
+            ComparisonStage.ComparingText,
+            0,
+            matchResult.Mappings.Count));
+        var baselineById = baseline.Paragraphs.ToDictionary(paragraph => paragraph.NodeId, StringComparer.Ordinal);
+        var currentById = current.Paragraphs.ToDictionary(paragraph => paragraph.NodeId, StringComparer.Ordinal);
+        var changes = new List<ComparisonChangeItem>();
+        foreach (var mapping in matchResult.Mappings)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!mapping.IsModified ||
+                !baselineById.TryGetValue(mapping.BaselineNode.NodeId, out var baselineParagraph) ||
+                !currentById.TryGetValue(mapping.CurrentNode.NodeId, out var currentParagraph))
+            {
+                continue;
+            }
+
+            var spans = textDiffService.Compare(
+                baselineParagraph.DisplayText,
+                currentParagraph.DisplayText,
+                cancellationToken);
+            if (spans.Count == 0)
+            {
+                continue;
+            }
+
+            changes.Add(new ComparisonChangeItem(
+                $"text:{mapping.BaselineNode.NodeId}:{mapping.CurrentNode.NodeId}",
+                ChangeKind(spans),
+                mapping.BaselineNode.NodeId,
+                mapping.CurrentNode.NodeId,
+                mapping.BaselineNode.StructuralPath,
+                mapping.CurrentNode.StructuralPath,
+                baselineParagraph.DisplayText,
+                currentParagraph.DisplayText,
+                spans,
+                null,
+                [],
+                [],
+                [ComparisonEvidenceKind.SnapshotDifference],
+                mapping.Confidence,
+                []));
+        }
+
         var result = new ComparisonResult(
             ComparisonResult.CurrentSchemaVersion,
             new ComparisonMetadata(
@@ -35,15 +81,32 @@ public sealed class BasicComparisonEngine(IStructureMatcher structureMatcher) : 
                 current.SnapshotSchemaVersion,
                 AlgorithmVersion),
             matchResult.Mappings,
-            [],
+            changes,
             [],
             matchResult.Diagnostics,
-            ComparisonStatistics.Empty with { LowConfidenceMappings = lowConfidenceCount });
+            ComparisonStatistics.Empty with
+            {
+                TotalChanges = changes.Count,
+                TextChanges = changes.Count,
+                LowConfidenceMappings = lowConfidenceCount,
+            });
         progress?.Report(new ComparisonProgress(
             ComparisonStage.Completed,
             baseline.Paragraphs.Count + current.Paragraphs.Count,
             baseline.Paragraphs.Count + current.Paragraphs.Count));
         return result;
+    }
+
+    private static ComparisonChangeKind ChangeKind(IReadOnlyList<DifferenceSpan> spans)
+    {
+        if (spans.All(span => span.Operation == DifferenceOperation.Insert))
+        {
+            return ComparisonChangeKind.TextInsert;
+        }
+
+        return spans.All(span => span.Operation == DifferenceOperation.Delete)
+            ? ComparisonChangeKind.TextDelete
+            : ComparisonChangeKind.TextReplace;
     }
 
     private static string SnapshotIdentity(DocumentSnapshot snapshot)

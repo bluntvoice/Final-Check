@@ -25,6 +25,22 @@ public interface ITextDiffService
         CancellationToken cancellationToken = default);
 }
 
+public enum TextTokenKind
+{
+    CjkCharacter,
+    Word,
+    Number,
+    Whitespace,
+    Punctuation,
+}
+
+public sealed record TextToken(string Value, int Start, int Length, TextTokenKind Kind);
+
+public interface ITextTokenizer
+{
+    IReadOnlyList<TextToken> Tokenize(string text);
+}
+
 public interface IComparisonEngine
 {
     ComparisonResult Compare(

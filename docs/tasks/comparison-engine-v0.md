@@ -1111,7 +1111,9 @@ Commit message 应按实际 Phase 内容命名，不固定重复同一条信息�
 - Phase 1 — Paragraph Matching：DONE
   - 实际完成：建立 `ComparisonResult` schema v1、统一 `ChangeItem` / `NodeMapping` / confidence / evidence / diagnostics / statistics 模型；实现保留原文的 Unicode、空白、Tab、Break normalization；实现结构位置、规范文本、标题编号、样式、Token、长度及相邻上下文多信号段落匹配；对重复和歧义候选保持确定性并输出诊断；候选生成采用位置窗口、Token 倒排索引及标题键缩减，不做全量段落笛卡尔积比较。
   - 测试结果：Comparison Debug tests 9/9 通过，覆盖完全相同、单词修改、插入、删除、前部插入偏移、重复短段落、标题编号、中英文混排、Run 边界与取消。
-- Phase 2 — Text Diff：TODO
+- Phase 2 — Text Diff：DONE
+  - 实际完成：新增可替换的 `ITextTokenizer` 与中英文混合 Tokenizer，保留原始 UTF-16 offset；实现基于稳定 Token 编辑序列的局部文字 Diff，将相邻插入/删除合并为 Replace，并输出双侧 start、length、old/new text；Comparison Engine 为已映射修改段落生成结构化文字 ChangeItem 和统计。
+  - 测试结果：Comparison Debug tests 20/20 通过；Phase 2 新增 11 个测试，覆盖单字、数字、中文短语、英文单词、插入、删除、标点、多处变化、Run 边界、引擎整合与取消。
 - Phase 3 — Insert/Delete/Move：TODO
 - Phase 4 — Format Diff：TODO
 - Phase 5 — Revision/Comment/Grouping/Persistence：TODO
