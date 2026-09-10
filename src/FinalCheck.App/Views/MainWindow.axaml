@@ -1,0 +1,57 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FinalCheck.App.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        d:DesignWidth="1080"
+        d:DesignHeight="680"
+        x:Class="FinalCheck.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Width="1080"
+        Height="680"
+        MinWidth="840"
+        MinHeight="520"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Final Check">
+
+  <Design.DataContext>
+    <vm:MainViewModel />
+  </Design.DataContext>
+
+  <Grid ColumnDefinitions="220,*" Background="#F5F6F8">
+    <Border Grid.Column="0" Background="#17202A" Padding="20">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Spacing="4">
+          <TextBlock Text="FINAL CHECK" FontSize="20" FontWeight="SemiBold" Foreground="White" />
+          <TextBlock Text="合同版本与比对工具" FontSize="12" Foreground="#B8C2CC" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Margin="0,36,0,0" Spacing="10">
+          <Button Content="项目" Command="{Binding NavigateCommand}" CommandParameter="home" />
+          <Button Content="模板中心" Command="{Binding NavigateCommand}" CommandParameter="templates" />
+          <Button Content="关于" Command="{Binding NavigateCommand}" CommandParameter="about" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="2" Text="v0.1.0 · Development" FontSize="11" Foreground="#8996A3" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Column="1" Margin="40" RowDefinitions="Auto,24,*">
+      <StackPanel>
+        <TextBlock Text="{Binding CurrentPageTitle}" FontSize="30" FontWeight="SemiBold" Foreground="#17202A" />
+        <TextBlock Text="{Binding CurrentPageDescription}" Margin="0,8,0,0" FontSize="14" Foreground="#5C6773" />
+      </StackPanel>
+
+      <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="32">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+          <TextBlock Text="工程基础已就绪" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" />
+          <TextBlock Text="Document Engine v0 将从结构化 DOCX Snapshot 开始。"
+                     FontSize="14"
+                     Foreground="#5C6773"
+                     TextAlignment="Center" />
+        </StackPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

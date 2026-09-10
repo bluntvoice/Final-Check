@@ -2,41 +2,108 @@
 
 ## 项目状态
 
-项目当前处于基础初始化阶段。
+Final Check v0.1.0 已完成基础工程初始化，当前可进入 Document Engine v0 开发。完整业务功能、正式安装包和 Release 尚未实现。
 
-正式技术栈、构建方式和测试体系将在后续技术初始化完成后补充。
-
-## 开发前要求
-
-开始开发前请先阅读：
+## 开发前阅读
 
 1. [`AGENTS.md`](../../AGENTS.md)
 2. [`docs/PRD/PRD-v0.1.0.md`](../PRD/PRD-v0.1.0.md)
-3. 与当前任务有关的 [architecture 文档](../architecture/README.md)
+3. 与任务相关的 [architecture 文档](../architecture/README.md)
+4. [性能基线](performance-baseline.md)
 
-## 版本规范
+## Windows 开发环境
 
-Final Check 初始版本为：
+- Windows 10 22H2 或 Windows 11 x64
+- .NET 10 SDK（当前基线 10.0.401）
+- Git
+- 可选 IDE：Visual Studio、JetBrains Rider 或 VS Code
+- 不需要安装 Microsoft Word、Office Interop 或单独的 SQLite 服务
 
-`v0.1.0`
+仓库 `global.json` 固定稳定 SDK feature band，并禁止 prerelease SDK。Avalonia 与项目 NuGet 包在各 `.csproj` 中使用明确稳定版本。
 
-后续采用语义化版本号。
+## 常用命令
 
-## 文档同步
+在仓库根目录执行：
 
-涉及产品行为、架构或开发方式的重要改动，应同步更新对应文档。
+```powershell
+dotnet tool restore
+dotnet restore FinalCheck.sln
+dotnet build FinalCheck.sln
+dotnet test FinalCheck.sln
+dotnet run --project src/FinalCheck.Desktop/FinalCheck.Desktop.csproj
+```
 
-## Git 与发布
+Release 验证：
 
-GitHub Actions、Release 和软件更新标准后续统一参考“群聊拾遗（WeChatDataAnalysis）”项目的成熟实现。
+```powershell
+dotnet build FinalCheck.sln --configuration Release
+dotnet restore src/FinalCheck.Desktop/FinalCheck.Desktop.csproj --runtime win-x64
+dotnet publish src/FinalCheck.Desktop/FinalCheck.Desktop.csproj `
+  --configuration Release `
+  --runtime win-x64 `
+  --self-contained true `
+  --no-restore
+```
 
-## 后续补充
+当前 Release publish 会排除用户运行不需要的 `.pdb` 调试符号，但不启用 trimming 或 NativeAOT。
 
-项目正式初始化后，应在本目录补充：
+## Solution 结构
 
-- 环境要求
-- 开发命令
-- 测试命令
-- 构建命令
-- 发布流程
-- 目录规范
+```text
+src/
+  FinalCheck.App/             Avalonia Views、ViewModels、Styles、Navigation
+  FinalCheck.Desktop/         桌面入口与 DI Composition Root
+  FinalCheck.Core/            纯领域模型和稳定接口
+  FinalCheck.Documents/       Open XML 与 DocumentSnapshot
+  FinalCheck.Comparison/      Snapshot 比较引擎
+  FinalCheck.Data/            SQLite、EF Core、Migration
+  FinalCheck.Infrastructure/  文件、路径、哈希、预览、更新等外围实现
+tests/
+  FinalCheck.Core.Tests/
+  FinalCheck.Documents.Tests/
+  FinalCheck.Comparison.Tests/
+  FinalCheck.Data.Tests/
+```
+
+依赖方向和硬性边界见 [`docs/architecture/README.md`](../architecture/README.md)。
+
+## 数据库与 Migration
+
+运行时数据库路径统一由 `IAppDataPathProvider` 提供。Windows 当前路径为：
+
+```text
+%LOCALAPPDATA%\FinalCheck\finalcheck.db
+```
+
+EF 工具作为仓库本地工具管理：
+
+```powershell
+dotnet tool restore
+dotnet tool run dotnet-ef migrations add <MigrationName> `
+  --project src/FinalCheck.Data/FinalCheck.Data.csproj `
+  --output-dir Migrations
+```
+
+数据库时间统一使用 UTC；UI 层负责转换为本地时间。
+
+## 平台政策
+
+Windows 是官方开发、测试和未来 Release 平台。macOS 目前仅检查 Core、Documents、Comparison、Data 及其测试的源码构建兼容性，不提供官方安装包或完整质量保证。核心项目禁止引入 Windows-only API；平台实现必须放在 Infrastructure/Desktop。
+
+## 代码质量
+
+- Nullable、Implicit Usings、内置 .NET Analyzer 已启用。
+- 不为初始化阶段一次引入大量第三方 Analyzer。
+- Open XML Package 必须短生命周期并及时 Dispose。
+- 日志不得默认写入完整合同正文、批注或大段修改内容。
+- 新增大依赖前必须评估包体积、内存和跨平台成本。
+
+## 性能预算
+
+- Windows 安装包：目标 ≤70 MB，>100 MB 告警。
+- 安装后体积：目标 ≤150 MB，>200 MB 告警。
+- Idle Working Set：目标 ≤150 MB。
+- 普通 DOCX 双栏比对：目标 ≤250 MB。
+- 大型复杂 DOCX 峰值：尽量 ≤500 MB。
+
+当前实测见 [`performance-baseline.md`](performance-baseline.md)。

@@ -4,37 +4,54 @@ Final Check 是一款面向合同版本更迭、修订比对和格式整理场�
 
 ## 当前状态
 
-项目当前处于早期开发与初始化阶段，暂未提供稳定发布版本。
+Final Check v0.1.0 当前处于早期开发阶段，已经完成跨平台工程基础与最小 DOCX/SQLite 技术验证，尚未提供稳定发布版本。
+
+## 技术栈
+
+- .NET 10 LTS / C#
+- Avalonia UI 12 / MVVM
+- Open XML SDK 3.5.1
+- SQLite / Entity Framework Core 10
+- xUnit
+
+官方开发和主要测试以 Windows 为主。项目架构尽量保持跨平台兼容，允许社区用户自行从源码构建 macOS 等平台版本；非 Windows 平台当前不属于官方发布与质量保证范围。
+
+## 开发
+
+需要 .NET 10 SDK：
+
+```powershell
+dotnet tool restore
+dotnet restore FinalCheck.sln
+dotnet build FinalCheck.sln
+dotnet test FinalCheck.sln
+dotnet run --project src/FinalCheck.Desktop/FinalCheck.Desktop.csproj
+```
+
+完整环境、项目结构和发布测量命令见 [`docs/development/README.md`](docs/development/README.md)。
 
 ## 计划核心功能
 
-- 合同模板管理
-- 我方 / 对方多轮版本管理
-- 合同文本差异比对
-- Word 修订与批注识别
-- 格式差异识别
-- 表格差异识别
+- 合同模板与多轮版本管理
+- DOCX 文本、修订、批注、格式和表格差异识别
 - 相同修改规则归并
 - 原模板格式恢复
-- 修改清单与修改说明
-- 历史比对
-- 数据备份恢复
+- 修改清单、修改说明和历史比对
+- 数据备份与恢复
 
-## 当前版本
+Final Check 解决“改了什么、哪里改了、怎么整理、格式怎么恢复、版本怎么追踪”，不承担合同法律风险分析。
 
-`v0.1.0`
-
-当前为项目初始开发版本，不代表已发布正式版。
-
-## Documentation
+## 文档
 
 - [Product Requirements](docs/PRD/PRD-v0.1.0.md)
 - [Architecture](docs/architecture/README.md)
+- [ADR-0001](docs/architecture/ADR-0001-technology-stack.md)
 - [Development](docs/development/README.md)
+- [Performance Baseline](docs/development/performance-baseline.md)
 
-## Roadmap
+## Version
 
-项目将依照 PRD 分阶段完成技术选型、基础工程初始化和核心功能开发。详细范围与产品行为以当前版本 PRD 为准。
+当前开发版本：`v0.1.0`。该版本号不代表已经发布正式 Release。
 
 ## License
 

@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>None</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinalCheck.App\FinalCheck.App.csproj" />
+    <ProjectReference Include="..\FinalCheck.Comparison\FinalCheck.Comparison.csproj" />
+    <ProjectReference Include="..\FinalCheck.Core\FinalCheck.Core.csproj" />
+    <ProjectReference Include="..\FinalCheck.Data\FinalCheck.Data.csproj" />
+    <ProjectReference Include="..\FinalCheck.Documents\FinalCheck.Documents.csproj" />
+    <ProjectReference Include="..\FinalCheck.Infrastructure\FinalCheck.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <Target Name="ExcludeDebugSymbolsFromPublish" AfterTargets="Publish" Condition="'$(Configuration)' == 'Release'">
+    <ItemGroup>
+      <PublishedDebugSymbols Include="$(PublishDir)**\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(PublishedDebugSymbols)" />
+  </Target>
+</Project>

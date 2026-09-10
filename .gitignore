@@ -22,3 +22,17 @@ Desktop.ini
 *.log
 *.tmp
 *.temp
+
+# .NET build and test outputs
+**/bin/
+**/obj/
+TestResults/
+artifacts/
+publish/
+.vs/
+
+# Local databases and generated fixtures
+*.db
+*.db-shm
+*.db-wal
+*.docx.tmp

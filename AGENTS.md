@@ -14,6 +14,24 @@ Final Check 初始版本从 `v0.1.0` 开始。
 
 后续涉及软件版本、PRD、CHANGELOG、Git Tag、GitHub Release、GitHub Actions 和软件内更新时，均使用语义化版本号。不得重新使用 `v0.1` 作为正式版本号。
 
+## v0.1.0 技术基线
+
+- .NET 10 LTS / C#
+- Avalonia UI / MVVM
+- Open XML SDK
+- SQLite / Entity Framework Core 10
+- xUnit
+
+技术选型依据见 `docs/architecture/ADR-0001-technology-stack.md`。未经用户明确要求，不得替换上述技术栈或引入 Preview、RC、Experimental、nightly 依赖。
+
+## 跨平台与轻量化约束
+
+官方开发、主要测试和正式 Release 以 Windows 为主，但架构应保留 macOS/Linux 源码构建可能性。
+
+`FinalCheck.Core`、`FinalCheck.Documents`、`FinalCheck.Comparison`、`FinalCheck.Data` 不得依赖 Windows-only API，包括 Word COM、Office Interop、Word.exe、Registry、explorer.exe、Windows Shell、WinUI 和 Windows App SDK。平台能力必须通过接口抽象，并在 Infrastructure/Desktop 中实现。
+
+Final Check 必须保持轻量。新增大型依赖、native binary、浏览器 Runtime 或重型 SDK 前，必须评估必要性、包体积、空闲内存和跨平台影响。不得无必要引入 Electron、完整 Chromium Runtime、内置 AI 模型或大型机器学习 Runtime。
+
 ## 产品需求权威来源
 
 当前产品需求以 [`docs/PRD/PRD-v0.1.0.md`](docs/PRD/PRD-v0.1.0.md) 为主要事实来源。
