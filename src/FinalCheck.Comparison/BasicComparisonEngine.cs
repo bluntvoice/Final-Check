@@ -8,7 +8,9 @@ namespace FinalCheck.Comparison;
 public sealed class BasicComparisonEngine(
     IStructureMatcher structureMatcher,
     ITextDiffService textDiffService,
-    IParagraphMoveDetector moveDetector) : IComparisonEngine
+    IParagraphMoveDetector moveDetector,
+    IFormatDiffService formatDiffService,
+    ITableComparisonService tableComparisonService) : IComparisonEngine
 {
     public const string AlgorithmVersion = "comparison-v0.1";
 
@@ -91,13 +93,40 @@ public sealed class BasicComparisonEngine(
         changes.AddRange(matchResult.UnmatchedCurrent.Select(paragraph => ParagraphChange(
             paragraph,
             ComparisonChangeKind.ParagraphInsert)));
+        progress?.Report(new ComparisonProgress(
+            ComparisonStage.ComparingFormatting,
+            0,
+            mappings.Count + baseline.Tables.Count + current.Tables.Count));
+        foreach (var mapping in mappings)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!baselineById.TryGetValue(mapping.BaselineNode.NodeId, out var baselineParagraph) ||
+                !currentById.TryGetValue(mapping.CurrentNode.NodeId, out var currentParagraph))
+            {
+                continue;
+            }
+
+            foreach (var format in formatDiffService.CompareParagraph(baselineParagraph, currentParagraph))
+            {
+                changes.Add(ParagraphFormatChange(mapping, baselineParagraph, currentParagraph, format));
+            }
+        }
+
+        var tableResult = tableComparisonService.Compare(baseline, current, cancellationToken);
         changes.Sort(static (left, right) => string.CompareOrdinal(left.ChangeId, right.ChangeId));
 
-        var paragraphsAdded = changes.Count(change => change.Kind == ComparisonChangeKind.ParagraphInsert);
-        var paragraphsDeleted = changes.Count(change => change.Kind == ComparisonChangeKind.ParagraphDelete);
-        var paragraphsMoved = changes.Count(change =>
+        var allChanges = changes.Concat(tableResult.Changes)
+            .OrderBy(change => change.ChangeId, StringComparer.Ordinal)
+            .ToArray();
+        var allMappings = mappings.Concat(tableResult.Mappings).ToArray();
+        var allDiagnostics = matchResult.Diagnostics.Concat(tableResult.Diagnostics).ToArray();
+
+        var paragraphsAdded = allChanges.Count(change => change.Kind == ComparisonChangeKind.ParagraphInsert);
+        var paragraphsDeleted = allChanges.Count(change => change.Kind == ComparisonChangeKind.ParagraphDelete);
+        var paragraphsMoved = allChanges.Count(change =>
             change.Kind is ComparisonChangeKind.ParagraphMove or ComparisonChangeKind.ParagraphMoveAndModify);
-        var textChanges = changes.Count(change => change.DifferenceSpans.Count > 0);
+        var textChanges = allChanges.Count(change => change.DifferenceSpans.Count > 0);
+        var formatChanges = allChanges.Count(change => change.FormatDifference is not null);
 
         var result = new ComparisonResult(
             ComparisonResult.CurrentSchemaVersion,
@@ -107,14 +136,15 @@ public sealed class BasicComparisonEngine(
                 baseline.SnapshotSchemaVersion,
                 current.SnapshotSchemaVersion,
                 AlgorithmVersion),
-            mappings,
-            changes,
+            allMappings,
+            allChanges,
             [],
-            matchResult.Diagnostics,
+            allDiagnostics,
             ComparisonStatistics.Empty with
             {
-                TotalChanges = changes.Count,
+                TotalChanges = allChanges.Length,
                 TextChanges = textChanges,
+                FormatChanges = formatChanges,
                 ParagraphsAdded = paragraphsAdded,
                 ParagraphsDeleted = paragraphsDeleted,
                 ParagraphsMoved = paragraphsMoved,
@@ -126,6 +156,29 @@ public sealed class BasicComparisonEngine(
             baseline.Paragraphs.Count + current.Paragraphs.Count));
         return result;
     }
+
+    private static ComparisonChangeItem ParagraphFormatChange(
+        ComparisonNodeMapping mapping,
+        DocumentParagraphSnapshot baseline,
+        DocumentParagraphSnapshot current,
+        ComparisonFormatDifference format) => new(
+        $"format:{format.Scope}:{baseline.NodeId}:{current.NodeId}",
+        format.Scope == FormatDifferenceScope.Character
+            ? ComparisonChangeKind.CharacterFormatChange
+            : ComparisonChangeKind.ParagraphFormatChange,
+        baseline.NodeId,
+        current.NodeId,
+        baseline.Identity.StructuralPath,
+        current.Identity.StructuralPath,
+        baseline.DisplayText,
+        current.DisplayText,
+        [],
+        format,
+        [],
+        [],
+        [ComparisonEvidenceKind.SnapshotDifference],
+        mapping.Confidence,
+        []);
 
     private static ComparisonChangeItem ParagraphChange(
         DocumentParagraphSnapshot paragraph,

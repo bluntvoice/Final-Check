@@ -1117,7 +1117,9 @@ Commit message 应按实际 Phase 内容命名，不固定重复同一条信息�
 - Phase 3 — Insert/Delete/Move：DONE
   - 实际完成：基于映射位置的稳定 O(n log n) 最长递增子序列识别相对顺序变化；新增 `ParagraphMove` 与携带局部文字 spans 的 `ParagraphMoveAndModify`；真正未匹配段落输出 `ParagraphInsert` / `ParagraphDelete`；前部插入仅导致 index 偏移时不误判移动；重复顺序匹配保持保守，不单凭套话相同认定移动。
   - 测试结果：Comparison Debug tests 27/27 通过；Phase 3 新增 7 个测试，覆盖单段移动、多段移动、移动后改词、重复内容、新增、真正删除与前部插入不误报。
-- Phase 4 — Format Diff：TODO
+- Phase 4 — Format Diff：DONE
+  - 实际完成：比较 Paragraph/Run 的 EffectiveFormatting，覆盖四字体槽、字号、颜色、粗斜体、下划线、删除线、高亮及完整段落格式；同一 scope 的多个属性归入一个格式 ChangeItem；文字与格式变化可分别检查。建立 table/cell 结构映射，比较单元格文字以及宽度、对齐、底纹、边框、GridSpan、VerticalMerge 等 Snapshot 格式；复杂行列变化输出 `TableStructureChanged` 并继续比较可靠交集。
+  - 测试结果：Comparison Debug tests 36/36 通过；Phase 4 新增 9 个测试，覆盖字体槽、字号、多格式、文字+格式、段落格式、Cell 格式、Merge、Cell 文字+格式及表格结构降级。
 - Phase 5 — Revision/Comment/Grouping/Persistence：TODO
 
 可以使用：

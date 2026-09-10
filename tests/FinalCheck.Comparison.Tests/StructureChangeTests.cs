@@ -91,10 +91,7 @@ public sealed class StructureChangeTests
 
     private static ComparisonResult Compare(string[] baseline, string[] current)
     {
-        var engine = new BasicComparisonEngine(
-            new MultiSignalParagraphMatcher(),
-            new TokenTextDiffService(new MixedLanguageTextTokenizer()),
-            new ParagraphMoveDetector());
+        var engine = ComparisonFixtureFactory.Engine();
         return engine.Compare(
             ComparisonFixtureFactory.FromText(baseline),
             ComparisonFixtureFactory.FromText(current));

@@ -59,7 +59,7 @@ public interface IComparisonEngine
 
 public interface IFormatDiffService
 {
-    ComparisonFormatDifference? CompareParagraph(
+    IReadOnlyList<ComparisonFormatDifference> CompareParagraph(
         DocumentParagraphSnapshot baseline,
         DocumentParagraphSnapshot current);
 
@@ -70,6 +70,19 @@ public interface IFormatDiffService
     ComparisonFormatDifference? CompareCell(
         DocumentTableCellSnapshot baseline,
         DocumentTableCellSnapshot current);
+}
+
+public sealed record TableComparisonResult(
+    IReadOnlyList<ComparisonNodeMapping> Mappings,
+    IReadOnlyList<ComparisonChangeItem> Changes,
+    IReadOnlyList<ComparisonDiagnostic> Diagnostics);
+
+public interface ITableComparisonService
+{
+    TableComparisonResult Compare(
+        DocumentSnapshot baseline,
+        DocumentSnapshot current,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IChangeGroupingService

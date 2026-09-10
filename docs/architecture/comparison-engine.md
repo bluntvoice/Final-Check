@@ -48,6 +48,14 @@ v0 使用最长公共子序列生成稳定的 Token 编辑序列，再把相邻�
 
 重复文本通过稳定文档顺序形成的中等可信 Contextual 映射不会仅凭相同文本认定移动；相关歧义继续保留在 diagnostics。真正未匹配的基准/当前段落分别形成 `ParagraphDelete` / `ParagraphInsert`。
 
+## Phase 4：有效格式与表格
+
+段落格式比较只读取 Snapshot 已计算的 `EffectiveFormatting`。字符级比较覆盖 Ascii、HighAnsi、EastAsia、ComplexScript 四字体槽，以及字号、颜色、粗体、斜体、下划线、删除线和高亮；段落级覆盖对齐、左右缩进、首行/悬挂缩进、段前段后与行距。相同 scope 的多个属性合并为一个 `ComparisonFormatDifference` 和一个顶级 ChangeItem。
+
+字符格式投影按有效格式合并相邻 Run，因此仅改变 Word Run 切分不会形成格式差异。文字和格式同时变化时分别保留可精确高亮的文字 ChangeItem 与可展开的格式 ChangeItem。
+
+表格 v0 按稳定的 table index、row index、column index 建立 Table/Cell mapping，比较 Snapshot 提供的 table/cell 格式，包括宽度、对齐、底纹、边框、GridSpan 与 VerticalMerge。单元格的文字和格式变化合并为一个 `TableCellChange`。行列结构无法一一对应时输出 `TableStructureChanged`，同时继续比较仍可可靠定位的交集单元格。当前 Snapshot 的 table/cell 仅提供 direct formatting，因此该范围使用其已解析值；不在 Comparison 层重新解析 Open XML。
+
 ## 后续 Phase
 
-Phase 4 至 Phase 5 将在同一结果 schema 上依次增加有效格式与表格比较，以及修订/批注整合、规则归并和持久化。当前阶段不实现格式恢复、正式业务 UI 或 AI 语义分析。
+Phase 5 将在同一结果 schema 上增加修订/批注整合、规则归并和持久化。当前阶段不实现格式恢复、正式业务 UI 或 AI 语义分析。

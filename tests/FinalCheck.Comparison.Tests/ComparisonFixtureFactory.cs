@@ -1,3 +1,4 @@
+using FinalCheck.Comparison;
 using FinalCheck.Core.Documents;
 
 namespace FinalCheck.Comparison.Tests;
@@ -11,6 +12,23 @@ internal static class ComparisonFixtureFactory
     {
         Paragraphs = paragraphs.Select(CreateParagraph).ToArray(),
     };
+
+    public static DocumentSnapshot WithTables(params TableSpec[] tables) => DocumentSnapshot.Empty with
+    {
+        Tables = tables.Select(CreateTable).ToArray(),
+    };
+
+    public static BasicComparisonEngine Engine()
+    {
+        var textDiff = new TokenTextDiffService(new MixedLanguageTextTokenizer());
+        var formatDiff = new EffectiveFormatDiffService();
+        return new BasicComparisonEngine(
+            new MultiSignalParagraphMatcher(),
+            textDiff,
+            new ParagraphMoveDetector(),
+            formatDiff,
+            new TableComparisonService(textDiff, formatDiff));
+    }
 
     private static DocumentParagraphSnapshot CreateParagraph(ParagraphSpec spec, int index)
     {
@@ -51,6 +69,59 @@ internal static class ComparisonFixtureFactory
             spec.Numbering);
     }
 
+    private static DocumentTableSnapshot CreateTable(TableSpec spec, int tableIndex)
+    {
+        var tableId = $"body/tbl[{tableIndex}]";
+        var rows = spec.Rows.Select((row, rowIndex) => new DocumentTableRowSnapshot(
+            new DocumentNodeIdentitySnapshot(
+                $"{tableId}/tr[{rowIndex}]",
+                tableId,
+                DocumentNodeKind.Row,
+                $"{tableId}/tr[{rowIndex}]",
+                "/word/document.xml",
+                rowIndex),
+            rowIndex,
+            row.Cells.Select((cell, cellIndex) => CreateCell(tableId, rowIndex, cellIndex, cell)).ToArray(),
+            null,
+            null)).ToArray();
+        return new DocumentTableSnapshot(
+            new DocumentNodeIdentitySnapshot(
+                tableId,
+                null,
+                DocumentNodeKind.Table,
+                tableId,
+                "/word/document.xml",
+                tableIndex),
+            tableIndex,
+            rows,
+            spec.Formatting ?? TableFormatSnapshot.Empty);
+    }
+
+    private static DocumentTableCellSnapshot CreateCell(
+        string tableId,
+        int rowIndex,
+        int columnIndex,
+        CellSpec spec)
+    {
+        var rowId = $"{tableId}/tr[{rowIndex}]";
+        var cellId = $"{rowId}/tc[{columnIndex}]";
+        return new DocumentTableCellSnapshot(
+            new DocumentNodeIdentitySnapshot(
+                cellId,
+                rowId,
+                DocumentNodeKind.Cell,
+                cellId,
+                "/word/document.xml",
+                columnIndex),
+            columnIndex,
+            rowIndex,
+            columnIndex,
+            spec.Text,
+            [],
+            spec.Formatting ?? TableCellFormatSnapshot.Empty,
+            0);
+    }
+
     internal sealed record ParagraphSpec(
         string Text,
         string? StyleId = null,
@@ -58,4 +129,12 @@ internal static class ComparisonFixtureFactory
         ParagraphFormatSnapshot? ParagraphFormatting = null,
         CharacterFormatSnapshot? CharacterFormatting = null,
         IReadOnlyList<string>? Runs = null);
+
+    internal sealed record TableSpec(
+        IReadOnlyList<RowSpec> Rows,
+        TableFormatSnapshot? Formatting = null);
+
+    internal sealed record RowSpec(IReadOnlyList<CellSpec> Cells);
+
+    internal sealed record CellSpec(string Text, TableCellFormatSnapshot? Formatting = null);
 }

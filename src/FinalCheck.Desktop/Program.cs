@@ -50,6 +50,8 @@ internal static class Program
         services.AddSingleton<ITextTokenizer, MixedLanguageTextTokenizer>();
         services.AddSingleton<ITextDiffService, TokenTextDiffService>();
         services.AddSingleton<IParagraphMoveDetector, ParagraphMoveDetector>();
+        services.AddSingleton<IFormatDiffService, EffectiveFormatDiffService>();
+        services.AddSingleton<ITableComparisonService, TableComparisonService>();
         services.AddSingleton<IComparisonEngine, BasicComparisonEngine>();
         services.AddSingleton<MainViewModel>();
 
