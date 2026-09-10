@@ -369,8 +369,8 @@ public sealed class MultiSignalParagraphMatcher : IStructureMatcher
             ? 1
             : 0;
         var contextScore = ContextScore(baseline, current, baselineDocument, currentDocument);
-        var structuralScore = 0.70 * textScore +
-                              0.10 * positionScore +
+        var structuralScore = 0.75 * textScore +
+                              0.05 * positionScore +
                               0.05 * styleScore +
                               0.05 * Math.Max(numberingScore, headingScore) +
                               0.10 * contextScore;

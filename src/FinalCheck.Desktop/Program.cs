@@ -49,6 +49,7 @@ internal static class Program
         services.AddSingleton<IStructureMatcher, MultiSignalParagraphMatcher>();
         services.AddSingleton<ITextTokenizer, MixedLanguageTextTokenizer>();
         services.AddSingleton<ITextDiffService, TokenTextDiffService>();
+        services.AddSingleton<IParagraphMoveDetector, ParagraphMoveDetector>();
         services.AddSingleton<IComparisonEngine, BasicComparisonEngine>();
         services.AddSingleton<MainViewModel>();
 

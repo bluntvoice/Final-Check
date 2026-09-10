@@ -42,6 +42,12 @@ Snapshot 没有内容哈希时，比较引擎根据 schema 与节点内容生成
 
 v0 使用最长公共子序列生成稳定的 Token 编辑序列，再把相邻插入与删除合并成 Replace span。每个 `DifferenceSpan` 同时保存基准与当前文本的 start、length 和原文，因此 UI 可以只突出真正变化的字、词、数字或标点。Tokenization 与 Diff 都不依赖 Word Run 边界，第三方类型也不会进入 Core 模型。
 
+## Phase 3：段落结构变化
+
+匹配完成后，移动检测按基准顺序排列映射，并以当前位置的最长递增子序列作为未改变相对顺序的骨架。骨架外的唯一或高相似映射形成 `ParagraphMove`；若文本同时变化，则形成携带局部 DifferenceSpan 的 `ParagraphMoveAndModify`。该算法为 O(n log n)，前部新增或中间删除导致的整体 index 偏移不会被误判为移动。
+
+重复文本通过稳定文档顺序形成的中等可信 Contextual 映射不会仅凭相同文本认定移动；相关歧义继续保留在 diagnostics。真正未匹配的基准/当前段落分别形成 `ParagraphDelete` / `ParagraphInsert`。
+
 ## 后续 Phase
 
-Phase 3 至 Phase 5 将在同一结果 schema 上依次增加段落插入/删除/移动、有效格式与表格比较，以及修订/批注整合、规则归并和持久化。当前阶段不实现格式恢复、正式业务 UI 或 AI 语义分析。
+Phase 4 至 Phase 5 将在同一结果 schema 上依次增加有效格式与表格比较，以及修订/批注整合、规则归并和持久化。当前阶段不实现格式恢复、正式业务 UI 或 AI 语义分析。

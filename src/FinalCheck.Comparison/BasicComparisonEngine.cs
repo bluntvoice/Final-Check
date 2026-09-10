@@ -7,7 +7,8 @@ namespace FinalCheck.Comparison;
 
 public sealed class BasicComparisonEngine(
     IStructureMatcher structureMatcher,
-    ITextDiffService textDiffService) : IComparisonEngine
+    ITextDiffService textDiffService,
+    IParagraphMoveDetector moveDetector) : IComparisonEngine
 {
     public const string AlgorithmVersion = "comparison-v0.1";
 
@@ -26,37 +27,49 @@ public sealed class BasicComparisonEngine(
             0,
             baseline.Paragraphs.Count + current.Paragraphs.Count));
         var matchResult = structureMatcher.Match(baseline, current, cancellationToken);
-        var lowConfidenceCount = matchResult.Mappings.Count(mapping =>
+        progress?.Report(new ComparisonProgress(
+            ComparisonStage.DetectingMoves,
+            0,
+            matchResult.Mappings.Count));
+        var mappings = moveDetector.Detect(matchResult.Mappings, cancellationToken);
+        var lowConfidenceCount = mappings.Count(mapping =>
             mapping.Confidence == ComparisonConfidenceLevel.Low);
         progress?.Report(new ComparisonProgress(
             ComparisonStage.ComparingText,
             0,
-            matchResult.Mappings.Count));
+            mappings.Count));
         var baselineById = baseline.Paragraphs.ToDictionary(paragraph => paragraph.NodeId, StringComparer.Ordinal);
         var currentById = current.Paragraphs.ToDictionary(paragraph => paragraph.NodeId, StringComparer.Ordinal);
         var changes = new List<ComparisonChangeItem>();
-        foreach (var mapping in matchResult.Mappings)
+        foreach (var mapping in mappings)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!mapping.IsModified ||
-                !baselineById.TryGetValue(mapping.BaselineNode.NodeId, out var baselineParagraph) ||
+            if (!baselineById.TryGetValue(mapping.BaselineNode.NodeId, out var baselineParagraph) ||
                 !currentById.TryGetValue(mapping.CurrentNode.NodeId, out var currentParagraph))
             {
                 continue;
             }
 
-            var spans = textDiffService.Compare(
-                baselineParagraph.DisplayText,
-                currentParagraph.DisplayText,
-                cancellationToken);
-            if (spans.Count == 0)
+            var spans = mapping.IsModified
+                ? textDiffService.Compare(
+                    baselineParagraph.DisplayText,
+                    currentParagraph.DisplayText,
+                    cancellationToken)
+                : [];
+            if (!mapping.IsMoved && spans.Count == 0)
             {
                 continue;
             }
 
             changes.Add(new ComparisonChangeItem(
-                $"text:{mapping.BaselineNode.NodeId}:{mapping.CurrentNode.NodeId}",
-                ChangeKind(spans),
+                mapping.IsMoved
+                    ? $"move:{mapping.BaselineNode.NodeId}:{mapping.CurrentNode.NodeId}"
+                    : $"text:{mapping.BaselineNode.NodeId}:{mapping.CurrentNode.NodeId}",
+                mapping.IsMoved
+                    ? spans.Count == 0
+                        ? ComparisonChangeKind.ParagraphMove
+                        : ComparisonChangeKind.ParagraphMoveAndModify
+                    : ChangeKind(spans),
                 mapping.BaselineNode.NodeId,
                 mapping.CurrentNode.NodeId,
                 mapping.BaselineNode.StructuralPath,
@@ -72,6 +85,20 @@ public sealed class BasicComparisonEngine(
                 []));
         }
 
+        changes.AddRange(matchResult.UnmatchedBaseline.Select(paragraph => ParagraphChange(
+            paragraph,
+            ComparisonChangeKind.ParagraphDelete)));
+        changes.AddRange(matchResult.UnmatchedCurrent.Select(paragraph => ParagraphChange(
+            paragraph,
+            ComparisonChangeKind.ParagraphInsert)));
+        changes.Sort(static (left, right) => string.CompareOrdinal(left.ChangeId, right.ChangeId));
+
+        var paragraphsAdded = changes.Count(change => change.Kind == ComparisonChangeKind.ParagraphInsert);
+        var paragraphsDeleted = changes.Count(change => change.Kind == ComparisonChangeKind.ParagraphDelete);
+        var paragraphsMoved = changes.Count(change =>
+            change.Kind is ComparisonChangeKind.ParagraphMove or ComparisonChangeKind.ParagraphMoveAndModify);
+        var textChanges = changes.Count(change => change.DifferenceSpans.Count > 0);
+
         var result = new ComparisonResult(
             ComparisonResult.CurrentSchemaVersion,
             new ComparisonMetadata(
@@ -80,14 +107,17 @@ public sealed class BasicComparisonEngine(
                 baseline.SnapshotSchemaVersion,
                 current.SnapshotSchemaVersion,
                 AlgorithmVersion),
-            matchResult.Mappings,
+            mappings,
             changes,
             [],
             matchResult.Diagnostics,
             ComparisonStatistics.Empty with
             {
                 TotalChanges = changes.Count,
-                TextChanges = changes.Count,
+                TextChanges = textChanges,
+                ParagraphsAdded = paragraphsAdded,
+                ParagraphsDeleted = paragraphsDeleted,
+                ParagraphsMoved = paragraphsMoved,
                 LowConfidenceMappings = lowConfidenceCount,
             });
         progress?.Report(new ComparisonProgress(
@@ -95,6 +125,29 @@ public sealed class BasicComparisonEngine(
             baseline.Paragraphs.Count + current.Paragraphs.Count,
             baseline.Paragraphs.Count + current.Paragraphs.Count));
         return result;
+    }
+
+    private static ComparisonChangeItem ParagraphChange(
+        DocumentParagraphSnapshot paragraph,
+        ComparisonChangeKind kind)
+    {
+        var isInsert = kind == ComparisonChangeKind.ParagraphInsert;
+        return new ComparisonChangeItem(
+            $"{(isInsert ? "insert" : "delete")}:{paragraph.NodeId}",
+            kind,
+            isInsert ? null : paragraph.NodeId,
+            isInsert ? paragraph.NodeId : null,
+            isInsert ? null : paragraph.Identity.StructuralPath,
+            isInsert ? paragraph.Identity.StructuralPath : null,
+            isInsert ? string.Empty : paragraph.DisplayText,
+            isInsert ? paragraph.DisplayText : string.Empty,
+            [],
+            null,
+            [],
+            [],
+            [ComparisonEvidenceKind.SnapshotDifference],
+            null,
+            []);
     }
 
     private static ComparisonChangeKind ChangeKind(IReadOnlyList<DifferenceSpan> spans)

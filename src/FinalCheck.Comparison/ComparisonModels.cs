@@ -41,6 +41,13 @@ public interface ITextTokenizer
     IReadOnlyList<TextToken> Tokenize(string text);
 }
 
+public interface IParagraphMoveDetector
+{
+    IReadOnlyList<ComparisonNodeMapping> Detect(
+        IReadOnlyList<ComparisonNodeMapping> mappings,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IComparisonEngine
 {
     ComparisonResult Compare(

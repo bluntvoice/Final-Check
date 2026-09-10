@@ -77,7 +77,7 @@ public sealed class TextDiffTests
         var current = ComparisonFixtureFactory.Create(new ComparisonFixtureFactory.ParagraphSpec(
             "Payment期限30日",
             Runs: ["Payment期限", "30", "日"]));
-        var engine = new BasicComparisonEngine(new MultiSignalParagraphMatcher(), _service);
+        var engine = CreateEngine();
 
         var result = engine.Compare(baseline, current);
 
@@ -89,7 +89,7 @@ public sealed class TextDiffTests
     {
         var baseline = ComparisonFixtureFactory.FromText("付款期限为30日");
         var current = ComparisonFixtureFactory.FromText("付款期限为60日");
-        var engine = new BasicComparisonEngine(new MultiSignalParagraphMatcher(), _service);
+        var engine = CreateEngine();
 
         var result = engine.Compare(baseline, current);
 
@@ -108,4 +108,9 @@ public sealed class TextDiffTests
         Assert.Throws<OperationCanceledException>(() =>
             _service.Compare("甲方", "乙方", cancellation.Token));
     }
+
+    private BasicComparisonEngine CreateEngine() => new(
+        new MultiSignalParagraphMatcher(),
+        _service,
+        new ParagraphMoveDetector());
 }

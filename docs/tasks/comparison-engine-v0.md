@@ -1114,7 +1114,9 @@ Commit message 应按实际 Phase 内容命名，不固定重复同一条信息�
 - Phase 2 — Text Diff：DONE
   - 实际完成：新增可替换的 `ITextTokenizer` 与中英文混合 Tokenizer，保留原始 UTF-16 offset；实现基于稳定 Token 编辑序列的局部文字 Diff，将相邻插入/删除合并为 Replace，并输出双侧 start、length、old/new text；Comparison Engine 为已映射修改段落生成结构化文字 ChangeItem 和统计。
   - 测试结果：Comparison Debug tests 20/20 通过；Phase 2 新增 11 个测试，覆盖单字、数字、中文短语、英文单词、插入、删除、标点、多处变化、Run 边界、引擎整合与取消。
-- Phase 3 — Insert/Delete/Move：TODO
+- Phase 3 — Insert/Delete/Move：DONE
+  - 实际完成：基于映射位置的稳定 O(n log n) 最长递增子序列识别相对顺序变化；新增 `ParagraphMove` 与携带局部文字 spans 的 `ParagraphMoveAndModify`；真正未匹配段落输出 `ParagraphInsert` / `ParagraphDelete`；前部插入仅导致 index 偏移时不误判移动；重复顺序匹配保持保守，不单凭套话相同认定移动。
+  - 测试结果：Comparison Debug tests 27/27 通过；Phase 3 新增 7 个测试，覆盖单段移动、多段移动、移动后改词、重复内容、新增、真正删除与前部插入不误报。
 - Phase 4 — Format Diff：TODO
 - Phase 5 — Revision/Comment/Grouping/Persistence：TODO
 

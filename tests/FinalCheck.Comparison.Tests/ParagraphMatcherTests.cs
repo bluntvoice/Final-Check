@@ -14,7 +14,10 @@ public sealed class ParagraphMatcherTests
         var baseline = ComparisonFixtureFactory.FromText("第一条 总则", "甲方应付款。", "合同生效。");
         var current = ComparisonFixtureFactory.FromText("第一条 总则", "甲方应付款。", "合同生效。");
 
-        var result = new BasicComparisonEngine(_matcher, new TokenTextDiffService(new MixedLanguageTextTokenizer()))
+        var result = new BasicComparisonEngine(
+            _matcher,
+            new TokenTextDiffService(new MixedLanguageTextTokenizer()),
+            new ParagraphMoveDetector())
             .Compare(baseline, current);
 
         Assert.Equal(3, result.NodeMappings.Count);
