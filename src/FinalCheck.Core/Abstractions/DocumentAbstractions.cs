@@ -4,8 +4,14 @@ namespace FinalCheck.Core.Abstractions;
 
 public interface IDocumentParser
 {
+    ValueTask<DocumentSnapshot> ParseFileAsync(
+        string filePath,
+        IProgress<DocumentParseProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
     ValueTask<DocumentSnapshot> ParseAsync(
         Stream docxStream,
+        IProgress<DocumentParseProgress>? progress = null,
         CancellationToken cancellationToken = default);
 }
 

@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\FinalCheck.Data\FinalCheck.Data.csproj" />
+    <ProjectReference Include="..\..\src\FinalCheck.Documents\FinalCheck.Documents.csproj" />
   </ItemGroup>
 
 </Project>

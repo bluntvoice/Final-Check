@@ -27,15 +27,24 @@ public sealed class BasicComparisonEngineTests
             change => Assert.Equal(ComparisonChangeKind.Added, change.Kind));
     }
 
-    private static DocumentSnapshot CreateSnapshot(params string[] text) => new(
-        DocumentSnapshot.CurrentSchemaVersion,
-        text.Select((value, index) => new DocumentParagraphSnapshot(
-            $"paragraph:{index}",
+    private static DocumentSnapshot CreateSnapshot(params string[] text) => DocumentSnapshot.Empty with
+    {
+        Paragraphs = text.Select((value, index) => new DocumentParagraphSnapshot(
+            new DocumentNodeIdentitySnapshot(
+                $"body/p[{index}]",
+                null,
+                DocumentNodeKind.Paragraph,
+                $"body/p[{index}]",
+                "/word/document.xml",
+                index),
             index,
             value,
+            value,
+            string.IsNullOrEmpty(value),
+            null,
             [],
-            new ParagraphFormatSnapshot(null, null, null, null))).ToArray(),
-        [],
-        [],
-        []);
+            ParagraphFormatSnapshot.Empty,
+            ParagraphFormatSnapshot.Empty,
+            null)).ToArray(),
+    };
 }

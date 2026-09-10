@@ -2,7 +2,7 @@
 
 ## 项目状态
 
-Final Check v0.1.0 已完成基础工程初始化，当前可进入 Document Engine v0 开发。完整业务功能、正式安装包和 Release 尚未实现。
+Final Check v0.1.0 已完成基础工程初始化，Document Engine v0 正在按 [`docs/tasks/document-engine-v0.md`](../tasks/document-engine-v0.md) 验收。完整 Comparison Engine、正式业务 UI、格式恢复、安装包和 Release 尚未实现。
 
 ## 开发前阅读
 
@@ -46,6 +46,29 @@ dotnet publish src/FinalCheck.Desktop/FinalCheck.Desktop.csproj `
 ```
 
 当前 Release publish 会排除用户运行不需要的 `.pdb` 调试符号，但不启用 trimming 或 NativeAOT。
+
+## Document Engine 开发与测试
+
+Document Engine 架构与已知限制见 [`document-engine.md`](../architecture/document-engine.md)。解析测试使用 `DocumentFixtureFactory` 在内存中生成小型 DOCX，不使用真实合同。夹具目录说明见 [`tests/fixtures/README.md`](../../tests/fixtures/README.md)。
+
+常用聚焦验证：
+
+```powershell
+dotnet test tests/FinalCheck.Documents.Tests/FinalCheck.Documents.Tests.csproj
+dotnet test tests/FinalCheck.Data.Tests/FinalCheck.Data.Tests.csproj `
+  --filter DocumentSnapshotStorePersistsSerializedSnapshotRoundTrip
+```
+
+新增 Open XML 能力时，应增加一个只隔离该结构的程序化 fixture 和聚焦断言。只有 SDK 无法可靠构造的极小结构才保存二进制 DOCX，并在 fixture README 说明原因。不得提交真实合同。
+
+性能测试使用固定的 `PerformanceComposite` fixture。该测试会输出解析、序列化、反序列化、managed allocation、JSON/GZip/Brotli 大小及测试进程内存；压缩目前只比较，不改变 SQLite payload：
+
+```powershell
+dotnet test tests/FinalCheck.Documents.Tests/FinalCheck.Documents.Tests.csproj `
+  --configuration Release `
+  --filter PerformanceCompositeRecordsJsonAndCompressionBaseline `
+  --logger "console;verbosity=detailed"
+```
 
 ## Solution 结构
 

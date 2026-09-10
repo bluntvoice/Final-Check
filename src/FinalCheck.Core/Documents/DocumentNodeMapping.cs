@@ -13,7 +13,8 @@ public enum DocumentNodeKind
 public sealed record DocumentNodeReference(
     string NodeId,
     DocumentNodeKind Kind,
-    int Position);
+    int Position,
+    string? StructuralPath = null);
 
 public sealed record DocumentNodeMapping(
     DocumentNodeReference TemplateNode,

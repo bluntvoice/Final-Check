@@ -6,6 +6,8 @@ Final Check v0.1.0 使用 .NET 10、C#、Avalonia UI、MVVM、Open XML SDK、SQL
 
 技术选型依据见 [`ADR-0001-technology-stack.md`](ADR-0001-technology-stack.md)。
 
+Document Engine v0 的解析管线、Snapshot schema 与已知限制见 [`document-engine.md`](document-engine.md)；schema 与 payload 持久化决策见 [`ADR-0002-document-snapshot-schema-and-persistence.md`](ADR-0002-document-snapshot-schema-and-persistence.md)。
+
 ## Solution 分层
 
 | 项目 | 职责 | 允许的主要依赖 |

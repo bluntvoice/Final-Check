@@ -63,6 +63,25 @@ Final Check 必须保持轻量。新增大型依赖、native binary、浏览器 
 
 禁止为了快速完成任务而绕过现有设计。
 
+## Task state recovery
+
+For long-running or multi-stage work, the repository is the source of truth for implementation state.
+
+If task state becomes unclear because of context compaction, session interruption, device switching, or other causes, do not rely solely on conversational memory or summaries to infer progress.
+
+Before continuing:
+
+1. Re-read `AGENTS.md`.
+2. Re-read the active task file under `docs/tasks/`.
+3. Inspect `git status`, current diff, and recent commits.
+4. Inspect the relevant implementation and tests.
+5. Run the appropriate checks when necessary.
+6. Reconstruct the actual completed and remaining work from repository state.
+
+Do not repeat already completed work, silently skip incomplete requirements, or assume a task is complete because it was previously discussed.
+
+For multi-phase tasks, update the active task file as phases are completed so that work can be resumed safely after context compaction or interruption.
+
 ## 修改范围原则
 
 禁止：
