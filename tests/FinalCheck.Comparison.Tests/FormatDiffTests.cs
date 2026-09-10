@@ -133,7 +133,7 @@ public sealed class FormatDiffTests
 
         var result = ComparisonFixtureFactory.Engine().Compare(baseline, current);
 
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "TableStructureChanged");
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "TableStructureFallback");
         Assert.Contains(result.NodeMappings, mapping => mapping.BaselineNode.Kind == DocumentNodeKind.Cell);
     }
 

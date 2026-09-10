@@ -16,8 +16,41 @@ namespace FinalCheck.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("FinalCheck:DatabaseSchemaVersion", 1)
+                .HasAnnotation("FinalCheck:DatabaseSchemaVersion", 2)
                 .HasAnnotation("ProductVersion", "10.0.12");
+
+            modelBuilder.Entity("FinalCheck.Data.Entities.StoredComparisonResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AlgorithmVersion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BaselineSnapshotId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ComparisonSchemaVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CurrentSnapshotId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("Payload")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ComparisonResults", (string)null);
+                });
 
             modelBuilder.Entity("FinalCheck.Data.Entities.StoredDocumentSnapshot", b =>
                 {

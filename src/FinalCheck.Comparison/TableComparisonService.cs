@@ -189,7 +189,7 @@ public sealed class TableComparisonService(
         string? currentNodeId,
         string message) => new(
         ComparisonDiagnosticSeverity.Warning,
-        "TableStructureChanged",
+        "TableStructureFallback",
         message,
         baselineNodeId,
         currentNodeId);

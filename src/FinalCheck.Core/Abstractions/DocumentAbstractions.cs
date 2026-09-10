@@ -30,6 +30,13 @@ public interface IComparisonResultSerializer
     ComparisonResult Deserialize(ReadOnlySpan<byte> payload);
 }
 
+public interface IComparisonResultStore
+{
+    Task<Guid> SaveAsync(ComparisonResult result, CancellationToken cancellationToken = default);
+
+    Task<ComparisonResult?> LoadAsync(Guid comparisonId, CancellationToken cancellationToken = default);
+}
+
 public interface IDocumentFormatService
 {
     ValueTask ApplyFormatAsync(

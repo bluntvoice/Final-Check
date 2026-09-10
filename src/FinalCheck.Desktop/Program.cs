@@ -52,6 +52,9 @@ internal static class Program
         services.AddSingleton<IParagraphMoveDetector, ParagraphMoveDetector>();
         services.AddSingleton<IFormatDiffService, EffectiveFormatDiffService>();
         services.AddSingleton<ITableComparisonService, TableComparisonService>();
+        services.AddSingleton<IAnnotationIntegrationService, SnapshotAnnotationIntegrationService>();
+        services.AddSingleton<IChangeGroupingService, RuleBasedChangeGroupingService>();
+        services.AddSingleton<IComparisonResultSerializer, JsonComparisonResultSerializer>();
         services.AddSingleton<IComparisonEngine, BasicComparisonEngine>();
         services.AddSingleton<MainViewModel>();
 
@@ -61,5 +64,6 @@ internal static class Program
             options.UseSqlite($"Data Source={databasePath}");
         });
         services.AddScoped<FinalCheckDatabaseInitializer>();
+        services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
     }
 }

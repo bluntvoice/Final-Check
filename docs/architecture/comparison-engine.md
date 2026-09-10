@@ -54,8 +54,41 @@ v0 使用最长公共子序列生成稳定的 Token 编辑序列，再把相邻�
 
 字符格式投影按有效格式合并相邻 Run，因此仅改变 Word Run 切分不会形成格式差异。文字和格式同时变化时分别保留可精确高亮的文字 ChangeItem 与可展开的格式 ChangeItem。
 
-表格 v0 按稳定的 table index、row index、column index 建立 Table/Cell mapping，比较 Snapshot 提供的 table/cell 格式，包括宽度、对齐、底纹、边框、GridSpan 与 VerticalMerge。单元格的文字和格式变化合并为一个 `TableCellChange`。行列结构无法一一对应时输出 `TableStructureChanged`，同时继续比较仍可可靠定位的交集单元格。当前 Snapshot 的 table/cell 仅提供 direct formatting，因此该范围使用其已解析值；不在 Comparison 层重新解析 Open XML。
+表格 v0 按稳定的 table index、row index、column index 建立 Table/Cell mapping，比较 Snapshot 提供的 table/cell 格式，包括宽度、对齐、底纹、边框、GridSpan 与 VerticalMerge。单元格的文字和格式变化合并为一个 `TableCellChange`。行列结构无法一一对应时在 ChangeItem 标记 `TableStructureChanged`，输出 `TableStructureFallback` 诊断，同时继续比较仍可可靠定位的交集单元格。当前 Snapshot 的 table/cell 仅提供 direct formatting，因此该范围使用其已解析值；不在 Comparison 层重新解析 Open XML。
+
+## Phase 5：证据、归并与持久化
+
+当前 Snapshot 中的 Word native revisions 是实际内容差异之外的补充证据。修订能够按受影响节点或段落关联时，其 ID 和 `NativeRevision` evidence 合入原 ChangeItem；无法关联时保留独立 `NativeRevision` ChangeItem，并输出 `RevisionMappingFailed`。不受支持的修订类型同时输出 `UnsupportedComparisonElement`。当前批注同样优先关联到节点上的变化；没有对应变化的批注保留为独立 `Comment` ChangeItem，不会丢弃。
+
+规则归并仅处理 change kind、单个 DifferenceSpan 的 old text 和 new text 完全相同且出现两次以上的变化。Group 只保存原 ChangeItem ID，并使用内容哈希生成稳定 Group ID，不复制或改写修改数据，也不执行语义归并。
+
+`JsonComparisonResultSerializer` 对 schema version 1 执行无运行时对象的 UTF-8 JSON round-trip，并拒绝未知 schema。Data 使用 `ComparisonResults` 表保存少量可查询元数据和一个完整 payload；不把每个 DifferenceSpan 拆成 EF 行。数据库 schema version 2 的增量 Migration 只新增该表，并通过从初始 Migration 升级的测试确认现有 `DocumentSnapshots` 数据仍保留。
+
+## Pipeline 与进度
+
+正式管线依次报告：Preparing → MatchingStructure → DetectingMoves → ComparingText → ComparingFormatting → ProcessingRevisionsAndComments → GroupingChanges → Completed。段落匹配、文字 Diff、表格处理、移动检测、修订/批注和归并循环均检查 `CancellationToken`；进度只表达阶段和可解释的处理总量，不承诺虚假精确百分比。
+
+## 性能策略与验证
+
+段落精确匹配使用哈希分组；相似匹配使用位置窗口、Token 倒排索引、标题键和每段最多 32 个候选。移动检测为 O(n log n)。局部文字 Diff 仅在成功映射且文本变化的段落内执行，v0 的单段 Token LCS 为 O(t1 × t2) 时间与空间，因此不会扩展为文档全文矩阵。
+
+2026-09-10 Windows Debug 合成 Fixture 记录如下（测试阈值只用于发现显著退化，不作为正式基准）：
+
+| Fixture | A/B payload | Paragraphs | Time | Managed allocations | Changes |
+|---|---:|---:|---:|---:|---:|
+| small | 23,160 / 23,160 bytes | 10 / 10 | < 1 ms | 225,808 bytes | 1 |
+| medium | 1,119,010 / 1,119,010 bytes | 500 / 500 | 26 ms | 10,873,064 bytes | 10 |
+
+## 已知限制
+
+- 重复短段落优先保守处理，可能留下未匹配或中等可信顺序映射。
+- Table/Cell v0 按稳定结构位置匹配；复杂表格重排只降级诊断，不推断移动语义。
+- Table/Cell Snapshot 当前没有 effective formatting 字段，只比较 Document Engine 已解析的 direct formatting。
+- Revision/Comment v0 处理当前版本 Snapshot 的注释证据；不合并两侧历史修订流。
+- DifferenceSpan offset 使用 .NET UTF-16 索引；未来 UI 必须沿用同一索引约定。
+- 单段 Token LCS 对极长单段文本仍为二次复杂度，超长段落优化留待后续版本。
+- schema version 1 暂无旧版本迁移；遇到未知版本会明确拒绝而不是静默误读。
 
 ## 后续 Phase
 
-Phase 5 将在同一结果 schema 上增加修订/批注整合、规则归并和持久化。当前阶段不实现格式恢复、正式业务 UI 或 AI 语义分析。
+Comparison Engine v0 的五个 Phase 已在同一结果 schema 上完成。当前范围不实现格式恢复、正式业务 UI 或 AI 语义分析。

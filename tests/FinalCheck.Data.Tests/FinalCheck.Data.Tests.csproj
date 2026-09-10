@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\FinalCheck.Comparison\FinalCheck.Comparison.csproj" />
     <ProjectReference Include="..\..\src\FinalCheck.Data\FinalCheck.Data.csproj" />
     <ProjectReference Include="..\..\src\FinalCheck.Documents\FinalCheck.Documents.csproj" />
   </ItemGroup>

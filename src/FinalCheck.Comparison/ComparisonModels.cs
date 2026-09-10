@@ -85,6 +85,21 @@ public interface ITableComparisonService
         CancellationToken cancellationToken = default);
 }
 
+public sealed record AnnotationIntegrationResult(
+    IReadOnlyList<ComparisonChangeItem> Changes,
+    IReadOnlyList<ComparisonDiagnostic> Diagnostics,
+    int CommentCount);
+
+public interface IAnnotationIntegrationService
+{
+    AnnotationIntegrationResult Integrate(
+        DocumentSnapshot baseline,
+        DocumentSnapshot current,
+        IReadOnlyList<ComparisonChangeItem> changes,
+        IReadOnlyList<ComparisonNodeMapping> mappings,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IChangeGroupingService
 {
     IReadOnlyList<ComparisonChangeGroup> Group(

@@ -27,7 +27,9 @@ internal static class ComparisonFixtureFactory
             textDiff,
             new ParagraphMoveDetector(),
             formatDiff,
-            new TableComparisonService(textDiff, formatDiff));
+            new TableComparisonService(textDiff, formatDiff),
+            new SnapshotAnnotationIntegrationService(),
+            new RuleBasedChangeGroupingService());
     }
 
     private static DocumentParagraphSnapshot CreateParagraph(ParagraphSpec spec, int index)

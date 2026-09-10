@@ -10,7 +10,9 @@ public sealed class BasicComparisonEngine(
     ITextDiffService textDiffService,
     IParagraphMoveDetector moveDetector,
     IFormatDiffService formatDiffService,
-    ITableComparisonService tableComparisonService) : IComparisonEngine
+    ITableComparisonService tableComparisonService,
+    IAnnotationIntegrationService annotationIntegrationService,
+    IChangeGroupingService groupingService) : IComparisonEngine
 {
     public const string AlgorithmVersion = "comparison-v0.1";
 
@@ -115,11 +117,30 @@ public sealed class BasicComparisonEngine(
         var tableResult = tableComparisonService.Compare(baseline, current, cancellationToken);
         changes.Sort(static (left, right) => string.CompareOrdinal(left.ChangeId, right.ChangeId));
 
-        var allChanges = changes.Concat(tableResult.Changes)
+        var preAnnotationChanges = changes.Concat(tableResult.Changes)
             .OrderBy(change => change.ChangeId, StringComparer.Ordinal)
             .ToArray();
         var allMappings = mappings.Concat(tableResult.Mappings).ToArray();
-        var allDiagnostics = matchResult.Diagnostics.Concat(tableResult.Diagnostics).ToArray();
+        progress?.Report(new ComparisonProgress(
+            ComparisonStage.ProcessingRevisionsAndComments,
+            0,
+            current.Revisions.Count + current.Comments.Count));
+        var annotationResult = annotationIntegrationService.Integrate(
+            baseline,
+            current,
+            preAnnotationChanges,
+            allMappings,
+            cancellationToken);
+        var allChanges = annotationResult.Changes;
+        var allDiagnostics = matchResult.Diagnostics
+            .Concat(tableResult.Diagnostics)
+            .Concat(annotationResult.Diagnostics)
+            .ToArray();
+        progress?.Report(new ComparisonProgress(
+            ComparisonStage.GroupingChanges,
+            0,
+            allChanges.Count));
+        var groups = groupingService.Group(allChanges, cancellationToken);
 
         var paragraphsAdded = allChanges.Count(change => change.Kind == ComparisonChangeKind.ParagraphInsert);
         var paragraphsDeleted = allChanges.Count(change => change.Kind == ComparisonChangeKind.ParagraphDelete);
@@ -138,16 +159,18 @@ public sealed class BasicComparisonEngine(
                 AlgorithmVersion),
             allMappings,
             allChanges,
-            [],
+            groups,
             allDiagnostics,
             ComparisonStatistics.Empty with
             {
-                TotalChanges = allChanges.Length,
+                TotalChanges = allChanges.Count,
                 TextChanges = textChanges,
                 FormatChanges = formatChanges,
                 ParagraphsAdded = paragraphsAdded,
                 ParagraphsDeleted = paragraphsDeleted,
                 ParagraphsMoved = paragraphsMoved,
+                Comments = annotationResult.CommentCount,
+                GroupCount = groups.Count,
                 LowConfidenceMappings = lowConfidenceCount,
             });
         progress?.Report(new ComparisonProgress(

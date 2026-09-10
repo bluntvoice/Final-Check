@@ -1,6 +1,6 @@
 # Final Check — Comparison Engine v0
 
-> Status: In Progress
+> Status: Completed
 > Version: v0.1.0 development
 > Scope: Comparison Engine
 > Depends on: Document Engine v0
@@ -1120,7 +1120,9 @@ Commit message 应按实际 Phase 内容命名，不固定重复同一条信息�
 - Phase 4 — Format Diff：DONE
   - 实际完成：比较 Paragraph/Run 的 EffectiveFormatting，覆盖四字体槽、字号、颜色、粗斜体、下划线、删除线、高亮及完整段落格式；同一 scope 的多个属性归入一个格式 ChangeItem；文字与格式变化可分别检查。建立 table/cell 结构映射，比较单元格文字以及宽度、对齐、底纹、边框、GridSpan、VerticalMerge 等 Snapshot 格式；复杂行列变化输出 `TableStructureChanged` 并继续比较可靠交集。
   - 测试结果：Comparison Debug tests 36/36 通过；Phase 4 新增 9 个测试，覆盖字体槽、字号、多格式、文字+格式、段落格式、Cell 格式、Merge、Cell 文字+格式及表格结构降级。
-- Phase 5 — Revision/Comment/Grouping/Persistence：TODO
+- Phase 5 — Revision/Comment/Grouping/Persistence：DONE
+  - 实际完成：将当前 Snapshot native revisions 与 comments 作为额外证据关联到实际 ChangeItem；无法关联的修订和无变化批注均独立保留，并输出 `RevisionMappingFailed` / `UnsupportedComparisonElement` 诊断。实现仅按相同 kind + 单一 span old/new 完全一致的确定性规则归并；补齐阶段进度、统计和全管线取消检查。实现 Comparison schema v1 JSON round-trip；新增 SQLite `ComparisonResults` payload 表、Database schema v2 增量 Migration、正式 Store，并验证从初始 Migration 升级不丢失 DocumentSnapshots。
+  - 测试结果：Comparison Debug tests 47/47、Data Debug tests 4/4 通过；Phase 5 新增修订、已接受修订实际差异、变化批注、无变化批注、映射失败诊断、重复替换归并、序列化、确定性、全阶段进度及 small/medium 性能记录。Windows Debug 性能记录：small 10 段、双侧各 23,160 bytes、<1 ms、225,808 bytes allocation、1 change；medium 500 段、双侧各 1,119,010 bytes、26 ms、10,873,064 bytes allocation、10 changes。
 
 可以使用：
 
