@@ -44,6 +44,8 @@
 
 实际完成：`build-test.yml` 已实现只读权限、runner ephemeral dev 版本、Release build/test、统一打包与 14 天 Artifact；现有 CI 加入版本脚本验证。需要先推送此安全检查点以注册工作流，再实际 dispatch、下载并校验产物，记录远程 main / Tag / Release 不变后完成 Phase。
 
+首次远程 Run `34682956763` 的版本测试断言通过，但预期失败子进程留下 exit code 1，导致 Actions wrapper 错判；未打包/发布。已明确成功退出码并增加同包装器本地复验，待修正后的实际 Run 验收。对应 CI 的 macOS job PASS。
+
 ## Phase 3 — Release Action
 
 状态：NOT STARTED

@@ -51,3 +51,6 @@ finally {
         Remove-Item -LiteralPath $tempRoot -Recurse -Force
     }
 }
+
+# Expected negative child-process tests must not leak their exit code to Actions' pwsh wrapper.
+exit 0
