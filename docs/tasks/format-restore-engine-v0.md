@@ -1262,7 +1262,9 @@ macOS CI 必须继续通过 Core/Documents/Comparison/Data 兼容性验证。
 * Phase 1 — Restore Plan / Mapping：DONE
   - 实际完成（2026-09-12）：schema 1 纯领域 Plan/Item、Scope/Policy、进度与诊断；Snapshot-only planner 复用正式 ComparisonNodeMapping，不另建匹配算法；合并字符/段落属性差异，严格 Exact/High + score ≥ 0.8，未匹配/混合 Run 与低可信诊断，身份校验、确定性 ID/时间与 JSON round-trip。
   - 测试：Phase 1 新增 5 项全部通过，Release 全部 86/86（Comparison 52、Documents 26、Data 4、Core 2、App 2）。原样任务规范保存后已比对附件一致，再仅更新维护状态。
-* Phase 2 — Character Formatting：TODO
+* Phase 2 — Character Formatting：DONE
+  - 实际完成：四字体槽/字号/颜色/粗斜体/下划线/删除线/高亮最小属性写回；UTF-16 Diff 位置投影、统一段落格式与邻近一致格式的新增文字 fallback；Run 边界不同仍可恢复，跨冲突目标保守跳过；私有流写回并正式重解析，文本/修订/批注/OPC 原样内容验证、Scope、取消和 hash 拒绝。
+  - 测试：新增 6 个字符恢复测试覆盖所有支持属性、改变内容、Run 边界、mixed format、Insert/Delete/comment/existing rPrChange/Track Changes、继承样式去除 override、选择范围、取消与 stale hash；Release 全部 92/92 通过（Documents 32）。
 * Phase 3 — Paragraph Formatting：TODO
 * Phase 4 — Table / Cell Formatting：TODO
 * Phase 5 — Working Copy / Undo / Preservation：TODO

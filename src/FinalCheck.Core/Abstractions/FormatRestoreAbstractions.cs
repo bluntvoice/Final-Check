@@ -11,3 +11,10 @@ public interface IFormatRestorePlanner
         FormatRestorePolicy? policy = null, DateTimeOffset? createdAt = null,
         IProgress<FormatRestoreProgress>? progress = null, CancellationToken cancellationToken = default);
 }
+
+public interface IFormatRestoreRenderer
+{
+    ValueTask<FormatRestoreRenderResult> RenderAsync(Stream source, FormatRestorePlan plan,
+        FormatRestoreScope? scope = null, IProgress<FormatRestoreProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+}

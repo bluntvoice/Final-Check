@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\FinalCheck.Core\FinalCheck.Core.csproj" />
     <ProjectReference Include="..\..\src\FinalCheck.Documents\FinalCheck.Documents.csproj" />
+    <ProjectReference Include="..\..\src\FinalCheck.Comparison\FinalCheck.Comparison.csproj" />
   </ItemGroup>
 
 </Project>

@@ -8,7 +8,7 @@ using FinalCheck.Core.Formatting;
 namespace FinalCheck.Comparison;
 
 /// <summary>Snapshot-only planning; the existing comparison is the sole mapping authority.</summary>
-public sealed class SnapshotFormatRestorePlanner : IFormatRestorePlanner
+public sealed class SnapshotFormatRestorePlanner(ITextDiffService? textDiffService = null) : IFormatRestorePlanner
 {
     public FormatRestorePlan Generate(
         DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult comparison,
@@ -47,19 +47,7 @@ public sealed class SnapshotFormatRestorePlanner : IFormatRestorePlanner
             AddItem(items, bp.NodeId, cp.Identity, new(Paragraph: cp.EffectiveFormatting, ParagraphStyleId: cp.StyleId),
                 new(Paragraph: bp.EffectiveFormatting, ParagraphStyleId: bp.StyleId), FormatRestoreCategory.Paragraph,
                 eligible, mapping, null);
-            var formats = bp.Runs.Where(r => !r.IsEmpty).Select(r => r.EffectiveFormatting).Distinct().ToArray();
-            if (formats.Length == 1)
-            {
-                foreach (var run in cp.Runs.Where(r => r.RawText.Length > 0))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    AddItem(items, bp.NodeId, run.Identity, new(Character: run.EffectiveFormatting),
-                        new(Character: formats[0]), FormatRestoreCategory.Character, eligible, mapping,
-                        bp.DisplayText == cp.DisplayText ? null : "MappedParagraphUniformFormat");
-                }
-            }
-            else if (formats.Length > 1)
-                diagnostics.Add(new("MixedRunFormattingNeedsReview", cp.NodeId, "A reliable text-position projection is required."));
+            AddCharacterItems(bp, cp, mapping, eligible, items, diagnostics, cancellationToken);
         }
         foreach (var paragraph in currentParagraphs.Values.Where(p => !mapped.Contains(p.NodeId)))
             diagnostics.Add(new("UnmappedNode", paragraph.NodeId, "No comparison mapping; no speculative restore."));
@@ -79,6 +67,78 @@ public sealed class SnapshotFormatRestorePlanner : IFormatRestorePlanner
 
     internal static IEnumerable<DocumentParagraphSnapshot> Paragraphs(DocumentSnapshot snapshot) =>
         snapshot.Paragraphs.Concat(snapshot.Tables.SelectMany(t => t.Rows).SelectMany(r => r.Cells).SelectMany(c => c.Paragraphs));
+
+    private void AddCharacterItems(DocumentParagraphSnapshot baseline, DocumentParagraphSnapshot current,
+        ComparisonNodeMapping mapping, bool eligible, List<FormatRestoreItem> items,
+        List<FormatRestoreDiagnostic> diagnostics, CancellationToken cancellationToken)
+    {
+        var spans = (textDiffService ?? new TokenTextDiffService(new MixedLanguageTextTokenizer()))
+            .Compare(baseline.DisplayText, current.DisplayText, cancellationToken);
+        var baselineRuns = new List<(int Start, int End, DocumentRunSnapshot Run)>();
+        var position = 0;
+        foreach (var run in baseline.Runs)
+        {
+            if (run.DisplayText.Length > 0) baselineRuns.Add((position, position + run.DisplayText.Length, run));
+            position += run.DisplayText.Length;
+        }
+        var uniform = baselineRuns.Select(r => r.Run.EffectiveFormatting).Distinct().ToArray();
+        position = 0;
+        foreach (var run in current.Runs)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var start = position;
+            position += run.DisplayText.Length;
+            if (run.RawText.Length == 0) continue; // comment reference / drawing-only run
+            var targets = new List<DocumentRunSnapshot>();
+            var fallback = false;
+            if (uniform.Length == 1) targets.Add(baselineRuns[0].Run);
+            else if (run.DisplayText.Length > 0)
+            {
+                var cursor = start;
+                while (cursor < position)
+                {
+                    var span = spans.FirstOrDefault(s => s.CurrentLength > 0 && cursor >= s.CurrentStart && cursor < s.CurrentStart + s.CurrentLength);
+                    if (span is not null)
+                    {
+                        fallback |= span.BaselineLength == 0;
+                        if (span.BaselineLength > 0)
+                            targets.AddRange(baselineRuns.Where(r => r.Start < span.BaselineStart + span.BaselineLength && r.End > span.BaselineStart).Select(r => r.Run));
+                        else
+                        {
+                            var left = baselineRuns.LastOrDefault(r => r.End <= span.BaselineStart);
+                            var right = baselineRuns.FirstOrDefault(r => r.Start >= span.BaselineStart);
+                            if (left.Run is not null) targets.Add(left.Run);
+                            if (right.Run is not null) targets.Add(right.Run);
+                        }
+                        cursor = Math.Min(position, span.CurrentStart + span.CurrentLength);
+                    }
+                    else
+                    {
+                        var shift = spans.Where(s => s.CurrentStart + s.CurrentLength <= cursor).Sum(s => s.BaselineLength - s.CurrentLength);
+                        var offset = cursor + shift;
+                        var target = baselineRuns.FirstOrDefault(r => offset >= r.Start && offset < r.End);
+                        if (target.Run is null) break;
+                        targets.Add(target.Run);
+                        cursor = Math.Min(position, Math.Min(target.End - shift,
+                            spans.Where(s => s.CurrentLength > 0 && s.CurrentStart > cursor).Select(s => s.CurrentStart).DefaultIfEmpty(position).Min()));
+                    }
+                }
+            }
+            var formats = targets.Select(r => r.EffectiveFormatting).Distinct().ToArray();
+            if (formats.Length != 1)
+            {
+                diagnostics.Add(new("MixedRunFormattingNeedsReview", run.NodeId,
+                    "Run crosses conflicting target formats or deleted text lacks a reliable target; keep its XML intact."));
+                continue;
+            }
+            fallback |= spans.Any(s => s.Operation == DifferenceOperation.Insert &&
+                s.CurrentStart < position && s.CurrentStart + s.CurrentLength > start);
+            var source = uniform.Length == 1 ? "MappedParagraphUniformFormat" : "MappedNeighbourRunConsensus";
+            AddItem(items, targets[0].NodeId, run.Identity, new(Character: run.EffectiveFormatting),
+                new(Character: formats[0]), FormatRestoreCategory.Character, eligible, mapping, fallback ? source : null);
+            if (fallback) diagnostics.Add(new("AddedTextFallbackUsed", run.NodeId, source));
+        }
+    }
 
     internal static bool Trusted(ComparisonNodeMapping mapping, FormatRestorePolicy policy) =>
         mapping.Confidence is ComparisonConfidenceLevel.Exact or ComparisonConfidenceLevel.High &&

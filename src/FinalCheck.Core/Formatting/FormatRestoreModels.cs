@@ -63,3 +63,11 @@ public sealed record FormatRestorePlan(
 {
     public const int CurrentSchemaVersion = 1;
 }
+
+public sealed record FormatRestoreMutation(
+    string NodeId, string PropertyKind, string? BeforePropertiesXml, string? AfterPropertiesXml);
+
+public sealed record FormatRestoreRenderResult(
+    byte[] DocumentBytes, DocumentSnapshot Snapshot,
+    IReadOnlyList<FormatRestoreMutation> Mutations,
+    IReadOnlyList<FormatRestoreDiagnostic> Diagnostics);
