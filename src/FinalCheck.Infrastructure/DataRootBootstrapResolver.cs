@@ -89,10 +89,13 @@ public sealed class DataRootBootstrapResolver(IPlatformStoragePaths paths, IStor
             !Path.GetFileName(entry).StartsWith("bootstrap.json.", StringComparison.Ordinal));
 
     public static void WriteIdentity(DataRootDescriptor descriptor)
+        => WriteIdentityAt(descriptor.Path, descriptor);
+
+    public static void WriteIdentityAt(string physicalRoot, DataRootDescriptor descriptor)
     {
-        StorageFileSafety.RejectLinks(descriptor.Path);
-        Directory.CreateDirectory(descriptor.Path);
-        using var output = new FileStream(Path.Combine(descriptor.Path, IdentityFileName), FileMode.CreateNew,
+        StorageFileSafety.RejectLinks(physicalRoot);
+        Directory.CreateDirectory(physicalRoot);
+        using var output = new FileStream(Path.Combine(physicalRoot, IdentityFileName), FileMode.CreateNew,
             FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough);
         JsonSerializer.Serialize(output, descriptor);
         output.Flush(true);

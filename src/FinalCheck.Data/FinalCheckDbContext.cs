@@ -1,11 +1,32 @@
 using FinalCheck.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using FinalCheck.Core.Storage;
 
 namespace FinalCheck.Data;
 
-public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> options) : DbContext(options)
+public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> options,
+    IStorageDataSession? storageSession = null) : DbContext(options)
 {
+    public IDataRootProvider ManagedPaths => storageSession ?? throw new InvalidOperationException("This context is not attached to a managed storage session.");
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        storageSession?.EnsureActive();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        storageSession?.EnsureActive();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+    public override void Dispose()
+    {
+        try { base.Dispose(); } finally { storageSession?.Dispose(); }
+    }
+    public override async ValueTask DisposeAsync()
+    {
+        try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
+    }
     public const int DatabaseSchemaVersion = 3;
 
     public DbSet<StoredDocumentSnapshot> DocumentSnapshots => Set<StoredDocumentSnapshot>();

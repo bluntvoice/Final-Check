@@ -1,7 +1,7 @@
 # Storage and Paths
 
 - 日期：2026-09-12
-- 状态：正式需求与接口设计已确定；DataRoot / bootstrap / Storage Settings / 迁移功能尚未实现。
+- 状态：Storage Foundation Phase 1–4 已实现定位、路径政策与非破坏性迁移；启动 recovery / usage 集成待 Phase 5，正式 Storage Settings UI 尚未实现。
 - 决策：[ADR-0006](ADR-0006-install-location-and-data-root.md)。
 
 ## 两种位置、四类路径
@@ -21,11 +21,11 @@ InstallRoot 与 DataRoot 禁止相同或父子重叠，不能把业务数据搬�
 
 ## 已有实现与兼容入口
 
-当前 `PlatformAppDataPathProvider` 返回 `%LocalAppData%\FinalCheck`，数据库为其下 `finalcheck.db`；`FormatRestoreWorkingCopyService` 使用 `WorkingCopies/<ContractVersionId:N>/restored.docx`。Desktop 每个 DbContext scope 从 `IAppDataPathProvider` 生成连接字符串，但旧 scope/连接池不会随路径自动失效。Debug-only developer data override 是隔离测试工具，不是正式用户路径设置。
+`PlatformAppDataPathProvider` 已成为 DataRoot generation session 的兼容 adapter；`DataRootDbContextFactory` 以 pooling=false 构造同一 scope 的数据库连接，Working Copy 使用 `WorkingCopies/<ContractVersionId:N>/restored.docx`。维护屏障等待既有 scope 释放并阻断新 scope；已释放 scope 的路径不能继续使用。Debug-only developer data override 是隔离测试工具，不是正式用户路径设置。
 
 数据库 schema 3：DocumentSnapshots（Snapshot schema 2）、ComparisonResults（schema 1）、RestoredWorkingCopies、FormatRestoreOperations（operation schema 1），领域 JSON payload 在 SQLite 内；目前没有独立 Snapshot / Comparison 文件仓库。恢复 metadata / operation 中已有绝对 WorkingPath、TemporaryPath、BackupPath，以及 OriginalPath；WorkingPath 还需与托管目录精确匹配。
 
-因此本轮不直接替换 provider、创建 bootstrap 或改变默认数据库路径。后续启动顺序须保持 **Velopack lifecycle hooks → bootstrap / 恢复检查 → DataRoot provider → 数据层 → UI**，安装/卸载 hooks 不打开数据库。
+Storage Foundation 已引入 bootstrap 和 provider，保持旧用户原位置而非搬动数据。启动顺序须保持 **Velopack lifecycle hooks → bootstrap / 恢复检查 → DataRoot provider → 数据层 → UI**，安装/卸载 hooks 不打开数据库。
 
 兼容规则：
 
@@ -81,7 +81,7 @@ schema/version 用于验证 locator 和布局，不等同于数据库、Snapshot
 
 ## 基础接口与实施状态
 
-Storage Foundation v0 Phase 1 已实现 Core `IDataRootProvider` / 不可变 `DataRootPaths`、平台 `IPlatformStoragePaths`、文件 `IStorageBootstrapStore` 和 Data 只读数据库 inspector，Phase 2 已接入 Desktop、统一 DbContext factory 和 AppData 兼容 adapter；尚未实现迁移。准确阶段状态见 [storage task](../tasks/storage-foundation-v0.md)。以下其余职责仍是待实现契约，不把模型存在当作热切换已完成。
+Storage Foundation v0 Phase 1–4 已实现定位、统一路径、`IDataRootValidator`、`IStorageMaintenanceCoordinator` / generation session、`IDataRootMigrationService` 与 migration recovery 服务；启动 recovery 和 usage 的接入待 Phase 5。准确阶段状态见 [storage task](../tasks/storage-foundation-v0.md)。以下未接入职责不能视为 UI 已完成。
 
 bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood` descriptor 和 `databaseInitialized`；descriptor 包含 path / rootId / layoutVersion / generation。DataRoot 内 `.finalcheck-root.json` 用于身份核验。LastKnownGood 是**当前已提交 generation** 的可信定位，不是“永远选择迁移前旧库”；`bootstrap.json.previous` 仅保留审计材料。首次注册允许尚未初始化数据库，初始化完成必须标记，之后缺库明确阻断。旧布局自动识别不搬动 payload / Working Copy。
 
@@ -122,6 +122,10 @@ bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood`
 旧位置后续清理是单独、用户明确确认的流程，须展示路径/占用/外部原文引用影响，确认不是当前 DataRoot、bootstrap 或安装位置；迁移本身没有自动删除动作，不在本轮实现清理。
 
 ## SQLite 安全策略
+
+Phase 4 实现采用源库空 IMMEDIATE 事务阻断外部 SQLite 写入，独立只读连接调用 BackupDatabase；数据库上下文关闭/释放后以新 root 重开验证。托管文件复制前后完整 SHA 清单、目标精确数量、旧库逻辑 digest 和 Working Copy 重解析共同保证一致性；不以空库 integrity 代替历史验收。`storage-session.lock` 协调合作进程的 scope，迁移等待 10 秒超时或取消则保护旧会话。所有新增业务文件写入者必须沿用该 scope lease；外部 Word/WPS 仍须关闭。
+
+现有 restore JSON 绝对路径采用强类型、精确布局验证的 old→new 转换，不全局替换字符串；当前领域 schema / layout 未改变。源库与新 root `Backups/storage-migration-<id>/source-finalcheck.db` 保存原始历史，可审计；将来相对引用格式升级必须另行版本化。新 descriptor 可在维护屏障内预备发布，用户写入只在 durable bootstrap 验证后释放，提交前异常恢复旧 descriptor。残留 staging / finalize 目录默认保留，自动续传和旧目录清理未实现。
 
 - SQLite 主库仅支持经过政策验证的本机固定磁盘；NAS/SMB/网络共享不在首阶段支持范围。SQLite WAL 依赖同机共享内存/锁，不能以“目录可写”证明网络存储可靠。
 - 首选已有 Microsoft.Data.Sqlite 的 `SqliteConnection.BackupDatabase` 做一致性备份，配合全应用维护屏障保护数据库与 Working Copy/history 的共同状态。备份 API 的数据库写锁不能替代文件/后台写入屏障。

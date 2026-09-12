@@ -1,6 +1,6 @@
 # ADR-0006：可选安装目录与独立、可迁移 DataRoot
 
-- 状态：Accepted（产品契约与架构方向）；运行时迁移 / Installer Spike 尚未实现或验收。
+- 状态：Accepted；Storage Foundation Phase 1–4 已实现与验证，运行时启动/usage 集成待 Phase 5；Installer Spike 尚未验收。
 - 日期：2026-09-12
 - 适用版本：v0.1.0 development
 - 部分取代：ADR-0004 中“固定默认安装路径即可满足产品”的假设；保留其 Velopack、版本、channel、feed 和发布安全决策。ADR-0005 的 Working Copy 安全管线保持不变，路径归属未来改为 DataRoot。
@@ -26,3 +26,10 @@
 - 现有旧路径继续工作；没有 bootstrap 的旧数据先识别，不能直接改默认根目录。启动兼容、managed path 迁移、上下文/连接池切换、跨进程写入协调和即时 UI 刷新须一起验收。
 - 本轮只增加需求/架构/接口设计，不接入 IDataRootProvider 或生成 bootstrap，不启动/迁移正常用户数据库，不新增依赖、修改业务代码、改 workflow、创建 Tag / Release。
 - 后续 Storage Settings 阶段按 [storage-and-paths.md](storage-and-paths.md) 实现；安装器独立按 [installer-architecture.md](installer-architecture.md) 的 Spike 与三类包门禁实现。Accepted 不代表上述功能已完成。
+
+## Storage Foundation 实施补充（2026-09-13）
+
+- Phase 1–4 已实现 bootstrap、旧库只读识别、路径政策、scope-lifetime 共同维护屏障、SQLite Backup API / WAL 一致性验证、完整 staging、强类型托管路径重定位及 durable journal。此前“本轮只做文档”是原架构任务边界，不限制后续已授权的 Storage Foundation 实施。
+- 当前领域 payload schema 与布局不升级；仅在目标副本转换明确托管路径，旧库及 audit DB backup 保留原 payload。Snapshot schema 1 的历史字节亦保持不变，OriginalPath 与文档 SHA / identity / Undo 语义不变。
+- LastKnownGood 为当前已提交 RootId / generation 的可信定位，previous 或迁移源不是新库已有写入后的自动回退来源。提交无法确认则阻断数据写入；不猜测制造旧库分叉。
+- Scope 全生命周期持有跨进程协作锁，排空后通过内部 session rebind 热切换；不强制中断现有事务。正式设置 UI、安装 Wizard、staging 自动续传与旧数据自动清理不在本阶段。

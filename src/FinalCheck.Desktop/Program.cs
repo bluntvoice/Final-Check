@@ -74,8 +74,10 @@ internal static class Program
         services.AddSingleton<IStorageBootstrapStore>(bootstrap);
         services.AddSingleton<IDataRootDatabaseInspector>(inspector);
         services.AddSingleton(resolver);
-        services.AddSingleton<IDataRootProvider>(resolved.Provider);
-        services.AddSingleton<IAppDataPathProvider, PlatformAppDataPathProvider>();
+        var storage = new StorageMaintenanceCoordinator(resolved.Provider, platformPaths, bootstrap, resolver);
+        services.AddSingleton<IDataRootProvider>(storage);
+        services.AddSingleton<IStorageMaintenanceCoordinator>(storage);
+        services.AddScoped<IAppDataPathProvider>(sp => new PlatformAppDataPathProvider(sp.GetRequiredService<FinalCheckDbContext>().ManagedPaths));
         services.AddSingleton<IFileHashService, Sha256FileHashService>();
         services.AddSingleton<IUpdateService, DeferredUpdateService>();
         services.AddSingleton<IDocumentParser, OpenXmlDocumentParser>();

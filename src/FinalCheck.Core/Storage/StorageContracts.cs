@@ -82,3 +82,44 @@ public interface IDataRootValidator
 {
     DataRootValidationResult Validate(DataRootValidationRequest request);
 }
+
+public interface IStorageDataSession : IDataRootProvider, IDisposable
+{
+    void EnsureActive();
+}
+public interface IStorageMaintenanceLease : IDisposable
+{
+    void StageRoot(DataRootDescriptor descriptor);
+    void Complete();
+    void RequireRecovery();
+}
+public interface IStorageMaintenanceCoordinator
+{
+    IStorageDataSession OpenSession();
+    Task<IStorageMaintenanceLease> EnterMaintenanceAsync(CancellationToken cancellationToken = default);
+}
+
+public enum StorageMigrationStage { Validating, Quiescing, BackingUp, Copying, ValidatingCopy, Relocating, Finalizing, PreparingRuntime, Committing, Completed }
+public enum StorageMigrationStatus { InProgress, Completed, Failed, Cancelled, NeedsReview }
+public sealed record StorageFileVerification(string RelativePath, long Size, string Sha256);
+public sealed record StorageMigrationRecord(int SchemaVersion, Guid MigrationId, DataRootDescriptor Source,
+    DataRootDescriptor Target, string StagingPath, DateTimeOffset StartedAt, DateTimeOffset? CompletedAt,
+    StorageMigrationStatus Status, StorageMigrationStage Stage, string? FailureCode, long Size,
+    IReadOnlyList<StorageFileVerification> Files, bool DataValidated);
+public sealed record StorageMigrationResult(StorageMigrationStatus Status, StorageMigrationStage Stage,
+    Guid MigrationId, string? Code, string SourceRoot, string TargetRoot);
+public interface IDataRootMigrationService
+{
+    Task<StorageMigrationResult> MigrateAsync(string target, CancellationToken cancellationToken = default);
+}
+public interface IStorageDatabaseMigrationService
+{
+    Task<IStorageDatabaseMigrationSession> OpenSourceAsync(string sourceRoot, CancellationToken cancellationToken = default);
+}
+public interface IStorageDatabaseMigrationSession : IAsyncDisposable
+{
+    IReadOnlySet<string> OriginalPaths { get; }
+    Task BackupAsync(string stagingRoot, Guid operationId, CancellationToken cancellationToken = default);
+    Task RelocateAndValidateAsync(string physicalRoot, string logicalRoot, CancellationToken cancellationToken = default);
+    Task ValidateReopenedAsync(string targetRoot, CancellationToken cancellationToken = default);
+}

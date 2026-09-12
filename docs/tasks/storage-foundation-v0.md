@@ -4,7 +4,7 @@
 > Version: v0.1.0 development  
 > Scope: DataRoot / Bootstrap / Storage Migration Foundation  
 > Depends on: Document Engine v0, Comparison Engine v0, Format Restore Engine v0  
-> Last updated: 2026-09-12
+> Last updated: 2026-09-13
 
 ---
 
@@ -920,7 +920,7 @@ macOS core CI 继续通过。
 - Phase 1 — DataRoot / Bootstrap：DONE
 - Phase 2 — Path Adoption：DONE
 - Phase 3 — Validation：DONE
-- Phase 4 — Migration：TODO
+- Phase 4 — Migration：DONE
 - Phase 5 — Runtime Integration：TODO
 
 Codex 持续维护实际状态。
@@ -955,6 +955,16 @@ Codex 持续维护实际状态。
 - 新增 15 项 validation tests；权限 / 网络 / 可移动 / 低空间与 C/D 路径政策以注入 facts/probe 隔离模拟，真实目录写入 / flush / readback / rename 在 GUID fixture 验证，无真实 D 盘或用户名依赖。Release build 零警告 / 零错误，全量测试 164/164。
 - Phase 2 CI run `34699039906` Windows / macOS 均 PASS，确认 macOS 系统临时目录 alias 夹具修正生效；未降低生产链接阻断政策。
 - 不宣称识别全部第三方同步工具；正式支持范围仍为普通本机固定磁盘目录。尚未公开 UI 或执行用户数据迁移。
+
+### Phase 4 — Migration
+
+- 已开始共同维护屏障：managed DbContext scope 从创建至 Dispose 持有 generation session；其 Working Copy adapter 使用同一 session，已释放 / 旧 scope 不能继续写文件。维护等待既有 scope 完成，并阻断新 scope。
+- 默认配置位置 `storage-session.lock` 协调合作进程的数据 scope；不限制 UI 只能有一个进程，其他进程在新 scope 时读 locator 并重新解析新的 generation。迁移 / 长期 scope 忙时明确阻断，不丢弃事务。
+- 已实现 `IDataRootMigrationService`、源 SQLite 空 IMMEDIATE 事务写屏障、独立只读 Backup connection 和 staging / audit 两份一致性备份；有未 checkpoint WAL 和活动连接的测试通过，不 raw-copy 活跃数据库，不删 WAL/SHM。
+- 完整复制明确托管清单；原始 DOCX 即使位于旧 root 也排除，bootstrap-control 留在配置位置。未知根文件阻断；逐文件数量 / 大小 / SHA、数据库 integrity / 外键 / schema / identity / 历史 digest 与 Working Copy 重解析均在提交前验证。只在目标库转换强类型托管路径，不改变 OriginalPath、Snapshot/Comparison 原 payload、领域 schema 或 Undo 链；旧库与 audit backup 保留原 payload。
+- 源/目标关键文件持有读保护，排空后复查空间预算，目标 manifest 必须精确等于预期文件集合。目标 finalize 不覆盖目录，原子 bootstrap 提交前预备新 generation 且维持写屏障；失败回滚 runtime，提交不确定时检查 durable locator，证据不足阻断写入而非猜测回退。
+- 迁移 journal 在 bootstrap-side，失败 / 取消保留 staging 和旧 root；启动 recovery 能判断未提交旧 root 与已提交新 root，后者保留后续合法写入，不回退旧库造成分叉。故障 / 非空残留不自动删除或覆盖，重试使用新空目标；自动恢复 receipt 不等于自动续传 staging。
+- 17 项新增迁移 / 屏障专项测试全部通过；Release build 零警告 / 零错误，全量 181/181（原有 125 无回归）。当前尚未接入启动 recovery / Debug 命令 / usage，留在 Phase 5。
 
 ---
 
