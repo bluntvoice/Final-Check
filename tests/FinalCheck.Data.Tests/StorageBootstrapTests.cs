@@ -218,7 +218,7 @@ public sealed class StorageBootstrapTests
 
 internal sealed class StorageFixture : IDisposable
 {
-    public string DirectoryPath { get; } = Path.Combine(Path.GetTempPath(), "FinalCheck.Storage.Tests", Guid.NewGuid().ToString("N"));
+    public string DirectoryPath { get; } = Path.Combine(PhysicalTemporaryRoot(), "FinalCheck.Storage.Tests", Guid.NewGuid().ToString("N"));
     public FixturePlatformPaths Paths { get; }
     public FileStorageBootstrapStore Bootstrap { get; }
     public DataRootBootstrapResolver Resolver { get; }
@@ -254,6 +254,18 @@ internal sealed class StorageFixture : IDisposable
     {
         // Only this explicitly created GUID fixture is ever removed. No normal AppData is resolved.
         if (Directory.Exists(DirectoryPath)) Directory.Delete(DirectoryPath, true);
+    }
+    private static string PhysicalTemporaryRoot()
+    {
+        // Resolve OS-owned macOS /var aliases only for test isolation; production policy still rejects links.
+        var temporary = Path.GetFullPath(Path.GetTempPath());
+        var physical = Path.GetPathRoot(temporary)!;
+        foreach (var component in temporary[physical.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+        {
+            physical = Path.Combine(physical, component);
+            physical = new DirectoryInfo(physical).ResolveLinkTarget(true)?.FullName ?? physical;
+        }
+        return physical;
     }
 }
 

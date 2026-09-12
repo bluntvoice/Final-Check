@@ -81,7 +81,7 @@ schema/version 用于验证 locator 和布局，不等同于数据库、Snapshot
 
 ## 基础接口与实施状态
 
-Storage Foundation v0 Phase 1 已实现 Core `IDataRootProvider` / 不可变 `DataRootPaths`、平台 `IPlatformStoragePaths`、文件 `IStorageBootstrapStore` 和 Data 只读数据库 inspector，尚未接入 Desktop 或实现迁移。准确阶段状态见 [storage task](../tasks/storage-foundation-v0.md)。以下其余职责仍是待实现契约，不把模型存在当作热切换已完成。
+Storage Foundation v0 Phase 1 已实现 Core `IDataRootProvider` / 不可变 `DataRootPaths`、平台 `IPlatformStoragePaths`、文件 `IStorageBootstrapStore` 和 Data 只读数据库 inspector，Phase 2 已接入 Desktop、统一 DbContext factory 和 AppData 兼容 adapter；尚未实现迁移。准确阶段状态见 [storage task](../tasks/storage-foundation-v0.md)。以下其余职责仍是待实现契约，不把模型存在当作热切换已完成。
 
 bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood` descriptor 和 `databaseInitialized`；descriptor 包含 path / rootId / layoutVersion / generation。DataRoot 内 `.finalcheck-root.json` 用于身份核验。LastKnownGood 是**当前已提交 generation** 的可信定位，不是“永远选择迁移前旧库”；`bootstrap.json.previous` 仅保留审计材料。首次注册允许尚未初始化数据库，初始化完成必须标记，之后缺库明确阻断。旧布局自动识别不搬动 payload / Working Copy。
 
@@ -98,7 +98,7 @@ bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood`
 | `IDataRootSessionFactory` | 针对指定 descriptor 新建受隔离的数据 scope；预验证新库、准备切换、释放旧上下文/对应连接池，不复用旧连接 |
 | `IStorageUsageService` | 带 root generation 的物理/逻辑统计和刷新，不 double-count |
 
-`IAppDataPathProvider` 后续作为迁移兼容 adapter，从 descriptor 派生数据库/WorkingCopies 路径，而不再独立决定另一根目录。数据库写入者和文件写入者必须共同遵守 lease，生命周期 hook 不进入迁移服务。单独添加可变 provider 而不解决已有 scope/绝对引用/并发，不能算安全基础实现。
+`IAppDataPathProvider` 已作为兼容 adapter，从 descriptor 派生数据库/WorkingCopies 路径，而不再独立决定另一根目录。数据库写入者和文件写入者必须共同遵守 lease，生命周期 hook 不进入迁移服务。单独添加可变 provider 而不解决已有 scope/绝对引用/并发，不能算安全基础实现。
 
 ## 非破坏性迁移算法
 

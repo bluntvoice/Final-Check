@@ -85,6 +85,7 @@ public sealed class DataRootBootstrapResolver(IPlatformStoragePaths paths, IStor
     private static bool HasLegacyDataWithoutDatabase(string root) => Directory.Exists(root) &&
         Directory.EnumerateFileSystemEntries(root).Any(entry =>
             Path.GetFileName(entry) != "Data" && Path.GetFileName(entry) != "bootstrap.lock" &&
+            Path.GetFileName(entry) != "startup-diagnostic.log" &&
             !Path.GetFileName(entry).StartsWith("bootstrap.json.", StringComparison.Ordinal));
 
     public static void WriteIdentity(DataRootDescriptor descriptor)

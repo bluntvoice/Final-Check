@@ -1,21 +1,17 @@
 using FinalCheck.Core.Abstractions;
+using FinalCheck.Core.Storage;
 
 namespace FinalCheck.Infrastructure;
 
-public sealed class PlatformAppDataPathProvider : IAppDataPathProvider
+/// <summary>Compatibility adapter; the bootstrap-resolved provider is the only path authority.</summary>
+public sealed class PlatformAppDataPathProvider(IDataRootProvider provider) : IAppDataPathProvider
 {
     public string GetAppDataDirectory()
     {
-        var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (string.IsNullOrWhiteSpace(root))
-        {
-            throw new InvalidOperationException("The operating system did not provide a local application data directory.");
-        }
-
-        var path = Path.Combine(root, "FinalCheck");
+        var path = provider.CurrentDataRoot;
         Directory.CreateDirectory(path);
         return path;
     }
 
-    public string GetDatabasePath() => Path.Combine(GetAppDataDirectory(), "finalcheck.db");
+    public string GetDatabasePath() => provider.DatabasePath;
 }

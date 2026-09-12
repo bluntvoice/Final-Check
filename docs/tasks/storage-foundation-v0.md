@@ -918,7 +918,7 @@ macOS core CI 继续通过。
 # 28. Task 状态
 
 - Phase 1 — DataRoot / Bootstrap：DONE
-- Phase 2 — Path Adoption：TODO
+- Phase 2 — Path Adoption：DONE
 - Phase 3 — Validation：TODO
 - Phase 4 — Migration：TODO
 - Phase 5 — Runtime Integration：TODO
@@ -935,6 +935,16 @@ Codex 持续维护实际状态。
 - LastKnownGood 指向当前已提交且已验证的同一 RootId / generation；能修复损坏的位置字段，但旧迁移源或 previous locator 不是自动回退依据，以免提交后产生旧库分叉。损坏 JSON 没有可验证证据时明确停止。
 - 阶段测试：20 个新增 StorageBootstrap tests；Release 全量测试 145/145（原有 125 无回归），全部隔离在 GUID 临时目录，无正常用户数据库/原始 DOCX 访问。
 - 尚未接入 Desktop，也未实现路径政策、写入维护屏障或迁移；分别留在后续 Phase。
+
+### Phase 2 — Path Adoption
+
+- Desktop 在 Velopack lifecycle 后先读取 / 验证 bootstrap，再注册统一 DataRoot 和数据 scope；`IAppDataPathProvider` 成为兼容 adapter，不独立选择根目录。
+- 新增 `DataRootDbContextFactory`，connection string builder 支持中文、空格、分号。Snapshot / Comparison / restore journal 沿同一库持久化，Working Copy 与现有 per-version backup 跟随根目录，不改变发布 / Undo 算法，也不移动原始 DOCX。
+- EF design-time 使用独立 tool-only root，不读取正常用户 locator。Debug override 同时隔离 DataRoot 与 sibling bootstrap；启动失败的最小诊断保留在配置位置，不写异常 message / 合同内容。
+- Durable 包括 SQLite / 三类 payload / journal、WorkingCopies / 版本备份、Backups。Cache / Temp 可重建，但本任务继续完整复制；业务 Logs 在 DataRoot，bootstrap / startup-control 文件排除于业务迁移。
+- 新增 4 个路径接入测试，Release 全量测试 149/149；Release build 零警告、零错误。默认 / 自定义 root 验证真实生成 DOCX 的恢复、持久化、重新打开与原文不变。
+- Debug App 冒烟使用 GUID 隔离目录 `C:\Users\KB\AppData\Local\Temp\FinalCheck.Storage.Smoke-5a9275d0efd3444688b2c06914a98a7f`：bootstrap / SQLite 创建，window handle 非零，Responding=true，正常关闭；未启动正常用户数据库。
+- 路径接入不等于已完成迁移 / 热切换，后续 Phase 将加入共同维护屏障和 data session rebind。
 
 ---
 
