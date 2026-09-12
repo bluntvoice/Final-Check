@@ -1,7 +1,7 @@
 # Storage and Paths
 
-- 日期：2026-09-12
-- 状态：Storage Foundation Phase 1–4 已实现定位、路径政策与非破坏性迁移；启动 recovery / usage 集成待 Phase 5，正式 Storage Settings UI 尚未实现。
+- 日期：2026-09-13
+- 状态：Storage Foundation Phase 1–5 基础实现与本地测试完成；最终 CI / Test Build 证据以 task 为准。正式 Storage Settings UI 尚未实现。
 - 决策：[ADR-0006](ADR-0006-install-location-and-data-root.md)。
 
 ## 两种位置、四类路径
@@ -63,25 +63,24 @@ Velopack 自管 updater cache / `%LocalAppData%\velopack` 日志不是合同数�
 
 ## Bootstrap
 
-Windows 固定 locator 位置：`%LocalAppData%\FinalCheck\bootstrap.json`。macOS 的默认配置/数据位置由现有平台边界的实现选择，核心层不能拼 Windows 路径。示意契约（非本轮生成的文件）：
+Windows 固定 locator 位置：`%LocalAppData%\FinalCheck\bootstrap.json`。macOS 的默认配置/数据位置由现有平台边界的实现选择，核心层不能拼 Windows 路径。实际 schema 1 示意：
 
 ```json
 {
-  "bootstrapSchemaVersion": 1,
-  "storageLayoutVersion": 1,
-  "dataRoot": "D:\\FinalCheckData",
-  "dataRootId": "<stable-root-guid>",
-  "generation": 1
+  "schemaVersion": 1,
+  "current": { "path": "D:\\FinalCheckData", "rootId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "layoutVersion": 1, "generation": 1 },
+  "lastKnownGood": { "path": "D:\\FinalCheckData", "rootId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "layoutVersion": 1, "generation": 1 },
+  "databaseInitialized": true
 }
 ```
 
-schema/version 用于验证 locator 和布局，不等同于数据库、Snapshot 或 restore schema。RootId / generation 防止使用错误目录或旧连接；只保存启动前必需信息，不保存合同正文、Snapshot、Comparison、用户原始文档列表或业务历史。可在默认配置位置保留小型 previous locator、迁移 journal/锁用于启动恢复；完整业务备份与迁移清单归 DataRoot / staging。
+schema/version 用于验证 locator 和布局，不等同于数据库、Snapshot 或 restore schema。RootId / generation 防止使用错误目录或旧连接；bootstrap 只保存启动前必需信息，不保存合同正文、Snapshot、Comparison、用户原始文档列表或业务历史。默认配置位置保留 previous locator、独立 migration journal/清单与协作锁用于启动恢复；journal 是 operation 控制信息，业务备份在 DataRoot / staging，不放进 locator JSON。
 
 写入先在同一配置目录创建唯一 temp、flush、验证，再通过平台原子 replace/rename 更新 locator，保留 previous。更新需 expected generation、互斥与读回，防止两个实例并行改位置；读回不确定不得直接认定成功或重试覆盖。不能把 DataRoot 只存于目标 SQLite。
 
 ## 基础接口与实施状态
 
-Storage Foundation v0 Phase 1–4 已实现定位、统一路径、`IDataRootValidator`、`IStorageMaintenanceCoordinator` / generation session、`IDataRootMigrationService` 与 migration recovery 服务；启动 recovery 和 usage 的接入待 Phase 5。准确阶段状态见 [storage task](../tasks/storage-foundation-v0.md)。以下未接入职责不能视为 UI 已完成。
+Storage Foundation v0 Phase 1–5 已实现定位、统一路径、`IDataRootValidator`、`IStorageMaintenanceCoordinator` / generation session、`IDataRootMigrationService`、启动 recovery 和 `IStorageUsageService`。准确验收状态见 [storage task](../tasks/storage-foundation-v0.md)。基础服务已接入不等于正式 UI / Installer 已完成。
 
 bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood` descriptor 和 `databaseInitialized`；descriptor 包含 path / rootId / layoutVersion / generation。DataRoot 内 `.finalcheck-root.json` 用于身份核验。LastKnownGood 是**当前已提交 generation** 的可信定位，不是“永远选择迁移前旧库”；`bootstrap.json.previous` 仅保留审计材料。首次注册允许尚未初始化数据库，初始化完成必须标记，之后缺库明确阻断。旧布局自动识别不搬动 payload / Working Copy。
 
@@ -92,11 +91,12 @@ bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood`
 | `IPlatformStoragePaths` | 获取默认配置位置、默认数据位置及安装上下文；不由 Data 查询 OS/Registry |
 | `IStorageBootstrapStore` | Load/Validate、expected-generation 原子保存、previous/journal 恢复；不依赖目标数据库 |
 | `IDataRootProvider` | 提供不可变 `DataRootDescriptor(Path, RootId, LayoutVersion, Generation)`；业务调用读一个 generation，不公开任意 SetPath |
-| `IStoragePathPolicy` | 规范化、磁盘类型、同步目录风险、权限/空间/重叠验证，返回明确诊断 |
+| `IDataRootValidator` | 规范化、磁盘类型、同步目录风险、权限/空间/重叠验证，返回明确诊断 |
 | `IStorageMaintenanceCoordinator` | 排空并阻止 DB/Working Copy/backup/cache/log 等新写入、跨进程互斥和 root generation lease；不是仅暂停 UI 按钮 |
-| `IStorageMigrationService` | Analyze → 复制/验证 → 预备新数据层 → 提交/切换 → operation recovery；返回阶段、结果、错误与旧数据保留位置 |
-| `IDataRootSessionFactory` | 针对指定 descriptor 新建受隔离的数据 scope；预验证新库、准备切换、释放旧上下文/对应连接池，不复用旧连接 |
+| `IDataRootMigrationService` | 复制/验证 → 预备新数据层 → 提交/切换；独立 `StorageMigrationRecoveryService` 负责 operation recovery，结果带阶段/错误/旧数据保留位置 |
+| `DataRootDbContextFactory` / `IStorageDataSession` | 每个 scope 持有一个 descriptor 与 lease，维护排空后准备新 generation，pooling=false 不复用旧连接 |
 | `IStorageUsageService` | 带 root generation 的物理/逻辑统计和刷新，不 double-count |
+| `IStorageRootChangeNotifier` | 提交成功、屏障释放后通知当前进程；刷新 handler 失败只诊断，不回滚已提交 DataRoot |
 
 `IAppDataPathProvider` 已作为兼容 adapter，从 descriptor 派生数据库/WorkingCopies 路径，而不再独立决定另一根目录。数据库写入者和文件写入者必须共同遵守 lease，生命周期 hook 不进入迁移服务。单独添加可变 provider 而不解决已有 scope/绝对引用/并发，不能算安全基础实现。
 
@@ -135,6 +135,16 @@ Phase 4 实现采用源库空 IMMEDIATE 事务阻断外部 SQLite 写入，独�
 - 多进程维护锁和 root generation 防止另一实例沿旧 bootstrap 写库；外部程序不遵循应用锁，要求关闭并校验 hash，异常则拒绝切换。当前 per-version operation.lock 不能视为已实现全局迁移锁。
 
 官方依据：[Microsoft.Data.Sqlite online backup](https://learn.microsoft.com/en-us/dotnet/standard/data/sqlite/backup)、[SQLite Backup API](https://www.sqlite.org/backup.html)、[SQLite WAL constraints](https://www.sqlite.org/wal.html)（访问日期 2026-09-12）。
+
+## Runtime / 启动与统计实施
+
+`DesktopStorageServices` 是真实 Desktop 的 storage composition：resolver 在创建数据服务前核验 bootstrap、RootId、只读数据库以及固定盘 / Temp / known sync 政策；startup recovery 完成后才初始化已知 EF schema 并标记 DatabaseInitialized，最后进入 Avalonia。产品数据库升级与目录迁移仍分离。失败写最小配置位置诊断并停止，不建空库。
+
+未提交中断 journal 以明确 `InterruptedBeforeCommitOldDataRetained` 结束该次失败尝试，保留 staging / finalize，允许用户选择新空目标重试；不能一直留下过时 InProgress 记录，在重试成功后阻断新 generation。已提交 receipt 在当前新 root 验证并恢复，允许保留新 root 中后续合法写入；未知状态阻断写入。
+
+StorageUsage 按需计算，不后台轮询或路径 getter 扫盘；扫描期间持有 generation session，不跟随链接。SQLite payload 以只读事务计算 length，Snapshot / Comparison / restore 逻辑 bytes 明示包含于 Database；物理 Total 仅为唯一文件分类之和（DB+WAL/SHM、当前 Working Copy、previous/通用 Backup、Cache、Logs、candidate/Temp、Other）。排除已记录原始 DOCX 与 legacy-root bootstrap-control，扫描/数据库失败返回 partial diagnostics，不能显示 0 假成功。迁移后同一个服务实例读新 root，事件通知可供未来 ViewModel 刷新，无需退出进程。
+
+Debug-only `--storage-info` / `--storage-validate` / `--storage-migrate` 必须与显式隔离 developer root 使用；测试迁移目标限定 `<developer-root>.target`，只有该隔离 source/target 可绕过生产 Temp 限制，磁盘类型/known sync 等政策仍保留。Release 不编译 developer 类型和命令，也没有环境变量/隐藏参数数据路径 override。
 
 ## v0.1.0 路径政策
 

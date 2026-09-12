@@ -306,12 +306,13 @@ internal sealed class MigrationEnvironment : IAsyncDisposable
     public Guid Version { get; } = Guid.NewGuid();
     public StorageMigrationJournal Journal => new(Fixture.Paths);
     public SqliteStorageDatabaseMigrationService Database { get; } = new(new JsonDocumentSnapshotSerializer(), new JsonComparisonResultSerializer(), new OpenXmlDocumentParser());
-    public static async Task<MigrationEnvironment> CreateAsync()
+    public static async Task<MigrationEnvironment> CreateAsync(bool legacy = false)
     {
         var env = new MigrationEnvironment();
+        if (legacy) await env.Fixture.CreateDatabaseAsync(Path.Combine(env.Fixture.Paths.LegacyDataRoot, "finalcheck.db"));
         var resolution = await env.Fixture.Resolver.ResolveAsync();
         env.Source = resolution.Provider.CurrentDataRoot;
-        await env.Fixture.CreateDatabaseAsync(resolution.Provider.DatabasePath);
+        if (!legacy) await env.Fixture.CreateDatabaseAsync(resolution.Provider.DatabasePath);
         await env.Fixture.Resolver.MarkDatabaseInitializedAsync();
         env.Coordinator = new(resolution.Provider, env.Fixture.Paths, env.Fixture.Bootstrap, env.Fixture.Resolver);
         var baselinePath = Path.Combine(env.Fixture.DirectoryPath, "baseline.docx");

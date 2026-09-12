@@ -4,7 +4,7 @@
 
 Final Check v0.1.0 的基础工程、Document Engine v0、Comparison Engine v0 与 Format Restore Engine v0 已按各任务文件实现，验收状态以 task 为准。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；尚未发布真实 Stable Release，也未实现正式业务 UI 或 updater UI。
 
-可选安装目录已完成架构落档，Installer Wizard 尚未实现。Storage Foundation v0 Phase 1–2 已实现 bootstrap / DataRoot 定位与路径统一，尚未实现迁移或正式 Storage Settings；以 [storage task](../tasks/storage-foundation-v0.md) 为准，Velopack workflow 未改变。
+可选安装目录已完成架构落档，Installer Wizard 尚未实现。Storage Foundation v0 Phase 1–5 基础实现完成：bootstrap / 旧库识别、路径政策、非破坏迁移 / session rebind、启动 recovery 和 usage；验收证据以 [storage task](../tasks/storage-foundation-v0.md) 为准。正式 Storage Settings UI 未实现，Velopack workflow 未改变。
 
 ## 开发前阅读
 
@@ -148,10 +148,24 @@ dotnet tool run dotnet-ef migrations add <MigrationName> `
 
 - 安装目录与数据目录独立；业务数据绝不写入可替换/卸载的安装目录。首装可见目录/Browse、三类包同一机制、维护/更新/卸载沿用实际位置是正式要求，不是当前原生 Setup 的既有能力。
 - 新用户正式默认 DataRoot `%LocalAppData%\FinalCheck\Data`，locator `%LocalAppData%\FinalCheck\bootstrap.json`；当前旧库 `%LocalAppData%\FinalCheck\finalcheck.db` 保持不变。没有 bootstrap 不能直接判断为新用户并创建空库。
-- `IDataRootProvider` / bootstrap store / 路径接入已实现；path policy、maintenance coordinator、session rebind、migration/usage service 留在后续 Phase。不单独增加可变路径字段而遗漏旧 scope/连接池、managed absolute path/history 和跨进程写入。
+- `IDataRootProvider` / bootstrap、path policy、maintenance coordinator、session rebind、migration/usage 已接入；所有业务文件写入必须使用 managed scope 的 `IAppDataPathProvider`，且 scope 在操作完成后释放。长期 scope 会令迁移等待/超时，不强制丢弃事务。
 - Storage Settings 在隔离固定磁盘/生成式有数据 SQLite 和 DOCX 中验证复制、WAL、SHA/数量/大小、重新打开/重解析、locator 提交与 crash 恢复；失败保护旧 root，成功默认保留旧数据，立即刷新 UI/统计。不能用用户库试迁移或直接剪切。
 - Snapshot / Comparison / restore payload 当前包含在 SQLite，逻辑 payload 统计不能与 Database 物理大小重复累加；统计跟随 root generation。原始 DOCX 路径与 PRD 导出位置不变。
 - Windows fixed-disk 路径、权限/空间、同步目录/网络/可移动/链接阻断属于 Infrastructure/Desktop；Core/Documents/Comparison/Data 不引入 Registry、Shell 等 API。安装器 Spike 未通过前不改发布流水线或升级 Velopack 依赖。
+
+## Storage Foundation 开发验证
+
+```powershell
+dotnet test -c Release --filter FullyQualifiedName~Storage
+$storageCheck = Join-Path $env:TEMP ('FinalCheck-Storage-Check-' + [guid]::NewGuid().ToString('N'))
+dotnet run --project src/FinalCheck.Desktop -c Debug -- --developer-data-directory $storageCheck --storage-info
+dotnet run --project src/FinalCheck.Desktop -c Debug -- --developer-data-directory $storageCheck --storage-validate ($storageCheck + '.target')
+dotnet run --project src/FinalCheck.Desktop -c Debug -- --developer-data-directory $storageCheck --storage-migrate ($storageCheck + '.target')
+```
+
+命令执行后输出目标 generation / 各路径 / usage，不进入正式 UI。迁移测试目标严格为隔离 root + `.target`；此 Debug source/target 的 Temp 例外不编译进 Release。生产 DataRoot 拒绝 Temp、network/removable、known sync 和链接；不以修改环境变量隔离正式 Portable（Windows known-folder API 未必读取该变量）。失败保留旧数据与 staging，不自动清理或再次覆盖非空目标。
+
+`StorageRuntimeTests` 直接 link 同一 `DesktopStorageServices.cs` 测试 storage composition，避免 Core compatibility 依赖 Avalonia/Velopack Desktop；不是维护第二套启动算法。真实 Desktop 仍单独做 GUID sandbox 窗口冒烟。打包产物可由独立验证 harness 注入隔离平台接口并使用产物程序集验证同一 composition，不给 Release 主入口加隐藏路径参数；验收必须区分 harness / Debug 窗口与正式 Setup 主入口实测，不拿空 DB 冒充历史迁移。
 
 ## 平台政策
 

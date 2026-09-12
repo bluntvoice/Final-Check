@@ -4,7 +4,7 @@ using FinalCheck.Core.Storage;
 namespace FinalCheck.Infrastructure;
 
 public sealed class DataRootBootstrapResolver(IPlatformStoragePaths paths, IStorageBootstrapStore bootstrap,
-    IDataRootDatabaseInspector inspector)
+    IDataRootDatabaseInspector inspector, IStorageVolumeInfoProvider? volumes = null)
 {
     public const string IdentityFileName = ".finalcheck-root.json";
     private static readonly string[] ManagedHistoryNames = ["WorkingCopies", "Backups", "Snapshots", "Comparisons", "finalcheck.db-wal", "finalcheck.db-shm"];
@@ -76,6 +76,16 @@ public sealed class DataRootBootstrapResolver(IPlatformStoragePaths paths, IStor
         if (!Path.IsPathFullyQualified(root) || StorageFileSafety.Overlaps(root, paths.InstallDirectory))
             throw new InvalidDataException("Data root must be absolute and independent of installation files.");
         StorageFileSafety.RejectLinks(root);
+        if (root.StartsWith("\\\\", StringComparison.Ordinal) || root.StartsWith("//", StringComparison.Ordinal) ||
+            Path.TrimEndingDirectorySeparator(root) == Path.TrimEndingDirectorySeparator(Path.GetPathRoot(root)!))
+            throw new InvalidDataException("A network path or disk root cannot host application data.");
+        if (volumes is not null)
+        {
+            var facts = volumes.Inspect(root);
+            if (facts.Kind != StorageDriveKind.Fixed || StorageFileSafety.Overlaps(root, facts.TemporaryDirectory) ||
+                facts.KnownSyncRoots.Any(sync => StorageFileSafety.Overlaps(root, sync)))
+                throw new InvalidDataException("Configured data root does not satisfy the fixed-local storage policy.");
+        }
     }
 
     private static bool HasManagedHistory(string root) =>

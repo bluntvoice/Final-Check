@@ -123,3 +123,26 @@ public interface IStorageDatabaseMigrationSession : IAsyncDisposable
     Task RelocateAndValidateAsync(string physicalRoot, string logicalRoot, CancellationToken cancellationToken = default);
     Task ValidateReopenedAsync(string targetRoot, CancellationToken cancellationToken = default);
 }
+
+public interface IStorageRootChangeNotifier
+{
+    event Action<DataRootDescriptor>? DataRootChanged;
+}
+public sealed record StorageDatabaseUsage(long SnapshotBytes, long ComparisonBytes, long RestoreBytes,
+    IReadOnlySet<string> OriginalPaths);
+public interface IStorageDatabaseUsageReader
+{
+    // Caller holds the generation session for this database during the read and file scan.
+    Task<StorageDatabaseUsage> ReadAsync(string databasePath, CancellationToken cancellationToken = default);
+}
+public sealed record StorageUsage(DataRootDescriptor Root, DateTimeOffset SampledAt, long DatabaseBytes,
+    long SnapshotBytes, long ComparisonBytes, long RestoreBytes, long WorkingCopyBytes, long BackupBytes,
+    long CacheBytes, long LogBytes, long TempBytes, long OtherBytes, long TotalBytes,
+    bool IsComplete, IReadOnlyList<string> Diagnostics)
+{
+    public bool PayloadBytesIncludedInDatabase { get; init; } = true;
+}
+public interface IStorageUsageService
+{
+    Task<StorageUsage> CalculateAsync(CancellationToken cancellationToken = default);
+}

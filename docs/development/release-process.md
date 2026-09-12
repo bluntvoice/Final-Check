@@ -76,7 +76,7 @@ Windows 使用 .NET 10 + Avalonia、Release、win-x64 self-contained，不要求
 
 ## Data safety / 安装
 
-固定包 ID `FinalCheck.App`。**当前已实现基线：**原生 Setup 默认安装到 `%LocalAppData%\FinalCheck.App`；用户数据库保持旧路径 `%LocalAppData%\FinalCheck\finalcheck.db`，本轮需求落档不直接搬迁。**正式产品契约：**安装位置允许用户交互选择，业务存储独立 DataRoot，新用户默认 `%LocalAppData%\FinalCheck\Data`，小型 bootstrap 位于 `%LocalAppData%\FinalCheck\bootstrap.json`；实际路径功能尚未接入。数据、Snapshot、设置、业务缓存/日志、Backup 均不得保存到安装目录或 `current`，也不得使用 `Setup --installto` 指向数据目录。Portable 当前也使用同一用户数据目录，**不是携带数据库的隔离沙盒**；安装/Portable 两种运行方式不能同时打开同一数据库执行开发实验。
+固定包 ID `FinalCheck.App`。原生 Setup 仍默认安装到 `%LocalAppData%\FinalCheck.App`，安装目录交互 Wizard 尚未接入。Storage Foundation 已接入独立 DataRoot：新用户默认 `%LocalAppData%\FinalCheck\Data`，旧用户无 bootstrap 时先识别原 `%LocalAppData%\FinalCheck\finalcheck.db` 并留在原处，不自动迁移/创建空库；locator 位于 `%LocalAppData%\FinalCheck\bootstrap.json`。Snapshot / Comparison / restore payload、Working Copy、Backup、业务缓存/日志归 DataRoot，绝不保存到安装目录或 `current`，也不得使用 `Setup --installto` 指向数据目录。Portable 与安装版读取同一个 bootstrap，**不是携带数据库的隔离沙盒**；不得拿修改 LOCALAPPDATA 环境变量当作可靠的正式运行隔离。合作进程的数据 scope 通过全局 lease 协调，忙时明确阻断，不允许开发实验碰正常用户库。
 
 Velopack 更新替换实际安装根目录中的 `current`，卸载处理该实际根目录；不能重新拼默认包 ID 路径进行更新或卸载。包 ID 仍固定，不能改成 `FinalCheck`。独立 DataRoot / bootstrap 在安装、更新和普通卸载中保留。Install/uninstall hooks 在数据库初始化前快速退出；源码运行和普通启动才访问用户数据库。手工验收已有用户数据时应先备份、记录 schema/hash，并避免运行会升级现有 schema 的旧/实验构建。
 
@@ -96,13 +96,15 @@ Velopack 1.2.0 的 `--installto` / MSI `VELOPACK_INSTALLDIR` 提供指定路径�
 4. 包 ID/channel/feed/nupkg 不变，包装层与原生载荷的版本/hash/签名、公开 Setup / assets 清单与体积验证；三类包使用同一入口，不能只修 Test。
 5. 既有 Release build/test、Windows/macOS CI、Internal Test Build 与 package verifier 回归。只有 Spike 通过后另行提交包装器和发布接入，不创建 Tag / Release 来测试安装器。
 
-## DataRoot 与存储迁移：待实施门禁
+## DataRoot 与存储迁移：已实现基础与后续门禁
 
 Application install location and application data location are independent concepts. User data must never be stored inside the replaceable application installation directory.
 
 路径/接口/SQLite 备份与非破坏迁移依据 [storage-and-paths.md](../architecture/storage-and-paths.md)、[ADR-0006](../architecture/ADR-0006-install-location-and-data-root.md)。后续 Storage Settings 接入须验证旧布局兼容不误建空库、有数据/WAL 的一致性复制、托管路径和恢复历史/Undo、失败/crash 恢复、旧数据保留，以及新 root 无需重启生效/统计正确。原始 DOCX 不复制，手动导出路径不随 root 改变。NAS/SMB、同步目录和可移动盘不作为首阶段 SQLite 主库支持。
 
 bootstrap 定位与业务 schema 升级分离；安装/更新/卸载不能重置 bootstrap、移动数据、删除旧 root 或在 lifecycle hooks 初始化数据库。任何版本的实际迁移仍需独立验收，旧引擎测试通过不代表新存储功能已完成。
+
+Storage Foundation 实现 / 本地测试及最终 Windows/macOS CI / Internal Test Build 证据统一见 [storage task](../tasks/storage-foundation-v0.md)。正式 Storage Settings UI / 安装 Wizard 未实现，packaging workflow、Velopack 版本/包 ID/更新链均未变。真实 Desktop storage composition 可由独立 harness 注入 GUID 隔离平台接口并加载实际 Release 产物验证；这不是 Release 主入口支持 developer path 参数，也不能冒充原生 Setup 安装后主入口/卸载实测。主入口的数据验证若没有独立 Windows 用户/VM，应明确保留未执行限制，不能临时重置用户 bootstrap。
 
 ## Updater readiness / 平台范围
 

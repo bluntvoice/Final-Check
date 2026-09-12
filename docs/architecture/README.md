@@ -12,7 +12,7 @@ Comparison Engine v0 的结果模型、匹配管线和确定性规则见 [`compa
 
 Windows 打包、单一版本源、安装/数据目录分离与发布 channel 决策见 [`ADR-0004-windows-packaging-and-release.md`](ADR-0004-windows-packaging-and-release.md)。Velopack 依赖仅进入 Desktop，不改变核心四层的跨平台边界。
 
-可选安装目录与可迁移 DataRoot 的正式决策见 [`ADR-0006-install-location-and-data-root.md`](ADR-0006-install-location-and-data-root.md)。[`installer-architecture.md`](installer-architecture.md) 记录 Velopack 1.2.0 调查、推荐 Wizard 包装和待执行 Spike；[`storage-and-paths.md`](storage-and-paths.md) 定义 bootstrap、路径政策、兼容、非破坏迁移及接口设计。两者目前是设计，不是已启用功能，不改变现有 packaging/runtime。
+可选安装目录与可迁移 DataRoot 的正式决策见 [`ADR-0006-install-location-and-data-root.md`](ADR-0006-install-location-and-data-root.md)。[`installer-architecture.md`](installer-architecture.md) 记录 Velopack 1.2.0 调查、推荐 Wizard 包装和待执行 Spike；[`storage-and-paths.md`](storage-and-paths.md) 定义已接入的 bootstrap、路径政策、旧库兼容、非破坏迁移、session rebind 与 usage。Storage Foundation 验收见 [task](../tasks/storage-foundation-v0.md)；Installer / 正式 Storage Settings UI 未实现，现有 packaging workflow 不变。
 
 Format Restore Engine v0 的保守映射、最小属性写回与安全验证见 [`format-restore-engine.md`](format-restore-engine.md)；固定 Working Copy、journal、Undo 与持久化决策见 [`ADR-0005-format-restore-working-copy-and-undo.md`](ADR-0005-format-restore-working-copy-and-undo.md)。
 
@@ -51,4 +51,4 @@ Format Restore Engine v0 的保守映射、最小属性写回与安全验证见 
 
 Comparison Engine v0 已完成段落匹配、文字 Diff、结构变化、格式 Diff、修订/批注归并与结果持久化；验收和已知限制以任务文件为准。Windows packaging / Release 基础设施独立于业务引擎，软件内 updater UI 仍未实现。
 
-`IDataRootProvider` / bootstrap / 全局存储迁移屏障及 Storage Settings 仅完成职责设计，尚未进入“已建立的 v0 基础”；当前 `IAppDataPathProvider` 的旧目录不自动变更。
+`IDataRootProvider` / bootstrap / 全局存储迁移屏障 / migration / usage 已进入 Storage Foundation v0 基础；`IAppDataPathProvider` 是 session adapter。没有 bootstrap 的旧库先识别并留在原位置，不自动迁移或另建空库；正式 Storage Settings UI 待后续阶段。

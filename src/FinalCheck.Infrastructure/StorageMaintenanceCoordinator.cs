@@ -4,7 +4,7 @@ namespace FinalCheck.Infrastructure;
 
 /// <summary>Scope-lifetime barrier shared by DB and Working Copy; cooperative processes serialize data sessions.</summary>
 public sealed class StorageMaintenanceCoordinator(IDataRootProvider initial, IPlatformStoragePaths platform,
-    IStorageBootstrapStore bootstrap, DataRootBootstrapResolver resolver) : IDataRootProvider, IStorageMaintenanceCoordinator, IDisposable
+    IStorageBootstrapStore bootstrap, DataRootBootstrapResolver resolver) : IDataRootProvider, IStorageMaintenanceCoordinator, IStorageRootChangeNotifier, IDisposable
 {
     private readonly object _gate = new();
     private readonly SemaphoreSlim _maintenanceSerial = new(1, 1);
@@ -15,6 +15,7 @@ public sealed class StorageMaintenanceCoordinator(IDataRootProvider initial, IPl
     private bool _pending;
     private bool _recoveryRequired;
     private bool _disposed;
+    public event Action<DataRootDescriptor>? DataRootChanged;
     public DataRootDescriptor Descriptor => Volatile.Read(ref _current).Descriptor;
     public string CurrentDataRoot => Volatile.Read(ref _current).CurrentDataRoot;
     public string DatabasePath => Volatile.Read(ref _current).DatabasePath;
@@ -158,6 +159,10 @@ public sealed class StorageMaintenanceCoordinator(IDataRootProvider initial, IPl
                 _disposed = true;
             }
             owner._maintenanceSerial.Release();
+            if (_completed && !owner._recoveryRequired && owner.Descriptor != previous && owner.DataRootChanged is { } handlers)
+                foreach (Action<DataRootDescriptor> handler in handlers.GetInvocationList())
+                    try { handler(owner.Descriptor); }
+                    catch (Exception error) { System.Diagnostics.Trace.WriteLine($"Storage refresh notification failed: {error.GetType().Name}"); }
         }
     }
 }

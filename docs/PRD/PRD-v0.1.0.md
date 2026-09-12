@@ -1573,6 +1573,8 @@ v0.1.0 首阶段正式支持 Windows 本机固定磁盘、用户有读写权限�
 
 实施与验收依据：[storage-and-paths.md](../architecture/storage-and-paths.md)。
 
+Storage Foundation v0 已落地定位、旧库兼容、非破坏性迁移、内部 data session 热切换和占用统计基础服务，实际测试/平台/打包证据以 [任务文件](../tasks/storage-foundation-v0.md) 为准。本基础阶段不代表“设置 → 存储”正式 UI 或安装目录 Wizard 已完成；不改变本章产品要求与导出规则。
+
 ---
 
 # 46. 异常 DOCX

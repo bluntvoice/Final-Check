@@ -921,7 +921,7 @@ macOS core CI 继续通过。
 - Phase 2 — Path Adoption：DONE
 - Phase 3 — Validation：DONE
 - Phase 4 — Migration：DONE
-- Phase 5 — Runtime Integration：TODO
+- Phase 5 — Runtime Integration：IN PROGRESS
 
 Codex 持续维护实际状态。
 
@@ -965,6 +965,16 @@ Codex 持续维护实际状态。
 - 源/目标关键文件持有读保护，排空后复查空间预算，目标 manifest 必须精确等于预期文件集合。目标 finalize 不覆盖目录，原子 bootstrap 提交前预备新 generation 且维持写屏障；失败回滚 runtime，提交不确定时检查 durable locator，证据不足阻断写入而非猜测回退。
 - 迁移 journal 在 bootstrap-side，失败 / 取消保留 staging 和旧 root；启动 recovery 能判断未提交旧 root 与已提交新 root，后者保留后续合法写入，不回退旧库造成分叉。故障 / 非空残留不自动删除或覆盖，重试使用新空目标；自动恢复 receipt 不等于自动续传 staging。
 - 17 项新增迁移 / 屏障专项测试全部通过；Release build 零警告 / 零错误，全量 181/181（原有 125 无回归）。当前尚未接入启动 recovery / Debug 命令 / usage，留在 Phase 5。
+
+### Phase 5 — IN PROGRESS（本地实现已验证，待最终 CI / Packaging）
+
+- `DesktopStorageServices` 接入真实入口：Velopack lifecycle → bootstrap / RootId / 固定盘政策 → migration recovery → 数据初始化 / 标记 initialized → Avalonia。损坏/未知/缺库与高风险路径不建空库；跨进程 reload 使用相同 resolver 政策。
+- `IStorageUsageService` 按需计算当前 generation 物理唯一分类之和；Snapshot / Comparison / restore 逻辑 payload bytes 包含于 Database，不 double-count。包含 WAL/SHM、Working Copy、previous/通用 Backup、Cache、Logs、candidate/Temp、Other，排除原始 DOCX 与 legacy bootstrap-control；失败返回 partial diagnostics。
+- 成功切换屏障释放后 generation 通知可刷新未来 UI；同一个 usage / factory 实例立即使用新 root，刷新 handler 失败只记录诊断，不回滚已提交目录。未提交中断 receipt 明确结束失败尝试但保留文件，后续新空目标重试成功不会被过时 InProgress journal 阻断启动。
+- Debug-only 命令支持路径查看 / 候选验证 / 迁移 / result / usage，必须显式隔离 root；测试迁移仅允许 `<developer-root>.target`，该已知隔离 source/target 的 Temp 例外不编译入 Release，无隐藏 Release override。
+- 16 项新增 Runtime / usage / legacy 完整历史 / startup recovery / 风险路径 / retry 测试全部通过；真实启动 composition 直接 link 至 Data.Tests，不让 core CI 依赖 Avalonia/Velopack。Release 全量 197/197，build 零警告 / 零错误，version / release infrastructure 隔离测试通过。
+- Debug CLI 在 GUID root 完成迁移后同进程输出 generation 2 与新 root usage；Debug 桌面窗口 PID 20244、标题 Final Check、handle 非零、Responding=true，CloseMainWindow / WaitForExit 均 true。使用自建空库验证启动，不冒充历史验收；历史由生成式 DOCX / SQLite 集成测试覆盖。
+- Phase 4 CI `34710762898` Windows / macOS 均 PASS。待完成：此 Phase 代码 commit / push 后的最终 Windows/macOS CI、一次 Internal Windows Test Build、实际产物复验与隔离 Release payload startup；未执行原生 Setup 主入口的正常用户数据启动/卸载，不以覆盖 bootstrap 隔离。
 
 ---
 

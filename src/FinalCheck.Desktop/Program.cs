@@ -29,16 +29,16 @@ internal static class Program
             StorageStartupDiagnostics.Write(platformPaths, "BootstrapResolution", error);
             throw;
         }
-        var serviceProvider = services.BuildServiceProvider();
-
-        using (var scope = serviceProvider.CreateScope())
+        using var serviceProvider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+        try { DesktopStorageServices.InitializeAsync(serviceProvider).GetAwaiter().GetResult(); }
+        catch (Exception error)
         {
-            scope.ServiceProvider.GetRequiredService<FinalCheckDatabaseInitializer>()
-                .InitializeAsync()
-                .GetAwaiter()
-                .GetResult();
-            serviceProvider.GetRequiredService<DataRootBootstrapResolver>().MarkDatabaseInitializedAsync().GetAwaiter().GetResult();
+            StorageStartupDiagnostics.Write(platformPaths, "StorageRecoveryInitialization", error);
+            throw;
         }
+#if DEBUG
+        if (StorageDeveloperCommands.RunAsync(args, platformPaths, serviceProvider).GetAwaiter().GetResult()) return;
+#endif
 
         FinalCheckApplication.ConfigureServices(serviceProvider);
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
@@ -66,18 +66,11 @@ internal static class Program
 
     private static void ConfigureServices(IServiceCollection services, IPlatformStoragePaths platformPaths)
     {
-        var bootstrap = new FileStorageBootstrapStore(platformPaths);
-        var inspector = new SqliteDataRootDatabaseInspector();
-        var resolver = new DataRootBootstrapResolver(platformPaths, bootstrap, inspector);
-        var resolved = resolver.ResolveAsync().GetAwaiter().GetResult();
-        services.AddSingleton(platformPaths);
-        services.AddSingleton<IStorageBootstrapStore>(bootstrap);
-        services.AddSingleton<IDataRootDatabaseInspector>(inspector);
-        services.AddSingleton(resolver);
-        var storage = new StorageMaintenanceCoordinator(resolved.Provider, platformPaths, bootstrap, resolver);
-        services.AddSingleton<IDataRootProvider>(storage);
-        services.AddSingleton<IStorageMaintenanceCoordinator>(storage);
-        services.AddScoped<IAppDataPathProvider>(sp => new PlatformAppDataPathProvider(sp.GetRequiredService<FinalCheckDbContext>().ManagedPaths));
+        IStorageVolumeInfoProvider? volumes = null;
+#if DEBUG
+        if (platformPaths is DeveloperStoragePaths developer) volumes = new DeveloperStorageVolumeInfo(developer);
+#endif
+        DesktopStorageServices.ConfigureAsync(services, platformPaths, volumes).GetAwaiter().GetResult();
         services.AddSingleton<IFileHashService, Sha256FileHashService>();
         services.AddSingleton<IUpdateService, DeferredUpdateService>();
         services.AddSingleton<IDocumentParser, OpenXmlDocumentParser>();
@@ -98,9 +91,6 @@ internal static class Program
         services.AddSingleton<IWorkingCopyComparisonService, WorkingCopyComparisonService>();
         services.AddSingleton<MainViewModel>();
 
-        services.AddSingleton<DataRootDbContextFactory>();
-        services.AddScoped(sp => sp.GetRequiredService<DataRootDbContextFactory>().CreateDbContext());
-        services.AddScoped<FinalCheckDatabaseInitializer>();
         services.AddScoped<DocumentSnapshotStore>();
         services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
         services.AddScoped<IFormatRestoreStore, FormatRestoreStore>();

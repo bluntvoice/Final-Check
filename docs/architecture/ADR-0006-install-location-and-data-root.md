@@ -1,6 +1,6 @@
 # ADR-0006：可选安装目录与独立、可迁移 DataRoot
 
-- 状态：Accepted；Storage Foundation Phase 1–4 已实现与验证，运行时启动/usage 集成待 Phase 5；Installer Spike 尚未验收。
+- 状态：Accepted；Storage Foundation Phase 1–5 已实现，最终平台/打包验收以 task 为准；Installer Spike 尚未验收。
 - 日期：2026-09-12
 - 适用版本：v0.1.0 development
 - 部分取代：ADR-0004 中“固定默认安装路径即可满足产品”的假设；保留其 Velopack、版本、channel、feed 和发布安全决策。ADR-0005 的 Working Copy 安全管线保持不变，路径归属未来改为 DataRoot。
@@ -33,3 +33,4 @@
 - 当前领域 payload schema 与布局不升级；仅在目标副本转换明确托管路径，旧库及 audit DB backup 保留原 payload。Snapshot schema 1 的历史字节亦保持不变，OriginalPath 与文档 SHA / identity / Undo 语义不变。
 - LastKnownGood 为当前已提交 RootId / generation 的可信定位，previous 或迁移源不是新库已有写入后的自动回退来源。提交无法确认则阻断数据写入；不猜测制造旧库分叉。
 - Scope 全生命周期持有跨进程协作锁，排空后通过内部 session rebind 热切换；不强制中断现有事务。正式设置 UI、安装 Wizard、staging 自动续传与旧数据自动清理不在本阶段。
+- Phase 5 已接入真实 Desktop 启动恢复、固定盘政策和按需物理/逻辑占用服务；成功切换后发 generation 通知，刷新失败不能回滚 durable locator。Debug 隔离命令不编译进 Release，没有正式用户路径 override 后门。未提交中断 receipt 明确结束失败尝试且保留文件，以免后续重试成功后过时 journal 阻断启动。
