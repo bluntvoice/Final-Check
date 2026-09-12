@@ -3,6 +3,7 @@ using FinalCheck.App.ViewModels;
 using FinalCheck.Comparison;
 using FinalCheck.Core.Abstractions;
 using FinalCheck.Core.Storage;
+using FinalCheck.Core.Comparisons;
 using FinalCheck.Data;
 using FinalCheck.Documents;
 using FinalCheck.Infrastructure;
@@ -89,6 +90,8 @@ internal static class Program
         services.AddSingleton<IFormatRestorePlanner, SnapshotFormatRestorePlanner>();
         services.AddSingleton<IFormatRestoreRenderer, OpenXmlFormatRestoreRenderer>();
         services.AddSingleton<IWorkingCopyComparisonService, WorkingCopyComparisonService>();
+        services.AddSingleton<IComparisonFileInspector, ComparisonFileInspector>();
+        services.AddSingleton<ComparisonSetupViewModel>();
         services.AddSingleton<MainViewModel>();
 
         services.AddScoped<DocumentSnapshotStore>();

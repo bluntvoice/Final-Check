@@ -18,6 +18,8 @@ Format Restore Engine v0 的保守映射、最小属性写回与安全验证见 
 
 ## Solution 分层
 
+Quick Compare / Comparison UI 的入口、会话与逐阶段实现见 [comparison-ui.md](comparison-ui.md)；实际验收状态以 [task](../tasks/comparison-ui-v0.md) 为准。
+
 | 项目 | 职责 | 允许的主要依赖 |
 |---|---|---|
 | `FinalCheck.App` | Avalonia Application、Views、ViewModels、样式与导航 | Core、Avalonia、MVVM Toolkit |

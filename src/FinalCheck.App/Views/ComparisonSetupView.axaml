@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FinalCheck.App.ViewModels" x:Class="FinalCheck.App.Views.ComparisonSetupView"
+             x:DataType="vm:ComparisonSetupViewModel">
+  <StackPanel Spacing="20">
+    <Grid ColumnDefinitions="*,20,*">
+      <Border x:Name="BaselineZone" Background="#F0F4F8" Padding="20" CornerRadius="8">
+        <StackPanel Spacing="12">
+          <TextBlock Text="基准版本" FontSize="20" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding BaselineInfo}" TextWrapping="Wrap" />
+          <WrapPanel>
+            <Button Content="选择 / 替换基准 DOCX" Click="PickBaseline" AutomationProperties.Name="选择基准版本" ToolTip.Tip="选择一个 DOCX 文件" />
+            <Button Content="移除" Command="{Binding RemoveBaselineCommand}" Margin="8,0,0,0" />
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+      <Border x:Name="CurrentZone" Grid.Column="2" Background="#F0F4F8" Padding="20" CornerRadius="8">
+        <StackPanel Spacing="12">
+          <TextBlock Text="当前版本" FontSize="20" FontWeight="SemiBold" />
+          <TextBlock Text="{Binding CurrentInfo}" TextWrapping="Wrap" />
+          <WrapPanel>
+            <Button Content="选择 / 替换当前 DOCX" Click="PickCurrent" AutomationProperties.Name="选择当前版本" ToolTip.Tip="选择一个 DOCX 文件" />
+            <Button Content="移除" Command="{Binding RemoveCurrentCommand}" Margin="8,0,0,0" />
+          </WrapPanel>
+        </StackPanel>
+      </Border>
+    </Grid>
+    <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+    <Button Content="开始比对" IsEnabled="{Binding CanStart}" AutomationProperties.Name="开始比对" />
+  </StackPanel>
+</UserControl>

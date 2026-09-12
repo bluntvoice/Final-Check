@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:FinalCheck.App.ViewModels"
+        xmlns:views="using:FinalCheck.App.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
@@ -43,14 +44,15 @@
         <TextBlock Text="{Binding CurrentPageDescription}" Margin="0,8,0,0" FontSize="14" Foreground="#5C6773" />
       </StackPanel>
 
-      <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="32">
-        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-          <TextBlock Text="工程基础已就绪" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" />
-          <TextBlock Text="Document Engine v0 将从结构化 DOCX Snapshot 开始。"
-                     FontSize="14"
-                     Foreground="#5C6773"
-                     TextAlignment="Center" />
-        </StackPanel>
+      <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="24">
+        <Grid>
+          <StackPanel IsVisible="{Binding IsHome}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+            <TextBlock Text="两份合同，一次清晰比对" FontSize="24" />
+            <Button Content="新建比对" Command="{Binding NavigateCommand}" CommandParameter="compare" HorizontalAlignment="Center" />
+          </StackPanel>
+          <ScrollViewer IsVisible="{Binding IsSetup}"><views:ComparisonSetupView DataContext="{Binding Comparison}" /></ScrollViewer>
+          <TextBlock IsVisible="{Binding IsOther}" Text="{Binding CurrentPageDescription}" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center" />
+        </Grid>
       </Border>
     </Grid>
   </Grid>
