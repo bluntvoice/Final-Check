@@ -66,6 +66,15 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
                     var updated = paragraph.ParagraphProperties?.OuterXml;
                     if (old != updated) mutations.Add(new(item.CurrentNodeId, "pPr", old, updated));
                 }
+                else if (element is Table or TableCell or TableRow && item.Category is FormatRestoreCategory.Table or FormatRestoreCategory.Cell)
+                {
+                    progress?.Report(new(FormatRestoreStage.ApplyingTableFormatting, mutations.Count, selected.Count));
+                    var kind = element is Table ? "tblPr" : element is TableCell ? "tcPr" : "trPr";
+                    var old = element.ChildElements.FirstOrDefault(e => e.LocalName == kind)?.OuterXml;
+                    ApplyTableProperties(element, item.TargetFormatting, kind);
+                    var updated = element.ChildElements.FirstOrDefault(e => e.LocalName == kind)?.OuterXml;
+                    if (old != updated) mutations.Add(new(item.CurrentNodeId, kind, old, updated));
+                }
                 else diagnostics.Add(new("UnsupportedRestoreCategory", item.CurrentNodeId, "This restore category has no writer yet."));
             }
             progress?.Report(new(FormatRestoreStage.Saving, mutations.Count, selected.Count));
@@ -86,6 +95,17 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
         foreach (var item in selected.Where(i => i.Eligibility == FormatRestoreEligibility.Eligible && i.Category == FormatRestoreCategory.Paragraph))
             if (!afterParagraphs.TryGetValue(item.CurrentNodeId, out var paragraph) || paragraph.EffectiveFormatting != item.TargetFormatting.Paragraph)
                 throw new InvalidDataException("ReparseValidationFailed: target paragraph formatting did not take effect.");
+        foreach (var item in selected.Where(i => i.Eligibility == FormatRestoreEligibility.Eligible && i.Category is FormatRestoreCategory.Table or FormatRestoreCategory.Cell))
+        {
+            RestoreFormatting? actual = item.NodeType switch
+            {
+                DocumentNodeKind.Table => after.Tables.Where(t => t.NodeId == item.CurrentNodeId).Select(t => new RestoreFormatting(Table: t.DirectFormatting)).SingleOrDefault(),
+                DocumentNodeKind.Cell => after.Tables.SelectMany(t => t.Rows).SelectMany(r => r.Cells).Where(c => c.NodeId == item.CurrentNodeId).Select(c => new RestoreFormatting(Cell: c.DirectFormatting)).SingleOrDefault(),
+                DocumentNodeKind.Row => after.Tables.SelectMany(t => t.Rows).Where(r => r.NodeId == item.CurrentNodeId).Select(r => new RestoreFormatting(RowHeightTwips: r.HeightTwips, RowHeightRule: r.HeightRule)).SingleOrDefault(),
+                _ => null,
+            };
+            if (actual != item.TargetFormatting) throw new InvalidDataException("ReparseValidationFailed: target table/cell formatting did not take effect.");
+        }
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(new(FormatRestoreStage.Completed, mutations.Count, selected.Count));
         return new(bytes, after, mutations, diagnostics);
@@ -199,6 +219,78 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
         ["spacing"] = new() { ["before"] = format.SpacingBefore, ["after"] = format.SpacingAfter, ["line"] = format.LineSpacing, ["lineRule"] = format.LineRule },
     };
 
+    private static void ApplyTableProperties(OpenXmlElement node, RestoreFormatting target, string kind)
+    {
+        var properties = node.ChildElements.FirstOrDefault(e => e.LocalName == kind && e.NamespaceUri == W);
+        if (properties is null)
+        {
+            properties = kind switch { "tblPr" => new TableProperties(), "tcPr" => new TableCellProperties(), "trPr" => new TableRowProperties(), _ => throw new InvalidDataException() };
+            node.InsertAt(properties, 0);
+        }
+        foreach (var (name, attributes) in TableAttributes(target))
+        {
+            var existing = properties.ChildElements.FirstOrDefault(e => e.LocalName == name && e.NamespaceUri == W);
+            foreach (var attribute in attributes.Keys) existing?.RemoveAttribute(attribute, W);
+            if (existing is not null && !existing.HasChildren && !existing.HasAttributes) { existing.Remove(); existing = null; }
+            if (attributes.All(a => a.Value is null)) continue;
+            OpenXmlElement created = name switch
+            {
+                "tblW" => new TableWidth(), "jc" => new TableJustification(), "shd" => new Shading(), "tcW" => new TableCellWidth(),
+                "vAlign" => new TableCellVerticalAlignment(), "trHeight" => new TableRowHeight(), _ => throw new InvalidDataException("Unsupported table property."),
+            };
+            if (existing is null) { existing = created; ((OpenXmlCompositeElement)properties).AddChild(existing, true); }
+            foreach (var (attribute, value) in attributes.Where(a => a.Value is not null)) existing.SetAttribute(new("w", attribute, W, value!));
+        }
+        if (target.Table is { } table) ApplyBorders(properties, "tblBorders", table.Borders);
+        if (target.Cell is { } cell) ApplyBorders(properties, "tcBorders", cell.Borders);
+        if (!properties.HasChildren && !properties.HasAttributes) properties.Remove();
+    }
+
+    internal static Dictionary<string, Dictionary<string, string?>> TableAttributes(RestoreFormatting format)
+    {
+        if (format.Table is { } table) return new()
+        {
+            ["tblW"] = new() { ["w"] = table.Width, ["type"] = table.WidthType },
+            ["jc"] = new() { ["val"] = table.Alignment }, ["shd"] = new() { ["fill"] = table.ShadingFill },
+        };
+        if (format.Cell is { } cell) return new()
+        {
+            ["tcW"] = new() { ["w"] = cell.Width, ["type"] = cell.WidthType },
+            ["vAlign"] = new() { ["val"] = cell.VerticalAlignment }, ["shd"] = new() { ["fill"] = cell.ShadingFill },
+        };
+        return new() { ["trHeight"] = new() { ["val"] = format.RowHeightTwips?.ToString(System.Globalization.CultureInfo.InvariantCulture), ["hRule"] = format.RowHeightRule } };
+    }
+
+    private static void ApplyBorders(OpenXmlElement properties, string kind, TableBordersSnapshot target)
+    {
+        var borders = properties.ChildElements.FirstOrDefault(e => e.LocalName == kind && e.NamespaceUri == W);
+        if (borders is null)
+        {
+            borders = kind == "tblBorders" ? new TableBorders() : new TableCellBorders();
+            ((OpenXmlCompositeElement)properties).AddChild(borders, true);
+        }
+        foreach (var (name, border) in BorderValues(target))
+        {
+            var existing = borders.ChildElements.FirstOrDefault(e => e.LocalName == name && e.NamespaceUri == W);
+            foreach (var attribute in new[] { "val", "color", "sz" }) existing?.RemoveAttribute(attribute, W);
+            if (existing is not null && !existing.HasAttributes && !existing.HasChildren) { existing.Remove(); existing = null; }
+            if (border is null) continue;
+            OpenXmlElement created = name switch
+            {
+                "top" => new TopBorder(), "left" => new LeftBorder(), "bottom" => new BottomBorder(), "right" => new RightBorder(),
+                "insideH" => new InsideHorizontalBorder(), "insideV" => new InsideVerticalBorder(), _ => throw new InvalidDataException(),
+            };
+            if (existing is null) { existing = created; ((OpenXmlCompositeElement)borders).AddChild(existing, true); }
+            if (border.Style is not null) existing.SetAttribute(new("w", "val", W, border.Style));
+            if (border.Color is not null) existing.SetAttribute(new("w", "color", W, border.Color));
+            if (border.Size is not null) existing.SetAttribute(new("w", "sz", W, border.Size.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+        if (!borders.HasChildren && !borders.HasAttributes) borders.Remove();
+    }
+
+    private static IEnumerable<(string Name, TableBorderSnapshot? Border)> BorderValues(TableBordersSnapshot borders) =>
+        [("top", borders.Top), ("left", borders.Left), ("bottom", borders.Bottom), ("right", borders.Right), ("insideH", borders.InsideHorizontal), ("insideV", borders.InsideVertical)];
+
     private static string ExtraStyleSignature(Styles styles, string? styleId)
     {
         var index = styles.Elements<Style>().Where(s => s.StyleId?.Value is not null).ToDictionary(s => s.StyleId!.Value!);
@@ -284,6 +376,29 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
             }
         }
         document.Descendants(w + "pPr").Where(e => !e.HasElements && !e.HasAttributes).Remove();
+        foreach (var kind in new[] { "tblPr", "tcPr", "trPr" })
+        {
+            var tableAllowed = kind == "tblPr" ? TableAttributes(new(Table: TableFormatSnapshot.Empty)) :
+                kind == "tcPr" ? TableAttributes(new(Cell: TableCellFormatSnapshot.Empty)) : TableAttributes(new());
+            foreach (var properties in document.Descendants(w + kind).Where(p => !p.Ancestors().Any(a => a.Name.LocalName.EndsWith("Change", StringComparison.Ordinal))))
+            {
+                foreach (var element in properties.Elements().Where(e => e.Name.Namespace == w && tableAllowed.ContainsKey(e.Name.LocalName)).ToArray())
+                {
+                    foreach (var attribute in element.Attributes().Where(a => a.Name.Namespace == w && tableAllowed[element.Name.LocalName].ContainsKey(a.Name.LocalName)).ToArray()) attribute.Remove();
+                    if (!element.HasElements && !element.Attributes().Any(a => !a.IsNamespaceDeclaration)) element.Remove();
+                }
+                foreach (var borders in properties.Elements().Where(e => e.Name == w + "tblBorders" || e.Name == w + "tcBorders").ToArray())
+                {
+                    foreach (var border in borders.Elements().Where(e => new[] { "top", "left", "bottom", "right", "insideH", "insideV" }.Contains(e.Name.LocalName)).ToArray())
+                    {
+                        border.Attributes().Where(a => a.Name.Namespace == w && new[] { "val", "color", "sz" }.Contains(a.Name.LocalName)).Remove();
+                        if (!border.HasElements && !border.Attributes().Any(a => !a.IsNamespaceDeclaration)) border.Remove();
+                    }
+                    if (!borders.HasElements && !borders.HasAttributes) borders.Remove();
+                }
+            }
+            document.Descendants(w + kind).Where(e => !e.HasElements && !e.HasAttributes).Remove();
+        }
         return document.ToString(SaveOptions.DisableFormatting);
     }
 }

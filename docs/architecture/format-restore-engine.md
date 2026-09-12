@@ -14,7 +14,7 @@ Plan 保存 source SHA-256、两侧 Snapshot identity、比较结果内容哈希
 
 ## 当前进度
 
-Phase 1 建立计划模型和纯 Snapshot 生成；Phase 2 已加入字符写回和安全位置投影。段落、表格和文件持久化按任务 Phase 顺序加入。
+Phase 1–4 已建立计划、字符、段落及 Table/Cell direct 属性恢复。真实文件生命周期、Undo 与持久化按 Phase 5 加入。
 
 ## Character restore / 新增文字
 
@@ -31,3 +31,11 @@ Renderer 在私有 MemoryStream 中编辑，正式 Document Engine 重新解析�
 只修改 pPr 中对齐、缩进、首行/悬挂、段前后及行距/rule 支持属性。优先去除 override 复用继承；可用的 target Style reference 仅在其未知属性/字符属性继承链兼容、且切换不改变当前 Run 有效字符格式时采用。缺失/不兼容样式保留当前 reference，支持属性使用最小 direct override 并报告 StyleReferencePreserved；不导入或覆盖整个样式库。
 
 新增段落 fallback 只接受同一容器、同编号层级和 style profile 的前后两个 Exact/High 映射，且两侧 baseline 目标格式/样式一致；引用原始邻近 mapping 作为额外恢复证据，并报告 AddedParagraphFallbackUsed。没有双侧一致证据的首尾新增段落/层级冲突保留未处理诊断，不随机选 global/template 自定义样式。未来上层可提供人工样式选择，v0 不建立不存在的样式库。
+
+## Table / Cell / 能力边界
+
+Reliable：Snapshot 已解析的 direct table 宽度/对齐/底纹/基础六边框，cell 宽度/垂直对齐/底纹/边框，以及相同结构下的 row height/rule。只在已有 Table/Cell mapping 上工作。可信 cell 下数量一致的直接 child paragraphs/Run 可投影恢复字符/段落，引用 parent Cell mapping，不另建段落匹配算法；row identity 同样从可信 cell 及不变结构推导。
+
+Partial：结构变化时仅恢复同位置 mapping 且两侧均唯一、文字完全相同的 cell。不得凭原 Comparison 的 Structural/Exact 标签就假装结构编辑后位置仍可信；其他 cell 需要 Review。数量变化的多个 tables 保守拒绝。未知属性和其他 parts 保留。
+
+Unsupported：完整 table effective/conditional style、嵌套 table 展开、TableGrid 列宽继承和结构恢复。保留 current table StyleId，显式 UnsupportedTableStyle；GridSpan/VerticalMerge 始终用 current 值，不恢复 merge/split，不删除新增行列。表格 XML 不整体替换。

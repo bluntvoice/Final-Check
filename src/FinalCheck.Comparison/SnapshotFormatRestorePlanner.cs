@@ -75,6 +75,7 @@ public sealed class SnapshotFormatRestorePlanner(ITextDiffService? textDiffServi
             }
             else diagnostics.Add(new("UnmappedNode", paragraph.NodeId, "No reliable same-level neighbour consensus; no speculative restore."));
         }
+        AddTableItems(baseline, current, comparison, policy, items, diagnostics, cancellationToken);
         progress?.Report(new(FormatRestoreStage.ValidatingPlan, items.Count, items.Count));
         var orderedItems = items.OrderBy(i => i.RestoreItemId, StringComparer.Ordinal).ToArray();
         var orderedDiagnostics = diagnostics.OrderBy(d => d.NodeId, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
@@ -171,6 +172,63 @@ public sealed class SnapshotFormatRestorePlanner(ITextDiffService? textDiffServi
     private static bool SameLevel(DocumentParagraphSnapshot left, DocumentParagraphSnapshot right) =>
         left.StyleId == right.StyleId && left.Numbering?.LevelIndex == right.Numbering?.LevelIndex &&
         (left.Numbering is null) == (right.Numbering is null);
+
+    private void AddTableItems(DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult comparison,
+        FormatRestorePolicy policy, List<FormatRestoreItem> items, List<FormatRestoreDiagnostic> diagnostics, CancellationToken cancellationToken)
+    {
+        var tables = baseline.Tables.ToDictionary(t => t.NodeId);
+        var cells = baseline.Tables.SelectMany(t => t.Rows).SelectMany(r => r.Cells).ToDictionary(c => c.NodeId);
+        var currentTables = current.Tables.ToDictionary(t => t.NodeId);
+        var currentCells = current.Tables.SelectMany(t => t.Rows).SelectMany(r => r.Cells).ToDictionary(c => c.NodeId);
+        var rowsAdded = new HashSet<string>();
+        foreach (var mapping in comparison.NodeMappings.Where(m => m.CurrentNode.Kind is DocumentNodeKind.Table or DocumentNodeKind.Cell))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (mapping.CurrentNode.Kind == DocumentNodeKind.Table && tables.TryGetValue(mapping.BaselineNode.NodeId, out var bt) && currentTables.TryGetValue(mapping.CurrentNode.NodeId, out var ct))
+            {
+                var trusted = Trusted(mapping, policy) && baseline.Tables.Count == current.Tables.Count;
+                var target = bt.DirectFormatting with { StyleId = ct.DirectFormatting.StyleId };
+                if (bt.DirectFormatting.StyleId is not null || ct.DirectFormatting.StyleId is not null)
+                    diagnostics.Add(new("UnsupportedTableStyle", ct.NodeId, "Only parsed direct properties are reliable; conditional/effective table style is not restored."));
+                AddItem(items, bt.NodeId, ct.Identity, new(Table: ct.DirectFormatting), new(Table: target), FormatRestoreCategory.Table, trusted, mapping, null);
+                continue;
+            }
+            if (mapping.CurrentNode.Kind != DocumentNodeKind.Cell || !cells.TryGetValue(mapping.BaselineNode.NodeId, out var bc) || !currentCells.TryGetValue(mapping.CurrentNode.NodeId, out var cc)) continue;
+            var baselineTable = baseline.Tables.Single(t => t.Rows.Any(r => r.Cells.Any(c => c.NodeId == bc.NodeId)));
+            var currentTable = current.Tables.Single(t => t.Rows.Any(r => r.Cells.Any(c => c.NodeId == cc.NodeId)));
+            var structureSame = baselineTable.Rows.Count == currentTable.Rows.Count &&
+                baselineTable.Rows.Zip(currentTable.Rows).All(pair => pair.First.Cells.Count == pair.Second.Cells.Count &&
+                    pair.First.Cells.Zip(pair.Second.Cells).All(p => p.First.ColumnIndex == p.Second.ColumnIndex &&
+                        p.First.DirectFormatting.GridSpan == p.Second.DirectFormatting.GridSpan && p.First.DirectFormatting.VerticalMerge == p.Second.DirectFormatting.VerticalMerge));
+            var uniqueTextAnchor = bc.DisplayText.Length > 0 && bc.DisplayText == cc.DisplayText &&
+                baselineTable.Rows.SelectMany(r => r.Cells).Count(c => c.DisplayText == bc.DisplayText) == 1 &&
+                currentTable.Rows.SelectMany(r => r.Cells).Count(c => c.DisplayText == cc.DisplayText) == 1;
+            var trustedCell = Trusted(mapping, policy) && baseline.Tables.Count == current.Tables.Count &&
+                (structureSame || uniqueTextAnchor) && cc.NestedTableCount == 0 && bc.NestedTableCount == 0;
+            if (!structureSame) diagnostics.Add(new("TableStructureChanged", cc.NodeId, "Only existing mapped cells with unique unchanged text anchors can restore; no structural replacement."));
+            if (bc.DirectFormatting.GridSpan != cc.DirectFormatting.GridSpan || bc.DirectFormatting.VerticalMerge != cc.DirectFormatting.VerticalMerge)
+                diagnostics.Add(new("MergeStructurePreserved", cc.NodeId, "GridSpan/VerticalMerge are structural and will never be restored."));
+            var targetCell = bc.DirectFormatting with { GridSpan = cc.DirectFormatting.GridSpan, VerticalMerge = cc.DirectFormatting.VerticalMerge };
+            AddItem(items, bc.NodeId, cc.Identity, new(Cell: cc.DirectFormatting), new(Cell: targetCell), FormatRestoreCategory.Cell, trustedCell, mapping, null);
+            if (trustedCell && bc.Paragraphs.Count == cc.Paragraphs.Count)
+            {
+                foreach (var pair in bc.Paragraphs.Zip(cc.Paragraphs))
+                {
+                    diagnostics.RemoveAll(d => d.Code == "UnmappedNode" && d.NodeId == pair.Second.NodeId);
+                    AddItem(items, pair.First.NodeId, pair.Second.Identity,
+                        new(Paragraph: pair.Second.EffectiveFormatting, ParagraphStyleId: pair.Second.StyleId),
+                        new(Paragraph: pair.First.EffectiveFormatting, ParagraphStyleId: pair.First.StyleId),
+                        FormatRestoreCategory.Paragraph, true, mapping, "TrustedCellChildPosition");
+                    AddCharacterItems(pair.First, pair.Second, mapping, true, items, diagnostics, cancellationToken);
+                }
+            }
+            var br = baselineTable.Rows[bc.RowIndex];
+            var cr = currentTable.Rows[cc.RowIndex];
+            if (structureSame && trustedCell && rowsAdded.Add(cr.NodeId))
+                AddItem(items, br.NodeId, cr.Identity, new(RowHeightTwips: cr.HeightTwips, RowHeightRule: cr.HeightRule),
+                    new(RowHeightTwips: br.HeightTwips, RowHeightRule: br.HeightRule), FormatRestoreCategory.Table, true, mapping, "MappedCellRowIdentity");
+        }
+    }
 
     internal static void AddItem(List<FormatRestoreItem> items, string? baselineId,
         DocumentNodeIdentitySnapshot identity, RestoreFormatting current, RestoreFormatting target,

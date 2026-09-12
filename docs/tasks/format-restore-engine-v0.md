@@ -1268,7 +1268,9 @@ macOS CI 必须继续通过 Core/Documents/Comparison/Data 兼容性验证。
 * Phase 3 — Paragraph Formatting：DONE
   - 实际完成：pPr 属性级对齐、左右/首行/悬挂缩进、段前后、行距/rule；兼容 Style reference 与最小 direct override，不复制段落/正文/样式库；新增段落按同容器同级前后可信 mapping 目标一致 fallback，缺失样式和不足证据诊断。
   - 测试：新增 6 个段落用例覆盖首行/悬挂、完整间距、兼容样式无 flatten、缺失样式保守 override、新增段落 fallback/拒绝；Release 98/98 通过（Documents 38）。
-* Phase 4 — Table / Cell Formatting：TODO
+* Phase 4 — Table / Cell Formatting：DONE
+  - 实际完成：Table/Cell direct 宽度、对齐、底纹、六边框与可靠 row height/rule；Cell child 文本格式基于可信 parent mapping 派生；结构改变仅唯一未改文字锚点局部恢复，合并状态与新增行列保留；复杂 conditional/effective table style 明确 Partial/Unsupported。
+  - 测试：新增 4 项 table/cell/row、改变正文、增行局部恢复/拒绝、merge state、样式边界测试；Release 全部 102/102 通过（Documents 42），table text 与未处理 OPC 内容保持。
 * Phase 5 — Working Copy / Undo / Preservation：TODO
 
 允许：
