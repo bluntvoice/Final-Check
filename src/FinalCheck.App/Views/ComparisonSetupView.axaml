@@ -34,7 +34,7 @@
       <Button Content="仍然执行比对" Command="{Binding ContinueIdenticalCommand}" />
       <Button Content="取消相同比对" Command="{Binding CancelCommand}" />
     </StackPanel>
-    <StackPanel IsVisible="{Binding Outcome.IsPartial}" Spacing="8">
+    <StackPanel IsVisible="{Binding ShowPartial}" Spacing="8">
       <TextBlock Text="本次比对结果可能不完整。" Foreground="#9A5B00" />
       <ItemsControl ItemsSource="{Binding Session.Diagnostics}" />
       <Button Content="继续查看结果" Command="{Binding ViewPartialCommand}" />

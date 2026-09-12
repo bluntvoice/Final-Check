@@ -1175,7 +1175,9 @@ Cancel 后：
   - 实际完成：Core 工作流接口与 Desktop 编排服务调用既有 parser / Comparison Engine；后台重新检查路径/hash/外部变化，持有只读源流并校验解析身份；相同路径/hash 提供继续/取消。真实阶段进度、不定进度条、取消/重复执行 gate、导航离开取消确认、错误分类与 Partial 显式继续。
   - 数据：schema 4 增量 ComparisonRecords 与 FK 引用，两份冻结快照 + 结果 + record 单一事务追加；短 scope 释放 storage lease。Readonly bootstrap inspector、迁移 logical digest / 引用校验、原文排除与 Comparison 逻辑占用同步更新；旧 schema 3 payload 保留。原始 DOCX 不复制。
   - 验证：新增 9 项真实工作流/迁移/升级集成测试及 6 项 VM 执行测试；全量 Release 218 项回归，Desktop build 零警告/零错误。结果列表仍属于 Phase 3；本阶段不宣称完整 UI 已可试用。
-- Phase 3 — Results：TODO
+- Phase 3 — Results：DONE
+  - 实际完成：正式结果页顶部文件/时间/统计、Engine 原 Groups 默认归并与逐项切换、同一原 ChangeItem 的位置/摘要/展开、多属性格式差异、Word 修订与批注证据、Medium/Low 与 Partial 提示；DifferenceSpan UTF-16 精确双侧高亮，不在 UI 重做 diff / grouping。正文/表格位置来自 Snapshot 节点索引，不编造 Word 页码。首页可后台恢复最近记录。
+  - 验证：新增 6 项 Results VM 测试（0 修改、归并/逐项共享、数字/UTF-16 高亮、多属性格式/移动、Partial/低可信、修订/批注）；Release 224/224 回归通过，Desktop 构建零警告/零错误。GUID Debug 数据目录实例的实际窗口首页与双侧输入观察通过；最终安装包试用仍在全部阶段后执行。
 - Phase 4 — Filter / Review：TODO
 - Phase 5 — Preview / Navigation：TODO
 

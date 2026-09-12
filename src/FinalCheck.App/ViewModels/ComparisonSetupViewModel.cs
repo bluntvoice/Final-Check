@@ -22,6 +22,8 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
     [ObservableProperty] private bool isExecuting;
     [ObservableProperty] private string technicalDetails = "";
     [ObservableProperty] private ComparisonWorkflowResult? outcome;
+    public bool ShowPartial => Outcome?.IsPartial == true;
+    partial void OnOutcomeChanged(ComparisonWorkflowResult? value) => OnPropertyChanged(nameof(ShowPartial));
     public bool CanStart => !disposed && BaselineFile is not null && CurrentFile is not null && !IsBusy && !IdenticalPrompt;
     public string BaselineInfo => FileInfoText(BaselineFile);
     public string CurrentInfo => FileInfoText(CurrentFile);

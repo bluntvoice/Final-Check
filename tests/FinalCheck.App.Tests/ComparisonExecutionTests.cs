@@ -40,8 +40,8 @@ public sealed class ComparisonExecutionTests
     }
     [Fact] public async Task PartialWaitsForContinueAndIsNotSilentlyHidden()
     {
-        using var vm = VM(new(partial: true)); var completed = false; vm.Completed += _ => completed = true;
-        await vm.StartCommand.ExecuteAsync(null); Assert.False(completed); Assert.Contains("可能不完整", vm.Message);
+        using var vm = VM(new(partial: true)); Assert.False(vm.ShowPartial); var completed = false; vm.Completed += _ => completed = true;
+        await vm.StartCommand.ExecuteAsync(null); Assert.False(completed); Assert.True(vm.ShowPartial); Assert.Contains("可能不完整", vm.Message);
         vm.ViewPartialCommand.Execute(null); Assert.True(completed);
     }
     [Theory] [InlineData(true)] [InlineData(false)]

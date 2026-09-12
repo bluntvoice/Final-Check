@@ -31,6 +31,7 @@
         <StackPanel Grid.Row="1" Margin="0,36,0,0" Spacing="10">
           <Button Content="项目" Command="{Binding NavigateCommand}" CommandParameter="home" />
           <Button Content="模板中心" Command="{Binding NavigateCommand}" CommandParameter="templates" />
+          <Button Content="比对结果" Command="{Binding NavigateCommand}" CommandParameter="results" IsVisible="{Binding HasResults}" />
           <Button Content="关于" Command="{Binding NavigateCommand}" CommandParameter="about" />
         </StackPanel>
 
@@ -49,8 +50,10 @@
           <StackPanel IsVisible="{Binding IsHome}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
             <TextBlock Text="两份合同，一次清晰比对" FontSize="24" />
             <Button Content="新建比对" Command="{Binding NavigateCommand}" CommandParameter="compare" HorizontalAlignment="Center" />
+            <Button Content="继续最近一次比对" Command="{Binding LoadRecentCommand}" HorizontalAlignment="Center" />
           </StackPanel>
           <ScrollViewer IsVisible="{Binding IsSetup}"><views:ComparisonSetupView DataContext="{Binding Comparison}" /></ScrollViewer>
+          <Grid IsVisible="{Binding IsResults}"><views:ComparisonResultsView DataContext="{Binding Results}" /></Grid>
           <TextBlock IsVisible="{Binding IsOther}" Text="{Binding CurrentPageDescription}" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center" />
         </Grid>
       </Border>

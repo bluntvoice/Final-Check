@@ -22,6 +22,12 @@ Phase 1 为入口与文件会话基础；完整工作流服务、历史、结果
 
 ## 独立历史与存储
 
+## 结果组织与文字高亮
+
+`ComparisonResultsViewModel` 消费冻结的 `ComparisonWorkflowResult`；每个 `ChangeItemViewModel` 引用原领域 ChangeItem，`ChangeListEntry` 仅组织 Engine Group ID / members，不重新归并或生成第二套变化。默认归并，逐项模式与组成员位置选择共用同一 item VM。概要复用统计；详情展示原文/现文、多格式属性、两侧位置、Word 修订/批注、低可信与必要诊断。位置用 Snapshot 的正文/表格/行/列节点索引；没有精确页码能力就不伪造页码。
+
+`DifferenceHighlight` 按 Engine span 的 UTF-16 start/length 投影连续文本片段；`DiffTextBlock` 仅渲染局部背景色。全文仍完整保存，段落插入/删除可突出整个真实新增/删除段落；移动无文字变化不把正文标成文字修改。首页“继续最近一次比对”通过工作流后台加载冻结历史，原文件删除/移动不影响查看。
+
 Database schema 4 的增量 `ComparisonRecords` 引用两份 DocumentSnapshots 和一个 ComparisonResults（FK Restrict），payload schema 1 保存独立 RecordId、外部路径/metadata/hash、时间和原 ChangeId → review state。不预建项目实体，后续可另行关联；每次比对追加，不覆盖历史。快照/结果/record 单一 SQLite transaction 写入，任一步失败/提交前取消都不能留下半条记录。读取核对外键、hash、snapshot identity 和 review keys；未知 schema 拒绝。
 
 数据 scope 只在一次存取操作内使用，结束即释放共同 storage lease，不在 ViewModel 中持有 DbContext。新表加入 readonly bootstrap inspector、迁移 logical facts / payload digest / 引用验证与占用计算；两侧原始路径加入排除清单，即使原文恰好位于旧 DataRoot 也不迁移。记录/review payload 是包含于 Database 的 Comparison 逻辑 bytes，不能重复加到物理总计。旧 schema 3 的原 payload 在增量升级中保持原样。

@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:views="using:FinalCheck.App.Views"
+ x:Class="FinalCheck.App.Views.ComparisonResultsView" x:DataType="vm:ComparisonResultsViewModel">
+  <Grid RowDefinitions="Auto,12,*">
+    <StackPanel Spacing="8">
+      <TextBlock Text="{Binding Heading}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="18" />
+      <TextBlock Text="{Binding ComparedAt}" />
+      <TextBlock Text="{Binding Statistics}" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding IntegrityNotice}" Foreground="#9A5B00" TextWrapping="Wrap" />
+      <Expander Header="解析与匹配提示"><ScrollViewer MaxHeight="140"><TextBlock Text="{Binding DiagnosticDetails}" TextWrapping="Wrap" /></ScrollViewer></Expander>
+      <CheckBox Content="归并视图（取消勾选查看逐项）" IsChecked="{Binding Grouped}" />
+    </StackPanel>
+    <Grid Grid.Row="2" ColumnDefinitions="250,16,*">
+      <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" AutomationProperties.Name="修改清单">
+        <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeListEntry">
+          <StackPanel Spacing="6" Margin="4">
+            <TextBlock Text="{Binding TypeLabel}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" MaxLines="3" />
+            <TextBlock Text="{Binding Hint}" TextWrapping="Wrap" MaxLines="2" Foreground="#667788" />
+            <TextBlock Text="{Binding CountLabel}" />
+          </StackPanel>
+        </DataTemplate></ListBox.ItemTemplate>
+      </ListBox>
+      <ScrollViewer Grid.Column="2">
+        <StackPanel Spacing="16">
+          <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
+          <ItemsControl ItemsSource="{Binding SelectedEntry.Members}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:ChangeItemViewModel">
+              <Button Content="{Binding Location}" Command="{Binding SelectCommand}" Margin="0,4" HorizontalAlignment="Stretch" />
+            </DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <StackPanel DataContext="{Binding SelectedChange}" x:DataType="vm:ChangeItemViewModel" Spacing="12">
+            <TextBlock Text="{Binding TypeLabel}" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Location}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ConfidenceText}" Foreground="#9A5B00" TextWrapping="Wrap" />
+            <TextBlock Text="原文" FontWeight="SemiBold" />
+            <views:DiffTextBlock Segments="{Binding BaselineSegments}" Baseline="True" TextWrapping="Wrap" />
+            <TextBlock Text="现文" FontWeight="SemiBold" />
+            <views:DiffTextBlock Segments="{Binding CurrentSegments}" TextWrapping="Wrap" />
+            <ItemsControl ItemsSource="{Binding FormatDetails}" />
+            <TextBlock Text="{Binding CommentDetails}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding RevisionDetails}" TextWrapping="Wrap" />
+            <Expander Header="修改技术提示"><TextBlock Text="{Binding Diagnostics}" TextWrapping="Wrap" /></Expander>
+          </StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>
