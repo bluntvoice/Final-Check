@@ -87,3 +87,21 @@ App 启动初期 Working Set 超过目标，但 Private Memory 在本次稳定�
 | 安装后大小 | — | Not measured yet | Phase 4 实际安装测量；不以 publish 估算替代 |
 
 主要载荷仍是 self-contained .NET Runtime 与 Avalonia/Skia 原生组件；Velopack 压缩后 Setup 低于预算。本机 Spike 产物在被 Git 忽略的 `artifacts/spike-verified-20260912/`，不属于正式 Release。
+
+## Actions Test package / 安装实测（2026-09-12）
+
+来源：[Run 34683055427](https://github.com/bluntvoice/Final-Check/actions/runs/34683055427)，版本 `0.1.0-dev.2.1`，Artifact 已下载并验证 Actions ZIP digest 与逐文件 SHA256。
+
+| 指标 | Bytes | MiB | 说明 |
+|---|---:|---:|---|
+| Publish | 128,217,746 | 122.28 | Actions win-x64 self-contained |
+| Setup | 61,842,439 | 58.98 | 61.84 MB；满足 70 MB 目标 |
+| Portable ZIP | 57,168,001 | 54.52 | 完整 portable layout |
+| 实际安装目录总大小 | 189,785,631 | 180.99 | 189.79 MB；超过 150 MB 目标，低于 200 MB 告警 |
+| `current` runtime payload | 128,146,968 | 122.21 | 不包含用户数据库 |
+| `packages` cached full package | 57,204,743 | 54.55 | Velopack 为更新保留的完整包缓存 |
+| Update.exe + 启动 stub | 4,433,920 | 4.23 | 安装根目录文件 |
+
+安装总大小不能以 publish 大小替代。超过安装目标的主要原因是 runtime payload 加上缓存 full package；当前不删除 Velopack 缓存来伪造低体积，也不未经验证启用 trimming/NativeAOT。后续可单独评估 runtime/native 载荷和更新缓存策略。
+
+实际 silent 安装 exit 0；普通启动创建响应正常的 `Final Check` 窗口，安装内 About assembly version `0.1.0-dev.2.1`；正常关闭后 silent 卸载 exit 0，卸载器延迟自清理后安装目录/快捷方式/注册项消失。安装 hooks 未改变已有 DB/WAL/SHM 的 hash；普通启动前后数据库表/行 digest 一致；卸载未修改用户数据文件。当前本机 DocumentSnapshots / ComparisonResults 均为空，因此该证据不是含真实合同的业务恢复验收。

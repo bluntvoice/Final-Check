@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinalCheck.Data.Tests", "te
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinalCheck.Documents.Tests", "tests\FinalCheck.Documents.Tests\FinalCheck.Documents.Tests.csproj", "{F0CF1F48-500F-42F5-910A-5181320BCF90}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FinalCheck.App.Tests", "tests\FinalCheck.App.Tests\FinalCheck.App.Tests.csproj", "{E3226437-FBC9-4912-B9FA-196DD0624F34}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,18 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Debug|x64.Build.0 = Debug|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Debug|x86.Build.0 = Debug|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Release|x64.ActiveCfg = Release|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Release|x64.Build.0 = Release|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Release|x86.ActiveCfg = Release|Any CPU
+		{E3226437-FBC9-4912-B9FA-196DD0624F34}.Release|x86.Build.0 = Release|Any CPU
 		{D9B67A73-EE92-4948-A063-12866C9E5B47}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D9B67A73-EE92-4948-A063-12866C9E5B47}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D9B67A73-EE92-4948-A063-12866C9E5B47}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -176,6 +190,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{E3226437-FBC9-4912-B9FA-196DD0624F34} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{D9B67A73-EE92-4948-A063-12866C9E5B47} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{9A7559C5-F860-47A5-804E-83D411A83872} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{6CC1C901-6748-46BE-8583-0260ABDD1BB1} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}

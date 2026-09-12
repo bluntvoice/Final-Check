@@ -2,7 +2,7 @@
 
 ## 项目状态
 
-Final Check v0.1.0 已完成基础工程初始化，Document Engine v0 正在按 [`docs/tasks/document-engine-v0.md`](../tasks/document-engine-v0.md) 验收。完整 Comparison Engine、正式业务 UI、格式恢复、安装包和 Release 尚未实现。
+Final Check v0.1.0 的基础工程、Document Engine v0 与 Comparison Engine v0 已按各任务文件完成。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；尚未发布真实 Stable Release，也未实现正式业务 UI、格式恢复或 updater UI。
 
 ## 开发前阅读
 
@@ -15,6 +15,7 @@ Final Check v0.1.0 已完成基础工程初始化，Document Engine v0 正在按
 
 - Windows 10 22H2 或 Windows 11 x64
 - .NET 10 SDK（当前基线 10.0.401）
+- PowerShell 7+（版本和 Windows 打包/发布脚本）
 - Git
 - 可选 IDE：Visual Studio、JetBrains Rider 或 VS Code
 - 不需要安装 Microsoft Word、Office Interop 或单独的 SQLite 服务
@@ -46,6 +47,20 @@ dotnet publish src/FinalCheck.Desktop/FinalCheck.Desktop.csproj `
 ```
 
 当前 Release publish 会排除用户运行不需要的 `.pdb` 调试符号，但不启用 trimming 或 NativeAOT。
+
+## 版本与 Windows 包
+
+```powershell
+./scripts/version.ps1 print
+./scripts/test-version.ps1
+./scripts/test-release-infrastructure.ps1
+./scripts/build-windows-package.ps1 -PackageKind Test -Version 0.1.0-dev.123 `
+  -OutputDirectory artifacts/local-test-123
+./scripts/verify-windows-package.ps1 -Directory artifacts/local-test-123 `
+  -Version 0.1.0-dev.123 -PackageKind Test
+```
+
+OutputDirectory 必须为空；本地 Test 包只覆盖构建参数，不改源码版本。`dotnet tool restore` 还原固定的 EF / Velopack CLI。正式 Release 不能用此本地命令替代确认与安全门禁，完整操作参见 [Release process](release-process.md)。
 
 ## Document Engine 开发与测试
 
@@ -82,6 +97,7 @@ src/
   FinalCheck.Data/            SQLite、EF Core、Migration
   FinalCheck.Infrastructure/  文件、路径、哈希、预览、更新等外围实现
 tests/
+  FinalCheck.App.Tests/        About / assembly 版本展示测试（无 GUI 初始化）
   FinalCheck.Core.Tests/
   FinalCheck.Documents.Tests/
   FinalCheck.Comparison.Tests/
@@ -111,7 +127,7 @@ dotnet tool run dotnet-ef migrations add <MigrationName> `
 
 ## 平台政策
 
-Windows 是官方开发、测试和未来 Release 平台。macOS 目前仅检查 Core、Documents、Comparison、Data 及其测试的源码构建兼容性，不提供官方安装包或完整质量保证。核心项目禁止引入 Windows-only API；平台实现必须放在 Infrastructure/Desktop。
+Windows 是官方开发、测试和 Release 平台。macOS 目前仅检查 Core、Documents、Comparison、Data 及其测试的源码构建兼容性，不提供官方安装包或完整质量保证。核心项目禁止引入 Windows-only API；平台实现必须放在 Infrastructure/Desktop。
 
 ## 代码质量
 

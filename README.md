@@ -54,6 +54,8 @@ Final Check 解决“改了什么、哪里改了、怎么整理、格式怎么�
 - [ADR-0001](docs/architecture/ADR-0001-technology-stack.md)
 - [Development](docs/development/README.md)
 - [Performance Baseline](docs/development/performance-baseline.md)
+- [Release Process](docs/development/release-process.md)
+- [Changelog](CHANGELOG.md)
 
 ## Version
 

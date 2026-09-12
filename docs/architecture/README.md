@@ -10,6 +10,8 @@ Document Engine v0 的解析管线、Snapshot schema 与已知限制见 [`docume
 
 Comparison Engine v0 的结果模型、匹配管线和确定性规则见 [`comparison-engine.md`](comparison-engine.md)；Comparison 领域模型归属与多信号段落匹配决策见 [`ADR-0003-comparison-model-and-paragraph-matching.md`](ADR-0003-comparison-model-and-paragraph-matching.md)。
 
+Windows 打包、单一版本源、安装/数据目录分离与发布 channel 决策见 [`ADR-0004-windows-packaging-and-release.md`](ADR-0004-windows-packaging-and-release.md)。Velopack 依赖仅进入 Desktop，不改变核心四层的跨平台边界。
+
 ## Solution 分层
 
 | 项目 | 职责 | 允许的主要依赖 |
@@ -40,4 +42,4 @@ Comparison Engine v0 的结果模型、匹配管线和确定性规则见 [`compa
 - SQLite 初始 Migration 与 UTC 时间转换。
 - `DocumentNodeMapping` 格式恢复映射预留。
 
-Comparison Engine v0 当前已完成 Phase 1 的多信号段落匹配；文字 Diff、结构变化、格式 Diff 及修订/批注归并按任务文件后续 Phase 继续实现。
+Comparison Engine v0 已完成段落匹配、文字 Diff、结构变化、格式 Diff、修订/批注归并与结果持久化；验收和已知限制以任务文件为准。Windows packaging / Release 基础设施独立于业务引擎，软件内 updater UI 仍未实现。

@@ -74,13 +74,15 @@
 
 ## Phase 4 — Packaging verification + docs
 
-状态：NOT STARTED
+状态：IN PROGRESS
 
 目标：完成测试安装包的本机可行验证（环境安全允许时包含安装、启动、版本、数据目录和卸载），补充 `docs/development/release-process.md`、性能基线、开发索引与 `AGENTS.md` 简要发布入口。
 
 完成标准：Windows Release build/test 通过；macOS compatibility CI 通过；文档与实际脚本一致；记录 Setup、Portable、publish 及安装后体积和已知限制。
 
-实际完成：待完成。
+实际完成：下载的 `0.1.0-dev.2.1` Test Setup 已实际安装/启动/正常关闭/卸载，现有用户数据文件及数据库 logical digest 保留。安装实测 180.99 MiB（超过目标，未达告警），拆分记录至性能文档；发布文档、AGENTS 简要索引和开发/架构状态已同步。新增 About / assembly 版本展示测试，待本地最终 Release build/test 及最新代码的 CI/Test Build 实际复验后完成 Phase。
+
+安全检查点：本地最终 Release build 0 warning / 0 error，81/81 xUnit tests PASS，包含 2 个 About/assembly 动态版本测试；actionlint 与 Assembly/File Version PASS。下一步在远程最新检查点实际运行 Test Build 和 CI，下载产物并记录最终验收。仅 About ViewModel/assembly/binding 自动化验证和响应窗口 smoke；未进行手工 GUI 点击 About。
 
 ## 最终验收
 

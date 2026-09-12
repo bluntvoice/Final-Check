@@ -186,7 +186,14 @@ Final Check 以及用户后续新的软件项目，其 GitHub Actions、Release 
 - 下载失败可重试
 - 安装失败可重试
 
-本规则只定义后续实施基准，不代表当前仓库已经配置 GitHub Actions、Release 或软件更新机制。
+当前工作流入口：
+
+- CI：push main / pull request，Windows build/test 与 macOS core compatibility。
+- Internal Test Build：手动构建，仅只读 Actions Artifact，不创建 Tag / Release，不写回正式版本。
+- Prerelease：显式确认的预发布，annotated Tag 与 GitHub Prerelease。
+- Stable：显式确认的稳定发布，annotated Tag、latest Release 与稳定 README。
+
+长期详细发布规则以 [`docs/development/release-process.md`](docs/development/release-process.md) 为准；执行前须先阅读。不得把正式 Release 当作构建测试；本轮基础设施建设不代表已实际发布稳定版本，也不代表软件内 updater UI 已实现。
 
 ## In Line 项目经验复用
 
