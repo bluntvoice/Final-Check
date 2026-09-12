@@ -105,3 +105,16 @@ App 启动初期 Working Set 超过目标，但 Private Memory 在本次稳定�
 安装总大小不能以 publish 大小替代。超过安装目标的主要原因是 runtime payload 加上缓存 full package；当前不删除 Velopack 缓存来伪造低体积，也不未经验证启用 trimming/NativeAOT。后续可单独评估 runtime/native 载荷和更新缓存策略。
 
 实际 silent 安装 exit 0；普通启动创建响应正常的 `Final Check` 窗口，安装内 About assembly version `0.1.0-dev.2.1`；正常关闭后 silent 卸载 exit 0，卸载器延迟自清理后安装目录/快捷方式/注册项消失。安装 hooks 未改变已有 DB/WAL/SHM 的 hash；普通启动前后数据库表/行 digest 一致；卸载未修改用户数据文件。当前本机 DocumentSnapshots / ComparisonResults 均为空，因此该证据不是含真实合同的业务恢复验收。
+
+### 最终版本复验：0.1.0-dev.3.1
+
+来源：[Run 34683856976](https://github.com/bluntvoice/Final-Check/actions/runs/34683856976)，相同技术与配置，包含最终版本/发布脚本和 81 个测试。
+
+| 指标 | Bytes | MiB |
+|---|---:|---:|
+| Publish | 128,217,746 | 122.28 |
+| Setup | 61,842,430 | 58.98 |
+| Portable | 57,167,992 | 54.52 |
+| 实际安装目录 | 189,785,622 | 180.99 |
+
+Setup 安装/启动/正常关闭/卸载重复验证 PASS，Portable 的根目录 `Final Check.exe` 实际启动/正常关闭 PASS。Setup 自身 ProductVersion/FileVersion 与 About assembly/Portable/metadata 都为 `0.1.0-dev.3.1`。安装后体积仍超过 150 MB 目标，但低于 200 MB 告警；上述缓存分析不变。

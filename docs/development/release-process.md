@@ -15,7 +15,7 @@
 
 唯一版本源：根目录 `Directory.Build.props` 的 `Version`。未发布源码基线是 `0.1.0-alpha.0`，产品版本线从 `0.1.0` 开始；alpha 在 SemVer 中先于 beta 和内部 dev 构建。严禁在 `.csproj` 中维护另一份产品/Assembly/Informational version。
 
-Assembly/File Version 由 SDK 派生为数字核心 `x.y.z.0`；Informational Version 保留完整 SemVer。About / 侧栏读取 App assembly metadata。打包校验验证 Informational/File Version、Portable `sq.version` 与 Velopack release metadata 一致。Installer/Portable 的文件名带完整版本；Setup bootstrap 的自身工具版本不能替代内嵌包版本。
+Assembly/File Version 由 SDK 派生为数字核心 `x.y.z.0`；Informational Version 保留完整 SemVer。About / 侧栏读取 App assembly metadata。打包校验验证 Informational/File Version、Portable `sq.version` 与 Velopack release metadata 一致。Installer/Portable 文件名带完整版本，Setup 的 ProductVersion / FileVersion 字符串也必须等于该完整版本并通过自动校验；Velopack CLI 自身的工具版本不是产品版本。
 
 ```powershell
 ./scripts/version.ps1 print
@@ -65,7 +65,7 @@ Windows 使用 .NET 10 + Avalonia、Release、win-x64 self-contained，不要求
 | 文件 | 用途 |
 |---|---|
 | `FinalCheck-v<version>-win-x64-Setup.exe` | 普通用户的 per-user 安装程序 |
-| `FinalCheck-v<version>-win-x64-Portable.zip` | 完整 Portable layout，解压后运行根目录启动 stub |
+| `FinalCheck-v<version>-win-x64-Portable.zip` | 完整 Portable layout，解压后运行根目录 `Final Check.exe`，不要仅复制 current |
 | `FinalCheck-v<version>-win-x64-SHA256.txt` | 每个输出文件的 SHA-256 完整性校验 |
 | `FinalCheck.App-<version>[-channel]-full.nupkg` | Velopack 完整 updater package，名称/内容不改 |
 | `releases.<channel>.json` | 原样保留的版本、package hash/大小与多行 notes feed |
@@ -90,3 +90,12 @@ Velopack 更新替换 `current`，卸载移除整个包 ID 目录。因此包 ID
 - Windows x64 是唯一安装包平台；macOS 继续 Core/Documents/Comparison/Data compatibility CI，不新增官方 macOS 包。
 
 体积预算与真实测试证据见 [Performance baseline](performance-baseline.md)；执行状态见 [Windows packaging task](../tasks/windows-packaging-and-release-v0.md)。代码签名、Updater UI、实际正式发布的端到端验收仍是后续事项。
+
+## 本轮验证证据（2026-09-12）
+
+- [最新 Internal Test Build 34683856976](https://github.com/bluntvoice/Final-Check/actions/runs/34683856976)：PASS，`0.1.0-dev.3.1`；Artifact `final-check-v0.1.0-dev.3.1-windows-test` 实际下载，Actions ZIP digest、所有 SHA256、Setup/Portable/About 版本、metadata 和 portable layout 均复验 PASS。
+- [CI 34683854190](https://github.com/bluntvoice/Final-Check/actions/runs/34683854190)：Windows 全量 build/test（81 tests）与 macOS Core compatibility PASS，包含发布门禁隔离测试。
+- 最新 Test Setup 实际安装 → 响应窗口启动 → 正常关闭 → 卸载 PASS，用户数据文件和 SQLite logical digest 保留；Portable 根目录 `Final Check.exe` 启动/正常关闭 PASS。
+- About 的动态版本经 ViewModel 测试、assembly metadata 和 compiled binding 验证；没有手工 GUI 点击 About。测试数据库的现有业务表为空，不冒充真实合同的数据恢复验收。
+- Test Build 前后 main SHA 未变，Tag / Release 均为 0。正式 Release workflow 未实际触发，只做 actionlint、PowerShell AST 和隔离脚本/原子 push 拒绝路径测试；首次真实发布仍需用户确认并验收 GitHub Release API 链路。
+- 验证前用户数据备份保留在本机 Temp，产物与执行记录保留在 Git 忽略的 `artifacts/`，没有把用户数据提交到仓库。

@@ -16,6 +16,8 @@ foreach ($name in $expected) {
     $path = Join-Path $root $name
     if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Get-Item -LiteralPath $path).Length -le 0) { throw "Missing or empty package asset: $name" }
 }
+$setupInfo = [Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $root "$prefix-Setup.exe"))
+if ($setupInfo.ProductVersion -ne $Version -or $setupInfo.FileVersion -ne $Version) { throw 'Setup executable version mismatch.' }
 
 $hashedFiles = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($line in Get-Content -LiteralPath $checksum) {
@@ -44,6 +46,9 @@ foreach ($asset in @(Get-Content -LiteralPath (Join-Path $root "assets.$channel.
 $archive = [IO.Compression.ZipFile]::OpenRead((Join-Path $root "$prefix-Portable.zip"))
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("finalcheck-package-verify-" + [guid]::NewGuid().ToString('N'))
 try {
+    foreach ($portableEntry in @('.portable', 'Final Check.exe', 'Update.exe')) {
+        if (-not $archive.GetEntry($portableEntry)) { throw "Portable layout is missing $portableEntry." }
+    }
     if (@($archive.Entries | Where-Object { $_.FullName -match '(?i)(\.db(?:-wal|-shm)?$|\.sqlite3?$|/\.env(?:\.|$))' }).Count -gt 0) { throw "Portable includes private runtime data." }
     $entry = $archive.GetEntry('current/sq.version')
     if (-not $entry) { throw "Portable lacks Velopack sq.version." }
