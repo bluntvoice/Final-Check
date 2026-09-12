@@ -115,7 +115,14 @@ Storage Foundation 实现 / 本地测试及最终 Windows/macOS CI / Internal Te
 
 体积预算与真实测试证据见 [Performance baseline](performance-baseline.md)；执行状态见 [Windows packaging task](../tasks/windows-packaging-and-release-v0.md)。代码签名、Updater UI、实际正式发布的端到端验收仍是后续事项。
 
-## 本轮验证证据（2026-09-12）
+## Storage Foundation 验收补充（2026-09-13）
+
+- 实现 SHA `f051a9b3fcbec9df86fcd9bb4468b04e9bf26397`：[CI 34711312314](https://github.com/bluntvoice/Final-Check/actions/runs/34711312314) Windows 197/197 与 macOS core 195/195 PASS；[唯一一次 Internal Test Build 34711320133](https://github.com/bluntvoice/Final-Check/actions/runs/34711320133) `0.1.0-dev.5.1` PASS。
+- Artifact 实际下载，Actions ZIP digest、全部 SHA256、Setup / Portable / About 版本、metadata、layout 与包 ID/channel PASS；runtime payload 128511634 bytes、Setup 61958620 bytes、Portable 57284182 bytes。
+- 实际 Portable Release 程序集在 GUID sandbox harness 中完成生成式 Snapshot / Comparison / restore 历史、迁移 / 热切换 / usage、Avalonia 窗口可见 / 响应 / 正常关闭，exit 0。Release 主入口没有 developer override，未读写正常用户数据库；harness 不是原生 Setup 安装后主入口 / 卸载实测，后者需独立 Windows 用户/VM，不能冒充已执行。
+- 当前 bootstrap / DataRoot 服务已接入；正式 Storage Settings UI / Installer Wizard 未实现。上述存储任务没有更改 Velopack workflow、版本源或创建 Final Check Tag / Release；完整事实与限制见 [storage task](../tasks/storage-foundation-v0.md)。
+
+## 既有发布基础设施验证证据（2026-09-12）
 
 - [最新 Internal Test Build 34683856976](https://github.com/bluntvoice/Final-Check/actions/runs/34683856976)：PASS，`0.1.0-dev.3.1`；Artifact `final-check-v0.1.0-dev.3.1-windows-test` 实际下载，Actions ZIP digest、所有 SHA256、Setup/Portable/About 版本、metadata 和 portable layout 均复验 PASS。
 - [CI 34683854190](https://github.com/bluntvoice/Final-Check/actions/runs/34683854190)：Windows 全量 build/test（81 tests）与 macOS Core compatibility PASS，包含发布门禁隔离测试。

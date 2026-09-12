@@ -1,6 +1,6 @@
 # ADR-0006：可选安装目录与独立、可迁移 DataRoot
 
-- 状态：Accepted；Storage Foundation Phase 1–5 已实现，最终平台/打包验收以 task 为准；Installer Spike 尚未验收。
+- 状态：Accepted；Storage Foundation Phase 1–5 已实现并通过平台/打包基础验收，证据见 task；Installer Spike 尚未验收。
 - 日期：2026-09-12
 - 适用版本：v0.1.0 development
 - 部分取代：ADR-0004 中“固定默认安装路径即可满足产品”的假设；保留其 Velopack、版本、channel、feed 和发布安全决策。ADR-0005 的 Working Copy 安全管线保持不变，路径归属未来改为 DataRoot。

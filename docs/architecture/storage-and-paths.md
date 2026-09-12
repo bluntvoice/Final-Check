@@ -1,7 +1,7 @@
 # Storage and Paths
 
 - 日期：2026-09-13
-- 状态：Storage Foundation Phase 1–5 基础实现与本地测试完成；最终 CI / Test Build 证据以 task 为准。正式 Storage Settings UI 尚未实现。
+- 状态：Storage Foundation Phase 1–5、Release build/test、Windows/macOS CI 和一次 Test Build / 实际 Release payload 隔离启动已验证，证据见 task。正式 Storage Settings UI 尚未实现。
 - 决策：[ADR-0006](ADR-0006-install-location-and-data-root.md)。
 
 ## 两种位置、四类路径

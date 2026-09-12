@@ -1,6 +1,6 @@
 # Final Check — Storage Foundation v0
 
-> Status: IN PROGRESS  
+> Status: DONE  
 > Version: v0.1.0 development  
 > Scope: DataRoot / Bootstrap / Storage Migration Foundation  
 > Depends on: Document Engine v0, Comparison Engine v0, Format Restore Engine v0  
@@ -921,7 +921,7 @@ macOS core CI 继续通过。
 - Phase 2 — Path Adoption：DONE
 - Phase 3 — Validation：DONE
 - Phase 4 — Migration：DONE
-- Phase 5 — Runtime Integration：IN PROGRESS
+- Phase 5 — Runtime Integration：DONE
 
 Codex 持续维护实际状态。
 
@@ -966,7 +966,7 @@ Codex 持续维护实际状态。
 - 迁移 journal 在 bootstrap-side，失败 / 取消保留 staging 和旧 root；启动 recovery 能判断未提交旧 root 与已提交新 root，后者保留后续合法写入，不回退旧库造成分叉。故障 / 非空残留不自动删除或覆盖，重试使用新空目标；自动恢复 receipt 不等于自动续传 staging。
 - 17 项新增迁移 / 屏障专项测试全部通过；Release build 零警告 / 零错误，全量 181/181（原有 125 无回归）。当前尚未接入启动 recovery / Debug 命令 / usage，留在 Phase 5。
 
-### Phase 5 — IN PROGRESS（本地实现已验证，待最终 CI / Packaging）
+### Phase 5 — Runtime Integration
 
 - `DesktopStorageServices` 接入真实入口：Velopack lifecycle → bootstrap / RootId / 固定盘政策 → migration recovery → 数据初始化 / 标记 initialized → Avalonia。损坏/未知/缺库与高风险路径不建空库；跨进程 reload 使用相同 resolver 政策。
 - `IStorageUsageService` 按需计算当前 generation 物理唯一分类之和；Snapshot / Comparison / restore 逻辑 payload bytes 包含于 Database，不 double-count。包含 WAL/SHM、Working Copy、previous/通用 Backup、Cache、Logs、candidate/Temp、Other，排除原始 DOCX 与 legacy bootstrap-control；失败返回 partial diagnostics。
@@ -974,7 +974,17 @@ Codex 持续维护实际状态。
 - Debug-only 命令支持路径查看 / 候选验证 / 迁移 / result / usage，必须显式隔离 root；测试迁移仅允许 `<developer-root>.target`，该已知隔离 source/target 的 Temp 例外不编译入 Release，无隐藏 Release override。
 - 16 项新增 Runtime / usage / legacy 完整历史 / startup recovery / 风险路径 / retry 测试全部通过；真实启动 composition 直接 link 至 Data.Tests，不让 core CI 依赖 Avalonia/Velopack。Release 全量 197/197，build 零警告 / 零错误，version / release infrastructure 隔离测试通过。
 - Debug CLI 在 GUID root 完成迁移后同进程输出 generation 2 与新 root usage；Debug 桌面窗口 PID 20244、标题 Final Check、handle 非零、Responding=true，CloseMainWindow / WaitForExit 均 true。使用自建空库验证启动，不冒充历史验收；历史由生成式 DOCX / SQLite 集成测试覆盖。
-- Phase 4 CI `34710762898` Windows / macOS 均 PASS。待完成：此 Phase 代码 commit / push 后的最终 Windows/macOS CI、一次 Internal Windows Test Build、实际产物复验与隔离 Release payload startup；未执行原生 Setup 主入口的正常用户数据启动/卸载，不以覆盖 bootstrap 隔离。
+- Phase 4 CI `34710762898` Windows / macOS 均 PASS。Phase 5 实现 `f051a9b` 已正常 commit / push，CI `34711312314` Windows build/test 197/197、macOS core compatibility 195/195 均 PASS，零警告 / 零错误。此次只触发一次 Internal Windows Test Build `34711320133`，版本 `0.1.0-dev.5.1`，Release build/test / publish / Setup / Portable / upload 全 PASS，无 Tag / Release。
+- Artifact `10303681560`（173394434 bytes）实际下载，Actions ZIP digest `ded168a7a4f04de44983e295750ba51179ef432d32a34878a8bb6da25e73b965` 匹配；本地 package verifier 复验全部输出 SHA256、Setup/Portable/About 版本、metadata、包 ID / channel / native payload / layout PASS。Setup 61958620 bytes，Portable 57284182 bytes，runtime payload 128511634 bytes；未修改现有 Velopack 或 packaging workflow。
+- 实际 Portable Release 程序集由独立 harness 引用 / 加载，注入 GUID sandbox 的平台接口，完成生成式 DOCX 的 Snapshot / Comparison / restore 持久化、DataRoot migration / target reopen、原始与旧数据保留、同进程 generation 2 / usage 刷新、Avalonia 窗口 visible / Responding=true / handle 非零、AppVersion `0.1.0-dev.5.1` 与正常关闭，host exit 0。未给 Release 主入口加入 Debug path 参数，不读取正常用户 SQLite / bootstrap；这是实际 Release payload / composition startup，不冒充原生 Setup 安装后的主入口 / 卸载实测。
+- 产物与验证 harness 保留在 Git 忽略目录 `artifacts/storage-foundation-validation-6353774dfafe4c60ab7c8295bf1a7f38/` 供复验；隔离 GUID 临时数据在验收后仅清理自身，不删除用户旧数据。最终验收整理是有内容的文档 commit，非空 commit。
+
+### 最终验收与已知限制
+
+- 五个 Phase 已完成；本地 Release 197/197（原有 125 加新增 72），Windows CI 197/197、macOS core CI 195/195，全无失败 / skip；version / release infrastructure 隔离门禁通过。
+- 正式 Storage Settings UI、Installer Wizard、网络 / 可移动 / 云同步目录、自动旧数据清理与 staging 自动续传均未实现。未知第三方同步工具无法全面识别，不宣称支持。长期 data scope / 其他合作进程忙会阻断迁移，外部 Word/WPS 必须关闭，不强制中断用户操作。
+- 原生 Setup 安装后正式主入口 / 维护 / 卸载没有在独立 Windows 用户或 VM 中执行，不通过临时改写正常 bootstrap 冒充隔离；本轮只验证 Setup 构建/metadata 和实际 Release payload 的隔离启动。现有安装目录选择需求仍由独立 Installer Spike 负责。
+- Storage Foundation 已具备后续正式 Comparison UI 调用的稳定基础服务；正式 UI 仍需按其任务完成事件绑定、scope 生命周期与错误展示，不把基础服务完成当作 UI 已实现。
 
 ---
 
