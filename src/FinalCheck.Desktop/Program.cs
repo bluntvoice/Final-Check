@@ -61,7 +61,7 @@ internal static class Program
             return new DeveloperStoragePaths(args[developerPathIndex + 1]);
         }
 #endif
-        return new PlatformStoragePaths();
+        return new PlatformStoragePaths(Velopack.Locators.VelopackLocator.Current.RootAppDir ?? AppContext.BaseDirectory);
     }
 
     private static void ConfigureServices(IServiceCollection services, IPlatformStoragePaths platformPaths)

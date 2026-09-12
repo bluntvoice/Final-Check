@@ -919,7 +919,7 @@ macOS core CI 继续通过。
 
 - Phase 1 — DataRoot / Bootstrap：DONE
 - Phase 2 — Path Adoption：DONE
-- Phase 3 — Validation：TODO
+- Phase 3 — Validation：DONE
 - Phase 4 — Migration：TODO
 - Phase 5 — Runtime Integration：TODO
 
@@ -945,6 +945,16 @@ Codex 持续维护实际状态。
 - 新增 4 个路径接入测试，Release 全量测试 149/149；Release build 零警告、零错误。默认 / 自定义 root 验证真实生成 DOCX 的恢复、持久化、重新打开与原文不变。
 - Debug App 冒烟使用 GUID 隔离目录 `C:\Users\KB\AppData\Local\Temp\FinalCheck.Storage.Smoke-5a9275d0efd3444688b2c06914a98a7f`：bootstrap / SQLite 创建，window handle 非零，Responding=true，正常关闭；未启动正常用户数据库。
 - 路径接入不等于已完成迁移 / 热切换，后续 Phase 将加入共同维护屏障和 data session rebind。
+
+### Phase 3 — Validation
+
+- Core 新增 `IDataRootValidator` / validation result 与可注入的 volume facts；Infrastructure 实现磁盘类型、已知 OneDrive 环境根、权限 probe 与保守路径政策，无 Core/Data Windows-only API。
+- 阻断相对路径、UNC/设备路径、盘根、Windows 危险路径尾字符、安装实例根 / 源 root 重叠、链接、非固定盘、已知同步根 / 临时目录、非空目标和权限不足；不自动提权、修改 ACL 或覆盖已有数据。
+- 实际 install context 由 Desktop 传入 Velopack locator RootAppDir，不把 replaceable current 当作整个安装根目录。
+- 空间预算包含完整 copy/staging、额外一致性 DB backup、至少 64 MiB 或 10% 安全余量；不足 / 无法获取 / 溢出均返回明确失败，不采用 free > used。
+- 新增 15 项 validation tests；权限 / 网络 / 可移动 / 低空间与 C/D 路径政策以注入 facts/probe 隔离模拟，真实目录写入 / flush / readback / rename 在 GUID fixture 验证，无真实 D 盘或用户名依赖。Release build 零警告 / 零错误，全量测试 164/164。
+- Phase 2 CI run `34699039906` Windows / macOS 均 PASS，确认 macOS 系统临时目录 alias 夹具修正生效；未降低生产链接阻断政策。
+- 不宣称识别全部第三方同步工具；正式支持范围仍为普通本机固定磁盘目录。尚未公开 UI 或执行用户数据迁移。
 
 ---
 

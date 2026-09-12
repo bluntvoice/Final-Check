@@ -2,7 +2,7 @@ using FinalCheck.Core.Storage;
 
 namespace FinalCheck.Infrastructure;
 
-public sealed class PlatformStoragePaths : IPlatformStoragePaths
+public sealed class PlatformStoragePaths(string? installDirectory = null) : IPlatformStoragePaths
 {
     public string ConfigurationDirectory
     {
@@ -15,5 +15,5 @@ public sealed class PlatformStoragePaths : IPlatformStoragePaths
     }
     public string DefaultDataRoot => Path.Combine(ConfigurationDirectory, "Data");
     public string LegacyDataRoot => ConfigurationDirectory;
-    public string InstallDirectory => AppContext.BaseDirectory;
+    public string InstallDirectory => Path.GetFullPath(installDirectory ?? AppContext.BaseDirectory);
 }

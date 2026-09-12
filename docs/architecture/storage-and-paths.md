@@ -134,6 +134,8 @@ bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood`
 
 ## v0.1.0 路径政策
 
+Storage Foundation Phase 3 已实现 `IDataRootValidator`：由 Infrastructure 的 `DriveInfo` / known OneDrive 环境根提供磁盘 facts，目录权限以唯一 probe 的创建、flush、读回、rename 验证，不改 ACL。实际安装根由 Desktop 的固定版本 Velopack locator 注入；Source overlap 和非空 target 默认阻断。预算为 source physical bytes + 一致性 DB 额外 backup bytes + max(64 MiB, source/10)；未知空间/类型失败阻断。生产 validator 不放开 Temp 或 network，测试仅使用注入 facts 的 GUID 隔离夹具。未知同步工具不保证检测。
+
 正式首阶段只允许 Windows 当前用户可读写、可重命名的本机固定磁盘绝对目录。规范化后校验每个现有祖先/目标、真实磁盘类型、ACL 和所有权；固定 D/E 盘正常可支持，不要求管理员或限定 C 盘。
 
 - 拒绝相对路径、盘根、设备路径/危险名称、网络 UNC（含扩展 UNC）与映射网络盘、可移动盘、已识别 OneDrive 等同步根目录、symlink/junction/reparse-point，以及安装/数据根重叠、old/new root 互为父子、其他非空数据目录。

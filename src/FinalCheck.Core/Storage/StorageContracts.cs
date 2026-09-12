@@ -66,3 +66,19 @@ public interface IDataRootDatabaseInspector
 
 public sealed record DataRootResolution(IDataRootProvider Provider, bool DatabaseInitialized,
     string RecoveryCode);
+
+public enum StorageDriveKind { Fixed, Network, Removable, Unknown }
+public sealed record StorageVolumeInfo(StorageDriveKind Kind, long AvailableBytes,
+    string TemporaryDirectory, IReadOnlyList<string> KnownSyncRoots);
+public interface IStorageVolumeInfoProvider
+{
+    StorageVolumeInfo Inspect(string absolutePath);
+}
+public sealed record DataRootValidationRequest(string Path, string? SourceRoot = null,
+    long SourceBytes = 0, long DatabaseBytes = 0, bool RequireEmpty = true);
+public sealed record DataRootValidationResult(bool IsValid, string? NormalizedPath, string Code,
+    long RequiredBytes, long AvailableBytes);
+public interface IDataRootValidator
+{
+    DataRootValidationResult Validate(DataRootValidationRequest request);
+}
