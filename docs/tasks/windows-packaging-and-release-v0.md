@@ -36,7 +36,7 @@
 
 ## Phase 2 — Test Build Action
 
-状态：IN PROGRESS
+状态：COMPLETE
 
 目标：新增 `.github/workflows/build-test.yml`，仅由 `workflow_dispatch` 触发，以只读权限生成唯一的 `0.1.0-dev.<run>.<attempt>` Windows 测试 Artifact，保留 14 天，不 commit、不 push、不创建 Tag / Release、不修改正式版本文档或稳定更新通道。
 
@@ -45,6 +45,15 @@
 实际完成：`build-test.yml` 已实现只读权限、runner ephemeral dev 版本、Release build/test、统一打包与 14 天 Artifact；现有 CI 加入版本脚本验证。需要先推送此安全检查点以注册工作流，再实际 dispatch、下载并校验产物，记录远程 main / Tag / Release 不变后完成 Phase。
 
 首次远程 Run `34682956763` 的版本测试断言通过，但预期失败子进程留下 exit code 1，导致 Actions wrapper 错判；未打包/发布。已明确成功退出码并增加同包装器本地复验，待修正后的实际 Run 验收。对应 CI 的 macOS job PASS。
+
+最终验收（2026-09-12）：
+
+- 安全检查点 `e8a740b` 与退出码修正 `7c33cbd` 均正常推送。
+- [Internal Test Run 34683055427](https://github.com/bluntvoice/Final-Check/actions/runs/34683055427)：PASS，版本 `0.1.0-dev.2.1`。
+- Artifact `final-check-v0.1.0-dev.2.1-windows-test`（ID `10294667042`）已实际下载并解压；ZIP digest 与 GitHub 提供的 SHA256 一致，产物内全文件 checksum、metadata、Portable/About assembly 版本均 PASS。14 天保留至 2026-09-26。
+- Setup 61,842,439 B；Portable 57,168,001 B；publish 128,217,746 B。
+- 测试 workflow 前后远程 main 均为 `7c33cbd36326da8c537ca2f950f63189e3b36a71`；Tag 0、Release 0，未发生远程写入。
+- [CI 34683050582](https://github.com/bluntvoice/Final-Check/actions/runs/34683050582)：Windows build/test 与 macOS core compatibility 均 PASS。actionlint 1.7.12 校验 PASS。
 
 ## Phase 3 — Release Action
 
