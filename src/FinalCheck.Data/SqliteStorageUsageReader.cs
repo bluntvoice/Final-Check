@@ -21,9 +21,19 @@ public sealed class SqliteStorageUsageReader : IStorageDatabaseUsageReader
             return Convert.ToInt64(await command.ExecuteScalarAsync(cancellationToken), System.Globalization.CultureInfo.InvariantCulture);
         }
         var snapshots = await Bytes("DocumentSnapshots");
-        var comparisons = await Bytes("ComparisonResults");
+        var comparisons = checked(await Bytes("ComparisonResults") + await Bytes("ComparisonRecords"));
         var restores = checked(await Bytes("RestoredWorkingCopies") + await Bytes("FormatRestoreOperations"));
         var originals = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction; command.CommandText = "SELECT Payload FROM ComparisonRecords";
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var record = ComparisonRecordStore.Decode((byte[])reader[0]);
+                originals.Add(Path.GetFullPath(record.BaselineFile.Path)); originals.Add(Path.GetFullPath(record.CurrentFile.Path));
+            }
+        }
         foreach (var table in new[] { "RestoredWorkingCopies", "FormatRestoreOperations" })
         {
             using var command = connection.CreateCommand();

@@ -49,6 +49,13 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
             _expected = await FactsAsync(context, sourceRoot, token);
             OriginalPaths = (await context.RestoredWorkingCopies.AsNoTracking().ToArrayAsync(token))
                 .Select(row => DecodeCopy(row.Payload).OriginalPath).ToHashSet(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            var originals = OriginalPaths.ToHashSet(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            foreach (var row in await context.ComparisonRecords.AsNoTracking().ToArrayAsync(token))
+            {
+                var record = ComparisonRecordStore.Decode(row.Payload);
+                originals.Add(Path.GetFullPath(record.BaselineFile.Path)); originals.Add(Path.GetFullPath(record.CurrentFile.Path));
+            }
+            OriginalPaths = originals;
         }
         public async Task BackupAsync(string stagingRoot, Guid operationId, CancellationToken cancellationToken = default)
         {
@@ -122,6 +129,12 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
                     row.BaselineSnapshotId != result.Metadata.BaselineSnapshotId || row.CurrentSnapshotId != result.Metadata.CurrentSnapshotId)
                     throw new InvalidDataException("Inconsistent Comparison metadata.");
                 facts.Add("comparison:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
+            }
+            foreach (var row in await context.ComparisonRecords.AsNoTracking().ToArrayAsync(token))
+            {
+                _ = await new ComparisonRecordStore(context, snapshots, comparisons).LoadAsync(row.Id, token)
+                    ?? throw new InvalidDataException("Missing comparison record.");
+                facts.Add("record:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
             }
             foreach (var row in await context.RestoredWorkingCopies.AsNoTracking().ToArrayAsync(token))
             {

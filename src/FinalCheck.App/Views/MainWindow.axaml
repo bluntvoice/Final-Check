@@ -55,5 +55,12 @@
         </Grid>
       </Border>
     </Grid>
+    <Border Grid.ColumnSpan="2" IsVisible="{Binding LeavePrompt}" Background="#EEFFFFFF" Padding="32">
+      <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+        <TextBlock Text="比对仍在执行。离开将取消本次操作，是否继续？" TextWrapping="Wrap" />
+        <Button Content="取消比对并离开" Command="{Binding ConfirmLeaveCommand}" />
+        <Button Content="继续等待" Command="{Binding StayCommand}" IsCancel="True" />
+      </StackPanel>
+    </Border>
   </Grid>
 </Window>

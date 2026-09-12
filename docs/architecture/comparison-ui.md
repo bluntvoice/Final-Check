@@ -13,3 +13,15 @@ Quick Compare 是不要求项目、模板或版本链的独立入口：首页 �
 ## 实施状态
 
 Phase 1 为入口与文件会话基础；完整工作流服务、历史、结果管理与预览将在 Phase 2–5 按 task 逐阶段接入。入口基础不代表完整比对已可试用，真实状态见 [task](../tasks/comparison-ui-v0.md)。
+
+## 工作流服务与执行 UX
+
+`IComparisonWorkflowService` 在 Core 定义，Desktop 的 Application orchestration 组合现有 parser、engine 和短生命周期数据 scope；App 不引用 Documents、Comparison 实现或 EF。后台重新校验两侧 hash / metadata；相同路径/内容先由 VM 请求用户继续或取消。执行持有只读源流，解析 hash 与选定身份一致且结束前再次校验，再保存结果。文件变化明确拒绝重试；已保存历史只从冻结 Snapshot 加载，不再解析源文件。
+
+引擎阶段直接转换为中文提示，使用不定进度条，不伪造百分比。取消向实际 validation / parser / engine / persistence 传递 token，提交临界区前可回滚，已完成提交不冒充取消。重复执行受 VM busy / command gate 阻断；导航离开执行页需要明确取消决定。Partial 保留解析 code / 位置摘要，先提示可能不完整，用户选择继续；错误按文件缺失/权限/加密/无效包/取消/意外分别表达，技术详情只显示异常种类或错误 code，不泄露正文和 stack。
+
+## 独立历史与存储
+
+Database schema 4 的增量 `ComparisonRecords` 引用两份 DocumentSnapshots 和一个 ComparisonResults（FK Restrict），payload schema 1 保存独立 RecordId、外部路径/metadata/hash、时间和原 ChangeId → review state。不预建项目实体，后续可另行关联；每次比对追加，不覆盖历史。快照/结果/record 单一 SQLite transaction 写入，任一步失败/提交前取消都不能留下半条记录。读取核对外键、hash、snapshot identity 和 review keys；未知 schema 拒绝。
+
+数据 scope 只在一次存取操作内使用，结束即释放共同 storage lease，不在 ViewModel 中持有 DbContext。新表加入 readonly bootstrap inspector、迁移 logical facts / payload digest / 引用验证与占用计算；两侧原始路径加入排除清单，即使原文恰好位于旧 DataRoot 也不迁移。记录/review payload 是包含于 Database 的 Comparison 逻辑 bytes，不能重复加到物理总计。旧 schema 3 的原 payload 在增量升级中保持原样。

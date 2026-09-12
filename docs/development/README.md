@@ -66,7 +66,7 @@ OutputDirectory 必须为空；本地 Test 包只覆盖构建参数，不改源�
 
 ## Document Engine 开发与测试
 
-Comparison UI v0 正在按 [task](../tasks/comparison-ui-v0.md) 推進；入口会话与文件输入已接入，完整执行/结果/预览按 Phase 2–5 完成后才可宣称可试用。架构见 [comparison-ui.md](../architecture/comparison-ui.md)。App.Tests 包含无 GUI 初始化的 VM 状态与导航检查；Data.Tests 的文件输入测试仅使用 GUID 隔离目录。
+Comparison UI v0 正在按 [task](../tasks/comparison-ui-v0.md) 推进；入口/文件会话、后台执行服务与独立持久历史已接入，完整结果/预览按 Phase 3–5 完成后才可宣称可试用。架构见 [comparison-ui.md](../architecture/comparison-ui.md)。App.Tests 包含无 GUI 初始化的 VM 状态与导航检查；Data.Tests 直接 link 同一 Desktop 工作流，使用 GUID 隔离 DOCX / SQLite 检查真实引擎、取消、Partial、冻结历史及记录迁移。Database schema 4 只新增 ComparisonRecords，不改旧领域 payload schema。
 
 Document Engine 架构与已知限制见 [`document-engine.md`](../architecture/document-engine.md)。解析测试使用 `DocumentFixtureFactory` 在内存中生成小型 DOCX，不使用真实合同。夹具目录说明见 [`tests/fixtures/README.md`](../../tests/fixtures/README.md)。
 

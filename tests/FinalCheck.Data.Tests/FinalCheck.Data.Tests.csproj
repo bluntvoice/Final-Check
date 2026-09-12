@@ -22,6 +22,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <Compile Include="..\..\src\FinalCheck.Desktop\DesktopStorageServices.cs" Link="DesktopStorageServices.cs" />
+    <Compile Include="..\..\src\FinalCheck.Desktop\ComparisonWorkflowService.cs" Link="ComparisonWorkflowService.cs" />
   </ItemGroup>
 
   <ItemGroup>

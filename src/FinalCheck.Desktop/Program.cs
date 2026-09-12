@@ -91,11 +91,13 @@ internal static class Program
         services.AddSingleton<IFormatRestoreRenderer, OpenXmlFormatRestoreRenderer>();
         services.AddSingleton<IWorkingCopyComparisonService, WorkingCopyComparisonService>();
         services.AddSingleton<IComparisonFileInspector, ComparisonFileInspector>();
+        services.AddSingleton<IComparisonWorkflowService, ComparisonWorkflowService>();
         services.AddSingleton<ComparisonSetupViewModel>();
         services.AddSingleton<MainViewModel>();
 
         services.AddScoped<DocumentSnapshotStore>();
         services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
+        services.AddScoped<IComparisonRecordStore, ComparisonRecordStore>();
         services.AddScoped<IFormatRestoreStore, FormatRestoreStore>();
         services.AddScoped<IFormatRestoreWorkingCopyService, FormatRestoreWorkingCopyService>();
     }

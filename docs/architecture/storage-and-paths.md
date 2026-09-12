@@ -23,7 +23,7 @@ InstallRoot 与 DataRoot 禁止相同或父子重叠，不能把业务数据搬�
 
 `PlatformAppDataPathProvider` 已成为 DataRoot generation session 的兼容 adapter；`DataRootDbContextFactory` 以 pooling=false 构造同一 scope 的数据库连接，Working Copy 使用 `WorkingCopies/<ContractVersionId:N>/restored.docx`。维护屏障等待既有 scope 释放并阻断新 scope；已释放 scope 的路径不能继续使用。Debug-only developer data override 是隔离测试工具，不是正式用户路径设置。
 
-数据库 schema 3：DocumentSnapshots（Snapshot schema 2）、ComparisonResults（schema 1）、RestoredWorkingCopies、FormatRestoreOperations（operation schema 1），领域 JSON payload 在 SQLite 内；目前没有独立 Snapshot / Comparison 文件仓库。恢复 metadata / operation 中已有绝对 WorkingPath、TemporaryPath、BackupPath，以及 OriginalPath；WorkingPath 还需与托管目录精确匹配。
+数据库 schema 4：保留 DocumentSnapshots（Snapshot schema 2）、ComparisonResults（schema 1）、RestoredWorkingCopies、FormatRestoreOperations（operation schema 1），新增独立 ComparisonRecords（record schema 1）引用冻结快照/结果并保存外部文件身份与 review states。新表同步加入迁移 digest / 引用验证和原文排除 / Comparison 逻辑占用。领域 JSON payload 在 SQLite 内；目前没有独立 Snapshot / Comparison 文件仓库。恢复 metadata / operation 中已有绝对 WorkingPath、TemporaryPath、BackupPath，以及 OriginalPath；WorkingPath 还需与托管目录精确匹配。
 
 Storage Foundation 已引入 bootstrap 和 provider，保持旧用户原位置而非搬动数据。启动顺序须保持 **Velopack lifecycle hooks → bootstrap / 恢复检查 → DataRoot provider → 数据层 → UI**，安装/卸载 hooks 不打开数据库。
 

@@ -25,6 +25,20 @@
       </Border>
     </Grid>
     <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
-    <Button Content="开始比对" IsEnabled="{Binding CanStart}" AutomationProperties.Name="开始比对" />
+    <ProgressBar IsVisible="{Binding IsExecuting}" IsIndeterminate="True" />
+    <WrapPanel>
+      <Button Content="开始比对" Command="{Binding StartCommand}" IsDefault="True" AutomationProperties.Name="开始比对" />
+      <Button Content="取消" Command="{Binding CancelCommand}" IsVisible="{Binding IsExecuting}" Margin="8,0" IsCancel="True" />
+    </WrapPanel>
+    <StackPanel IsVisible="{Binding IdenticalPrompt}" Spacing="8">
+      <Button Content="仍然执行比对" Command="{Binding ContinueIdenticalCommand}" />
+      <Button Content="取消相同比对" Command="{Binding CancelCommand}" />
+    </StackPanel>
+    <StackPanel IsVisible="{Binding Outcome.IsPartial}" Spacing="8">
+      <TextBlock Text="本次比对结果可能不完整。" Foreground="#9A5B00" />
+      <ItemsControl ItemsSource="{Binding Session.Diagnostics}" />
+      <Button Content="继续查看结果" Command="{Binding ViewPartialCommand}" />
+    </StackPanel>
+    <Expander Header="查看技术详情"><TextBlock Text="{Binding TechnicalDetails}" TextWrapping="Wrap" /></Expander>
   </StackPanel>
 </UserControl>

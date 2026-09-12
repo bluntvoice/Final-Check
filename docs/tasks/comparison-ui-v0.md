@@ -1171,7 +1171,10 @@ Cancel 后：
 - Phase 1 — Quick Compare Entry：DONE
   - 实际完成（2026-09-13）：首页新建比对、双侧 DOCX picker / drag-drop 适配、单文件限制、后台只读 metadata/hash 校验、替换/移除、路径与哈希状态、ComparisonSession 与 VM 状态。View 不访问引擎/SQLite；原文件不复制、不修改。Phase 1 仅完成输入基础，执行服务在 Phase 2 接入。
   - 验证：App VM 6/6（新增 4），真实文件 inspector 2/2；Release Desktop 编译 0 warning / 0 error；原有全量 197 加新增 6 的回归检查通过后提交。
-- Phase 2 — Execution UX：TODO
+- Phase 2 — Execution UX：DONE
+  - 实际完成：Core 工作流接口与 Desktop 编排服务调用既有 parser / Comparison Engine；后台重新检查路径/hash/外部变化，持有只读源流并校验解析身份；相同路径/hash 提供继续/取消。真实阶段进度、不定进度条、取消/重复执行 gate、导航离开取消确认、错误分类与 Partial 显式继续。
+  - 数据：schema 4 增量 ComparisonRecords 与 FK 引用，两份冻结快照 + 结果 + record 单一事务追加；短 scope 释放 storage lease。Readonly bootstrap inspector、迁移 logical digest / 引用校验、原文排除与 Comparison 逻辑占用同步更新；旧 schema 3 payload 保留。原始 DOCX 不复制。
+  - 验证：新增 9 项真实工作流/迁移/升级集成测试及 6 项 VM 执行测试；全量 Release 218 项回归，Desktop build 零警告/零错误。结果列表仍属于 Phase 3；本阶段不宣称完整 UI 已可试用。
 - Phase 3 — Results：TODO
 - Phase 4 — Filter / Review：TODO
 - Phase 5 — Preview / Navigation：TODO

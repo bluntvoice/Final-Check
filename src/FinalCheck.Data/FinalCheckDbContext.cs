@@ -27,7 +27,8 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
     {
         try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
     }
-    public const int DatabaseSchemaVersion = 3;
+    public const int DatabaseSchemaVersion = 4;
+    public DbSet<StoredComparisonRecord> ComparisonRecords => Set<StoredComparisonRecord>();
 
     public DbSet<StoredDocumentSnapshot> DocumentSnapshots => Set<StoredDocumentSnapshot>();
 
@@ -44,6 +45,16 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             value => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime(),
             value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
+        modelBuilder.Entity<StoredComparisonRecord>(entity =>
+        {
+            entity.ToTable("ComparisonRecords"); entity.HasKey(record => record.Id);
+            entity.Property(record => record.Payload).IsRequired();
+            entity.Property(record => record.CreatedAtUtc).HasConversion(utcDateTimeConverter).IsRequired();
+            entity.HasIndex(record => record.CreatedAtUtc);
+            entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(record => record.BaselineSnapshotId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(record => record.CurrentSnapshotId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredComparisonResult>().WithMany().HasForeignKey(record => record.ResultId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<StoredDocumentSnapshot>(entity =>
         {
             entity.ToTable("DocumentSnapshots");
