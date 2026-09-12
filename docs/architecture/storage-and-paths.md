@@ -79,9 +79,13 @@ schema/version 用于验证 locator 和布局，不等同于数据库、Snapshot
 
 写入先在同一配置目录创建唯一 temp、flush、验证，再通过平台原子 replace/rename 更新 locator，保留 previous。更新需 expected generation、互斥与读回，防止两个实例并行改位置；读回不确定不得直接认定成功或重试覆盖。不能把 DataRoot 只存于目标 SQLite。
 
-## 必要接口设计（未新增生产 API）
+## 基础接口与实施状态
 
-接口与纯记录放 Core；Windows 路径/磁盘/Registry/folder-open 实现放 Infrastructure/Desktop；SQLite backup/integrity 放 Data。以下为职责契约，具体签名在 Storage Settings 任务中和测试一起落地：
+Storage Foundation v0 Phase 1 已实现 Core `IDataRootProvider` / 不可变 `DataRootPaths`、平台 `IPlatformStoragePaths`、文件 `IStorageBootstrapStore` 和 Data 只读数据库 inspector，尚未接入 Desktop 或实现迁移。准确阶段状态见 [storage task](../tasks/storage-foundation-v0.md)。以下其余职责仍是待实现契约，不把模型存在当作热切换已完成。
+
+bootstrap schema 1 实际字段为 `schemaVersion`、`current` / `lastKnownGood` descriptor 和 `databaseInitialized`；descriptor 包含 path / rootId / layoutVersion / generation。DataRoot 内 `.finalcheck-root.json` 用于身份核验。LastKnownGood 是**当前已提交 generation** 的可信定位，不是“永远选择迁移前旧库”；`bootstrap.json.previous` 仅保留审计材料。首次注册允许尚未初始化数据库，初始化完成必须标记，之后缺库明确阻断。旧布局自动识别不搬动 payload / Working Copy。
+
+接口与纯记录放 Core；Windows 路径/磁盘/Registry/folder-open 实现放 Infrastructure/Desktop；SQLite backup/integrity 放 Data。以下为职责契约，具体签名在 Storage Foundation / 后续 Storage Settings 任务中和测试一起落地：
 
 | 接口 | 必要职责 |
 |---|---|
