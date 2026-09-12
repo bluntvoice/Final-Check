@@ -137,7 +137,8 @@ public sealed class FormatRestoreWorkingCopyService(IAppDataPathProvider paths, 
             }
             progress?.Report(new(FormatRestoreStage.Reparsing, 0, null));
             var reparsed = await parser.ParseFileAsync(temporary, cancellationToken: token);
-            if (reparsed.Metadata.Sha256 != afterHash) throw new InvalidDataException("ReparseValidationFailed.");
+            if (reparsed.Metadata.Sha256 != afterHash || rendered.Snapshot.Metadata.Sha256 != afterHash)
+                throw new InvalidDataException("ReparseValidationFailed: candidate and recorded Snapshot hash must agree.");
             progress?.Report(new(FormatRestoreStage.Validating, 0, null));
             await store.SavePreparedAsync(operation, token); prepared = true;
             token.ThrowIfCancellationRequested();

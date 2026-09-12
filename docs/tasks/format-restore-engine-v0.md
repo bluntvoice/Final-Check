@@ -1273,8 +1273,8 @@ macOS CI 必须继续通过 Core/Documents/Comparison/Data 兼容性验证。
   - 测试：新增 4 项 table/cell/row、改变正文、增行局部恢复/拒绝、merge state、样式边界测试；Release 全部 102/102 通过（Documents 42），table text 与未处理 OPC 内容保持。
 * Phase 5 — Working Copy / Undo / Preservation：DONE
   - 实际完成：每版本稳定 working path；私有输出与 candidate 正式重解析、hash/语义保留校验、Prepared journal + 原子 replace/safe move + DB transaction；发布失败回滚/不确定状态保留，crash recovery；仅最近一次属性 Undo 且 hash/after 状态保护；外部编辑明确 preserve（追加 Snapshot/Comparison）或 regenerate（保留旧 backup）；schema 3 migration、版本化 Plan/operation/Items/history 与并发 metadata。
-  - 测试：新增 19 个 Workflow 用例及 3 个 Documents 安全用例；五类格式修订、Insert/Delete/comment/Track Changes 在恢复和 Undo 后保留，格式修订新增 0；取消中写、锁冲突、坏 candidate、DB 提交前失败回滚/提交后异常不回滚、journal before/after/unknown 分支、scope/idempotency、真实可信修改文字恢复与 Medium 拒绝、迁移历史/未知 schema 均通过。
-  - 本地最终：dotnet restore / Release build（0 warning / 0 error）/ test 124/124（Core 2、Documents 45、Comparison 52、Data 23、App 2）；version/release 隔离脚本与 actionlint 通过。Debug-only 隔离 AppData 启动响应正常/正常关闭，无业务 UI；正常用户数据库未用于实验。性能数据见 development/performance-baseline.md。最后 Windows/macOS CI 与一次 Test Build 的结果在 push 后补记，不创建 Tag/Release。
+  - 测试：新增 20 个 Workflow 用例及 3 个 Documents 安全用例；五类格式修订、Insert/Delete/comment/Track Changes 在恢复和 Undo 后保留，格式修订新增 0；取消中写、锁冲突、坏 candidate/有效 package 但 Snapshot hash 不一致拒绝、DB 提交前失败回滚/提交后异常不回滚、journal before/after/unknown 分支、scope/idempotency、真实可信修改文字恢复与 Medium 拒绝、迁移历史/未知 schema 均通过。
+  - 本地最终：dotnet restore / Release build（0 warning / 0 error）/ test 125/125（Core 2、Documents 45、Comparison 52、Data 24、App 2）；version/release 隔离脚本与 actionlint 通过。Debug-only 隔离 AppData 启动响应正常/正常关闭，无业务 UI；正常用户数据库未用于实验。性能数据见 development/performance-baseline.md。Phase 5 基础提交 CI/Test Build 已通过；最终 hash 一致性加固再正常提交/push 并验证 CI，不创建 Tag/Release。
 
 允许：
 
@@ -1498,3 +1498,15 @@ Phase 建议 commit：
 最终判断：
 
 > Format Restore Engine v0 是否已经具备进入正式 Comparison UI / 产品功能层开发阶段的稳定基础。
+
+---
+
+# 39. 实际最终验收（2026-09-12）
+
+- Phase commits（均独立正常 push）：Phase 1 `d89414e`；Phase 2 `fc3e015`；Phase 3 `6244162`；Phase 4 `3be129c`；Phase 5 `c3b9b62`。
+- Phase 5 基础 CI：[34696114087](https://github.com/bluntvoice/Final-Check/actions/runs/34696114087)，Windows 全量与 macOS core compatibility 均 PASS。
+- 唯一实际 Test Build：[34696180994](https://github.com/bluntvoice/Final-Check/actions/runs/34696180994)，`0.1.0-dev.4.1`，构建 source `c3b9b62`。Artifact `final-check-v0.1.0-dev.4.1-windows-test`（ID 10298916524）已下载；Actions ZIP digest、全部逐文件 SHA256、Setup/Portable/About 版本、feed 与 portable layout PASS。产物保存在 Git 忽略的 `artifacts/actions-run-34696180994/package/`。
+- 本轮不重复安装/卸载或启动 Release Portable；应用启动使用显式 Debug-only 隔离目录，未访问正常用户数据库进行实验。测试安装包不是正式发布，也不是包含下述最终 hash 加固的最新二进制。
+- 最终审查加固：candidate 重新 parse hash、实际字节 hash 与待存 Snapshot hash 必须相同；Prepared/decoded operation 的版本与 Snapshot/schema/hash 一致性检查。新增合法 package 但 Snapshot 不一致的失败测试，旧 working 文件/已完成历史不变。最终本地 Release 125/125 PASS；此加固正常 push 后的 Windows/macOS CI 尚待记录，因此整体 Status 暂保留 In Progress。
+- 原始文件不写、不设 readonly；文字/修订/批注与未知 Word 结构保护，格式修订新增 0；不做 Accept All、正式 Comparison UI、项目管理、AI、Tag/Release。
+- Known limitations：mixed Run 冲突、低可信/无邻近共识映射、缺失/复杂样式或不可表示的继承属性拒绝/部分恢复；Table/Cell 仅 direct properties，不是完整 conditional/effective table style；嵌套表格/merge/split 结构不恢复；内部 backup 暂不自动清理，只支持最近一次格式 Undo；无 Word/WPS 视觉排版/真实合同手工验收。正式 UI 必须展示 Partial/NeedsReview/diagnostics 和明确外部编辑选择。

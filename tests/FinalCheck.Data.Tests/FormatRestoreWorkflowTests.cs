@@ -281,13 +281,15 @@ public sealed class FormatRestoreWorkflowTests(ITestOutputHelper output)
         Assert.Equal(externallyEdited ? 1 : 0, (await env.Store.LoadPendingAsync(env.Version)).Count);
     }
 
-    [Fact]
-    public async Task InvalidCandidatePackageCannotReplaceOldWorkingCopyOrCompleteHistory()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InvalidOrSnapshotMismatchedCandidateCannotReplaceOldWorkingCopyOrCompleteHistory(bool validPackage)
     {
         await using var env = await Environment.CreateAsync();
         var first = await env.Service.ExecuteAsync(env.Version, env.Original, await env.PlanAsync());
         var copy = first.WorkingCopy!; var before = File.ReadAllBytes(copy.WorkingPath);
-        var service = env.NewService(env.Store, new CorruptCandidateRenderer(new OpenXmlFormatRestoreRenderer(env.Parser)));
+        var service = env.NewService(env.Store, new CorruptCandidateRenderer(new OpenXmlFormatRestoreRenderer(env.Parser), validPackage));
         var result = await service.ExecuteAsync(env.Version, env.Original, await env.PlanAsync(copy.WorkingPath, reverse: true));
         Assert.Equal(FormatRestoreResultStatus.Failed, result.Status);
         Assert.Equal(before, File.ReadAllBytes(copy.WorkingPath));
@@ -328,11 +330,21 @@ public sealed class FormatRestoreWorkflowTests(ITestOutputHelper output)
         Assert.Equal(original, File.ReadAllBytes(env.Original));
     }
 
-    private sealed class CorruptCandidateRenderer(IFormatRestoreRenderer inner) : IFormatRestoreRenderer
+    private sealed class CorruptCandidateRenderer(IFormatRestoreRenderer inner, bool validPackage) : IFormatRestoreRenderer
     {
         public async ValueTask<FormatRestoreRenderResult> RenderAsync(Stream source, FormatRestorePlan plan, FormatRestoreScope? scope = null,
-            IProgress<FormatRestoreProgress>? progress = null, CancellationToken cancellationToken = default) =>
-            (await inner.RenderAsync(source, plan, scope, progress, cancellationToken)) with { DocumentBytes = [1, 2, 3] };
+            IProgress<FormatRestoreProgress>? progress = null, CancellationToken cancellationToken = default)
+        {
+            var rendered = await inner.RenderAsync(source, plan, scope, progress, cancellationToken);
+            if (!validPackage) return rendered with { DocumentBytes = [1, 2, 3] };
+            using var buffer = new MemoryStream(); buffer.Write(rendered.DocumentBytes); buffer.Position = 0;
+            using (var package = WordprocessingDocument.Open(buffer, true))
+            {
+                package.MainDocumentPart!.Document!.Descendants<Text>().Single().Text = "有效候选文件但 Snapshot 不一致";
+                package.MainDocumentPart.Document.Save();
+            }
+            return rendered with { DocumentBytes = buffer.ToArray() };
+        }
         public ValueTask<FormatRestoreRenderResult> RevertAsync(Stream source, string expectedSha256, IReadOnlyList<FormatRestoreMutation> mutations, CancellationToken cancellationToken = default) =>
             inner.RevertAsync(source, expectedSha256, mutations, cancellationToken);
     }

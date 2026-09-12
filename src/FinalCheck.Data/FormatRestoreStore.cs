@@ -36,6 +36,7 @@ public sealed class FormatRestoreStore(FinalCheckDbContext context, IDocumentSna
     {
         if (operation.Status != FormatRestoreOperationStatus.Prepared || operation.SchemaVersion != FormatRestoreOperation.CurrentSchemaVersion)
             throw new InvalidDataException("Invalid prepared operation.");
+        ValidateWorkingCopy(operation);
         context.FormatRestoreOperations.Add(Encode(operation));
         await context.SaveChangesAsync(cancellationToken);
         context.ChangeTracker.Clear();
@@ -102,6 +103,15 @@ public sealed class FormatRestoreStore(FinalCheckDbContext context, IDocumentSna
             operation.OperationId != entity.Id || operation.ContractVersionId != entity.ContractVersionId || operation.Status.ToString() != entity.Status ||
             operation.Plan is { SchemaVersion: not FormatRestorePlan.CurrentSchemaVersion })
             throw new InvalidDataException("Unknown or inconsistent restore operation schema/metadata.");
+        ValidateWorkingCopy(operation);
         return operation;
+    }
+
+    private static void ValidateWorkingCopy(FormatRestoreOperation operation)
+    {
+        var copy = operation.WorkingCopy;
+        if (copy.ContractVersionId != operation.ContractVersionId || copy.Sha256 != operation.AfterSha256 ||
+            copy.Snapshot.SnapshotSchemaVersion != Core.Documents.DocumentSnapshot.CurrentSchemaVersion || copy.Snapshot.Metadata.Sha256 != copy.Sha256)
+            throw new InvalidDataException("Operation/working Snapshot identity mismatch.");
     }
 }
