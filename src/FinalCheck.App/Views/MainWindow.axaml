@@ -33,7 +33,7 @@
           <Button Content="关于" Command="{Binding NavigateCommand}" CommandParameter="about" />
         </StackPanel>
 
-        <TextBlock Grid.Row="2" Text="v0.1.0 · Development" FontSize="11" Foreground="#8996A3" />
+        <TextBlock Grid.Row="2" Text="{Binding AppVersionLabel}" FontSize="11" Foreground="#8996A3" />
       </Grid>
     </Border>
 

@@ -7,6 +7,7 @@ using FinalCheck.Documents;
 using FinalCheck.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Velopack;
 using FinalCheckApplication = FinalCheck.App.App;
 
 namespace FinalCheck.Desktop;
@@ -16,6 +17,9 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Velopack lifecycle hooks must run before Avalonia, DI, database access, or other app code.
+        VelopackApp.Build().Run();
+
         var services = new ServiceCollection();
         ConfigureServices(services);
         var serviceProvider = services.BuildServiceProvider();

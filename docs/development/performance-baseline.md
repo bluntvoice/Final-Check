@@ -74,3 +74,16 @@ App 启动初期 Working Set 超过目标，但 Private Memory 在本次稳定�
 | Brotli | 1.041 ms |
 
 该结果是确定性合成文档的单次开发机基线，不代表大型真实合同上限。Brotli 在本次样本更小，但 v0 继续以原始 UTF-8 JSON 保存 SQLite payload，避免在缺少真实数据分布与存储迁移设计时过早固定压缩格式。后续基线只追加新日期记录，不覆盖本次结果。
+
+## Windows packaging Spike（2026-09-12）
+
+配置：`.NET 10.0.401 / Runtime 10.0.12 / Avalonia 12.1.2 / Velopack 1.2.0`，Windows x64 Release self-contained，未启用 trimming / NativeAOT；版本 `0.1.0-dev.1`。
+
+| 指标 | Bytes | MiB | 状态 |
+|---|---:|---:|---|
+| Publish directory | 128,215,648 | 122.28 | 排除 PDB |
+| Setup.exe | 61,841,595 | 58.98 | 低于 70 MB 目标和 100 MB 告警 |
+| Portable ZIP | 57,167,158 | 54.52 | 已校验 sq.version / About assembly / hash |
+| 安装后大小 | — | Not measured yet | Phase 4 实际安装测量；不以 publish 估算替代 |
+
+主要载荷仍是 self-contained .NET Runtime 与 Avalonia/Skia 原生组件；Velopack 压缩后 Setup 低于预算。本机 Spike 产物在被 Git 忽略的 `artifacts/spike-verified-20260912/`，不属于正式 Release。
