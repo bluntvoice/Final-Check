@@ -36,13 +36,13 @@
 
 ## Phase 2 — Test Build Action
 
-状态：NOT STARTED
+状态：IN PROGRESS
 
 目标：新增 `.github/workflows/build-test.yml`，仅由 `workflow_dispatch` 触发，以只读权限生成唯一的 `0.1.0-dev.<run>.<attempt>` Windows 测试 Artifact，保留 14 天，不 commit、不 push、不创建 Tag / Release、不修改正式版本文档或稳定更新通道。
 
 完成标准：工作流静态校验通过；实际运行一次并确认 Setup、Portable、SHA256 与 updater metadata 可下载；确认 main、Tag、Release 均未被测试工作流修改。
 
-实际完成：待完成。
+实际完成：`build-test.yml` 已实现只读权限、runner ephemeral dev 版本、Release build/test、统一打包与 14 天 Artifact；现有 CI 加入版本脚本验证。需要先推送此安全检查点以注册工作流，再实际 dispatch、下载并校验产物，记录远程 main / Tag / Release 不变后完成 Phase。
 
 ## Phase 3 — Release Action
 

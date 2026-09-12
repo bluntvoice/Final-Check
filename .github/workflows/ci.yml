@@ -28,6 +28,10 @@ jobs:
       - name: Restore tools
         run: dotnet tool restore
 
+      - name: Validate version model
+        shell: pwsh
+        run: ./scripts/test-version.ps1
+
       - name: Restore
         run: dotnet restore FinalCheck.sln
 

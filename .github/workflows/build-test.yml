@@ -1,0 +1,87 @@
+name: Build Windows test installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: "测试安装包目标基础版本（x.y.z，不带 v）"
+        required: true
+        default: "0.1.0"
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+
+jobs:
+  build:
+    name: Build Windows x64 test installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Validate and set ephemeral test version
+        id: version
+        env:
+          TARGET_VERSION: ${{ inputs.target_version }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:TARGET_VERSION -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') {
+            throw '测试目标基础版本必须使用 x.y.z。'
+          }
+          ./scripts/version.ps1 check
+          ./scripts/version.ps1 assert-not-lower $env:TARGET_VERSION
+          $version = "$env:TARGET_VERSION-dev.$env:RUN_NUMBER.$env:RUN_ATTEMPT"
+          ./scripts/version.ps1 set $version
+          ./scripts/version.ps1 check
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Test version scripts
+        run: ./scripts/test-version.ps1
+
+      - name: Restore
+        run: dotnet restore FinalCheck.sln
+
+      - name: Build Release
+        run: dotnet build FinalCheck.sln --configuration Release --no-restore
+
+      - name: Test Release
+        run: dotnet test FinalCheck.sln --configuration Release --no-build
+
+      - name: Publish and package test installer
+        id: package
+        env:
+          TEST_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ./scripts/build-windows-package.ps1 `
+            -PackageKind Test `
+            -Version $env:TEST_VERSION `
+            -OutputDirectory "$env:RUNNER_TEMP\final-check-test-artifacts"
+
+      - name: Upload test installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: final-check-v${{ steps.package.outputs.version }}-windows-test
+          path: ${{ steps.package.outputs.artifact_directory }}
+          if-no-files-found: error
+          retention-days: 14
