@@ -1,6 +1,6 @@
 # Final Check — Format Restore Engine v0
 
-> Status: In Progress
+> Status: Completed
 > Version: v0.1.0 development
 > Scope: Format Restore Engine
 > Depends on: Document Engine v0, Comparison Engine v0
@@ -1507,6 +1507,7 @@ Phase 建议 commit：
 - Phase 5 基础 CI：[34696114087](https://github.com/bluntvoice/Final-Check/actions/runs/34696114087)，Windows 全量与 macOS core compatibility 均 PASS。
 - 唯一实际 Test Build：[34696180994](https://github.com/bluntvoice/Final-Check/actions/runs/34696180994)，`0.1.0-dev.4.1`，构建 source `c3b9b62`。Artifact `final-check-v0.1.0-dev.4.1-windows-test`（ID 10298916524）已下载；Actions ZIP digest、全部逐文件 SHA256、Setup/Portable/About 版本、feed 与 portable layout PASS。产物保存在 Git 忽略的 `artifacts/actions-run-34696180994/package/`。
 - 本轮不重复安装/卸载或启动 Release Portable；应用启动使用显式 Debug-only 隔离目录，未访问正常用户数据库进行实验。测试安装包不是正式发布，也不是包含下述最终 hash 加固的最新二进制。
-- 最终审查加固：candidate 重新 parse hash、实际字节 hash 与待存 Snapshot hash 必须相同；Prepared/decoded operation 的版本与 Snapshot/schema/hash 一致性检查。新增合法 package 但 Snapshot 不一致的失败测试，旧 working 文件/已完成历史不变。最终本地 Release 125/125 PASS；此加固正常 push 后的 Windows/macOS CI 尚待记录，因此整体 Status 暂保留 In Progress。
+- 最终审查加固 `31bd3a0` 已独立正常 push：candidate 重新 parse hash、实际字节 hash 与待存 Snapshot hash 必须相同；Prepared/decoded operation 的版本与 Snapshot/schema/hash 一致性检查。新增合法 package 但 Snapshot 不一致的失败测试，旧 working 文件/已完成历史不变。最终本地 Release build 0 warning / 0 error、125/125 PASS；[最终源码 CI 34696555873](https://github.com/bluntvoice/Final-Check/actions/runs/34696555873) Windows 全量与 macOS core compatibility 均 PASS。所有 Phase 完成。
 - 原始文件不写、不设 readonly；文字/修订/批注与未知 Word 结构保护，格式修订新增 0；不做 Accept All、正式 Comparison UI、项目管理、AI、Tag/Release。
-- Known limitations：mixed Run 冲突、低可信/无邻近共识映射、缺失/复杂样式或不可表示的继承属性拒绝/部分恢复；Table/Cell 仅 direct properties，不是完整 conditional/effective table style；嵌套表格/merge/split 结构不恢复；内部 backup 暂不自动清理，只支持最近一次格式 Undo；无 Word/WPS 视觉排版/真实合同手工验收。正式 UI 必须展示 Partial/NeedsReview/diagnostics 和明确外部编辑选择。
+- Known limitations：mixed Run 冲突、低可信/无邻近共识映射、缺失/复杂样式或不可表示的继承属性拒绝/部分恢复；Table/Cell 仅 direct properties，不是完整 conditional/effective table style，沿用 Comparison 的结构位置 mapping，不另建语义行列重排匹配；嵌套表格/merge/split 结构不恢复；内部 backup 暂不自动清理，只支持最近一次格式 Undo；无 Word/WPS 视觉排版/真实合同手工验收。正式 UI 必须展示 mapping evidence、Partial/NeedsReview/diagnostics 和明确外部编辑选择。
+- 最终判断：在已支持格式、可信 mapping 与严格验证范围内，Format Restore Engine v0 已具备进入正式 Comparison UI / 产品功能层开发的稳定基础；不等同于稳定软件发布或任意 DOCX 完整格式恢复。源码版本仍为 `0.1.0-alpha.0`；远程 Tag refs 与 Release 均为 0。所有提交正常推送，不使用 force/amend/reset/history rewrite；最终文档整理不创建空 commit。

@@ -40,6 +40,8 @@ Partial：结构变化时仅恢复同位置 mapping 且两侧均唯一、文字�
 
 Unsupported：完整 table effective/conditional style、嵌套 table 展开、TableGrid 列宽继承和结构恢复。保留 current table StyleId，显式 UnsupportedTableStyle；GridSpan/VerticalMerge 始终用 current 值，不恢复 merge/split，不删除新增行列。表格 XML 不整体替换。
 
+Table/Cell 沿用 Comparison 的结构位置 mapping，不额外识别同尺寸表格内的语义行列重排；自动格式目标仍按已有 mapping，不删除/重排当前结构。正式 UI 应展示 mapping evidence，不能把结构位置映射宣称为新的语义表格匹配能力。
+
 ## Working Copy / Atomic write / Recovery
 
 `IFormatRestoreWorkingCopyService` 接受调用方稳定的 ContractVersion Guid；v0 不提前建立项目管理实体。每个版本只维护 `AppData/WorkingCopies/<version-guid>/restored.docx`。原文件仅以路径/hash 标识，打开只读，不设置 readonly、不替换原文件。后续恢复使用当前 working file；原文件和其他版本文件不参与覆盖。

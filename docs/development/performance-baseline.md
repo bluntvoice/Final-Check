@@ -131,3 +131,25 @@ Setup 安装/启动/正常关闭/卸载重复验证 PASS，Portable 的根目录
 重复中文合成文本的 ZIP 压缩率较高，文件大小不代表复杂真实合同；内存增加主要来自 private package、Snapshot/JSON、protected semantic XML 与 operation payload。中型处理未出现不可接受开销，但不是任意大型/复杂 Word 文档性能保证。测试的 30s 阈值只用于异常回归。复验命令见 development README，保留旧基线不覆盖。
 
 Debug-only 显式隔离 AppData 启动：窗口 `Final Check`、Responding true，独立数据库创建正常，CloseMainWindow 正常退出。未将正常用户数据库用于本阶段启动/迁移实验；Release 构建没有 developer data override，不实现正式业务 UI。
+
+### 最终 Snapshot/hash 一致性加固复测
+
+最终代码增加 candidate 与待存 Snapshot/hash 绑定，以及 prepared/decoded operation 一致性检查，Release 全量测试增至 125 项。同样预热与聚焦计时方法，不覆盖上面的阶段记录：
+
+| Fixture | Plan ms | Execute ms | Reparse ms | Managed allocations B | Working DOCX B |
+|---|---:|---:|---:|---:|---:|
+| Small / 10 paragraphs | 1.787 | 58.928 | 6.312 | 3,393,136 | 1,291 |
+| Medium / 300 paragraphs | 71.256 | 353.031 | 42.493 | 68,326,648 | 2,197 |
+
+### Format Restore Test Build：0.1.0-dev.4.1
+
+来源：[Run 34696180994](https://github.com/bluntvoice/Final-Check/actions/runs/34696180994)，source `c3b9b62`（Phase 5 基础提交，早于上述 hash 加固）；Artifact 10298916524，173,241,823 B，Actions digest `e7052adeb5f09a651b0d784b6fc215361213e0a373925afc0605abe25c7732be`。已实际下载并校验 digest、所有文件 SHA256、Setup/Portable/About 版本、feed、portable layout PASS。
+
+| 指标 | Bytes | 说明 |
+|---|---:|---|
+| Publish / runtime payload | 128,381,586 | win-x64 self-contained，无新增大型 SDK |
+| Setup | 61,907,017 | 61.91 MB，低于 70 MB 目标 |
+| Portable | 57,232,579 | 57.23 MB，完整 layout |
+| 本轮实际安装目录大小 | — | 未重新安装；不以 publish 推算 |
+
+本轮只触发一次实际 Test Build，不创建 Tag/Release、不重新安装到正常用户环境。测试 Artifact 不是正式发行包，也不是最终 hash 加固后的最新二进制；最终源码另行完成 Release build/test 与 Windows/macOS CI。保留之前 dev.3.1 的实际安装证据，不把旧安装结果冒充本轮新安装验收。
