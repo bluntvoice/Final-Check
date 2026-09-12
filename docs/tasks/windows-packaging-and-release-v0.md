@@ -57,13 +57,20 @@
 
 ## Phase 3 — Release Action
 
-状态：NOT STARTED
+状态：COMPLETE
 
 目标：新增 `.github/workflows/release.yml`，支持 Prerelease / Stable，提供显式真实发布确认、24 小时保护、版本和 Tag 防护、默认分支变化保护、修改文件 allowlist、完整 build/test、原子 commit + annotated Tag push 及 GitHub Release 产物上传。
 
 完成标准：YAML 和脚本静态检查通过；使用本地 dry-run / 负向用例验证 fail-closed 保护；不创建真实 Tag 或 Release。
 
-实际完成：待完成。
+实际完成（2026-09-12）：
+
+- `release.yml` 已实现显式确认、默认分支、SemVer/channel/版本不倒退、本地和远端已有 Tag、24h、构建期间 base SHA、allowlist、完整 Release build/test、bot commit + annotated Tag 原子 push、Release notes 与全产物 GitHub Release 上传。Prerelease 不改稳定 README且非 latest，Stable 更新 README并 latest。
+- `ReleaseSafety.psm1` / `prepare-release.ps1` / `update-release-docs.ps1` 提供统一可测试门禁；建立 CHANGELOG 与稳定 README marker，详细发布流程文档已建立。
+- actionlint 1.7.12、全部 PowerShell AST、版本脚本与 Release infrastructure 测试 PASS。
+- 隔离的临时 client/peer/bare Git fixtures 验证了未确认、错误 channel/版本、版本倒退、空 notes/summary、已有本地/远端 Tag、24h 默认拒绝和主动 override、中文多行 notes、历史 CHANGELOG保留、Prerelease README不变、Stable README同步、重复日志拒绝、意外代码修改拒绝、分支并发变化拒绝，以及已有远端 Tag 导致原子 push 两个 ref 均不变。测试夹具从未使用 Final Check origin，结束后移除。
+- Windows Release build：0 warning / 0 error；xUnit 79/79 PASS；Assembly Informational/File Version检查 PASS。
+- 未触发正式 Release 工作流，Final Check 仓库未创建真实 Tag / Release。GitHub Release API 与原子 Git push 非同一事务的恢复限制已明确记录。
 
 ## Phase 4 — Packaging verification + docs
 

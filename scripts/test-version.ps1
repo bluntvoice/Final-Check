@@ -48,7 +48,10 @@ try {
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) {
-        Remove-Item -LiteralPath $tempRoot -Recurse -Force
+        $resolvedTemp = (Resolve-Path -LiteralPath $tempRoot).Path
+        $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
+        if (-not $resolvedTemp.StartsWith($tempBase + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Unexpected version fixture directory.' }
+        Remove-Item -LiteralPath $resolvedTemp -Recurse -Force
     }
 }
 

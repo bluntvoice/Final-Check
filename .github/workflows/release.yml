@@ -1,0 +1,188 @@
+name: Release Windows installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "目标版本（不带 v，例如 0.1.0 或 0.1.0-beta.1）"
+        required: true
+        type: string
+      channel:
+        description: "正式发布通道"
+        required: true
+        type: choice
+        options: [prerelease, stable]
+      release_notes:
+        description: "版本亮点正文（保留中文、换行和 Markdown 列表）"
+        required: true
+        type: string
+      readme_summary:
+        description: "Stable 必填的 README 简版版本摘要；Prerelease 忽略"
+        required: false
+        type: string
+      confirm_real_release:
+        description: "确认这是面向真实用户的发布，已复核许可和发布内容；测试请使用 Test Build"
+        required: true
+        default: false
+        type: boolean
+      allow_release_within_24h:
+        description: "确认即使距上一发布 Tag 不足 24 小时仍有必要发布"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+
+jobs:
+  release:
+    name: Validate, test, build and release Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Validate release request
+        id: request
+        env:
+          TARGET_VERSION: ${{ inputs.version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          README_SUMMARY: ${{ inputs.readme_summary }}
+          CONFIRM_REAL_RELEASE: ${{ inputs.confirm_real_release }}
+          ALLOW_WITHIN_24H: ${{ inputs.allow_release_within_24h }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          ./scripts/prepare-release.ps1 `
+            -Version $env:TARGET_VERSION -Channel $env:RELEASE_CHANNEL `
+            -ReleaseNotes $env:RELEASE_NOTES -ReadmeSummary $env:README_SUMMARY `
+            -ConfirmRealRelease $env:CONFIRM_REAL_RELEASE -AllowReleaseWithin24h $env:ALLOW_WITHIN_24H `
+            -DefaultBranch $env:DEFAULT_BRANCH -RefName $env:GITHUB_REF_NAME -BaseSha $env:GITHUB_SHA `
+            -OutputDirectory "$env:RUNNER_TEMP\final-check-release-request"
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Validate GitHub CLI availability before publishing
+        run: gh --version
+
+      - name: Test release infrastructure scripts
+        run: |
+          ./scripts/test-version.ps1
+          ./scripts/test-release-infrastructure.ps1
+
+      - name: Set release version and documents
+        env:
+          TARGET_VERSION: ${{ steps.request.outputs.version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          NOTES_PATH: ${{ steps.request.outputs.notes_path }}
+          SUMMARY_PATH: ${{ steps.request.outputs.readme_summary_path }}
+        run: |
+          ./scripts/version.ps1 set $env:TARGET_VERSION
+          ./scripts/update-release-docs.ps1 -Version $env:TARGET_VERSION -Channel $env:RELEASE_CHANNEL `
+            -NotesPath $env:NOTES_PATH -ReadmeSummaryPath $env:SUMMARY_PATH
+          ./scripts/version.ps1 check
+
+      - name: Restore
+        run: dotnet restore FinalCheck.sln
+
+      - name: Build Release
+        run: dotnet build FinalCheck.sln --configuration Release --no-restore
+
+      - name: Test Release
+        run: dotnet test FinalCheck.sln --configuration Release --no-build
+
+      - name: Build and verify Windows package
+        id: package
+        env:
+          TARGET_VERSION: ${{ steps.request.outputs.version }}
+          PACKAGE_KIND: ${{ steps.request.outputs.package_kind }}
+          NOTES_PATH: ${{ steps.request.outputs.notes_path }}
+        run: |
+          ./scripts/version.ps1 check -AssemblyPath src/FinalCheck.App/bin/Release/net10.0/FinalCheck.App.dll
+          ./scripts/build-windows-package.ps1 -PackageKind $env:PACKAGE_KIND -Version $env:TARGET_VERSION `
+            -ReleaseNotesPath $env:NOTES_PATH -OutputDirectory "$env:RUNNER_TEMP\final-check-release-artifacts"
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+
+      - name: Validate release file allowlist
+        env:
+          CURRENT_VERSION: ${{ steps.request.outputs.current_version }}
+          TARGET_VERSION: ${{ steps.request.outputs.version }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        run: |
+          Import-Module ./scripts/ReleaseSafety.psm1 -Force
+          Assert-ReleaseFileAllowlist -RepositoryRoot $env:GITHUB_WORKSPACE -Channel $env:RELEASE_CHANNEL `
+            -CurrentVersion $env:CURRENT_VERSION -TargetVersion $env:TARGET_VERSION
+
+      - name: Commit, annotated tag and atomic push
+        env:
+          TARGET_VERSION: ${{ steps.request.outputs.version }}
+          CURRENT_VERSION: ${{ steps.request.outputs.current_version }}
+          RELEASE_TAG: ${{ steps.request.outputs.tag }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          BASE_SHA: ${{ steps.request.outputs.base_sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module ./scripts/ReleaseSafety.psm1 -Force
+          Assert-ReleaseBranchUnchanged -RepositoryRoot $env:GITHUB_WORKSPACE -DefaultBranch $env:DEFAULT_BRANCH -BaseSha $env:BASE_SHA
+          Assert-ReleaseTagAbsent -RepositoryRoot $env:GITHUB_WORKSPACE -Tag $env:RELEASE_TAG
+          Assert-ReleaseFileAllowlist -RepositoryRoot $env:GITHUB_WORKSPACE -Channel $env:RELEASE_CHANNEL `
+            -CurrentVersion $env:CURRENT_VERSION -TargetVersion $env:TARGET_VERSION
+          git config user.name 'github-actions[bot]'
+          if ($LASTEXITCODE -ne 0) { throw 'git config failed.' }
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if ($LASTEXITCODE -ne 0) { throw 'git config failed.' }
+          git add Directory.Build.props CHANGELOG.md
+          if ($LASTEXITCODE -ne 0) { throw 'git add failed.' }
+          if ($env:RELEASE_CHANNEL -eq 'stable') {
+            git add README.md
+            if ($LASTEXITCODE -ne 0) { throw 'git add README failed.' }
+          }
+          git commit -m "chore(release): v$env:TARGET_VERSION" -m '同步统一版本与发布文档；Windows Release 测试、打包、版本与 SHA256 验证通过。'
+          if ($LASTEXITCODE -ne 0) { throw 'Release commit failed.' }
+          git tag -a $env:RELEASE_TAG -m "Final Check $env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Annotated tag failed.' }
+          git push --atomic origin "HEAD:refs/heads/$env:DEFAULT_BRANCH" "refs/tags/$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { throw 'Atomic branch + tag push failed; no force/rollback is allowed.' }
+
+      - name: Create GitHub Release with all assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.request.outputs.tag }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          TARGET_VERSION: ${{ steps.request.outputs.version }}
+          PACKAGE_KIND: ${{ steps.request.outputs.package_kind }}
+          NOTES_PATH: ${{ steps.request.outputs.notes_path }}
+          ARTIFACT_DIRECTORY: ${{ steps.package.outputs.artifact_directory }}
+        run: |
+          ./scripts/verify-windows-package.ps1 -Directory $env:ARTIFACT_DIRECTORY -Version $env:TARGET_VERSION -PackageKind $env:PACKAGE_KIND
+          $assets = @(Get-ChildItem -LiteralPath $env:ARTIFACT_DIRECTORY -File | ForEach-Object FullName)
+          if ($assets.Count -lt 6) { throw 'Release assets missing.' }
+          $arguments = @('release', 'create', $env:RELEASE_TAG) + $assets + @(
+            '--verify-tag', '--title', "Final Check $env:RELEASE_TAG", '--notes-file', $env:NOTES_PATH
+          )
+          if ($env:RELEASE_CHANNEL -eq 'prerelease') { $arguments += @('--prerelease', '--latest=false') }
+          else { $arguments += '--latest' }
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub Release creation failed. Preserve the published commit/tag; investigate without rewriting history.' }

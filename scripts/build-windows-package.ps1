@@ -66,7 +66,8 @@ if ($PackageKind -ne 'Test' -and (& $versionScript print) -ne $Version) {
 try {
     New-Item -ItemType Directory -Path $publishDirectory, $velopackDirectory -Force | Out-Null
 
-    & $versionScript assert-not-lower $Version | Write-Output
+    $versionToCompare = if ($PackageKind -eq 'Test') { ($Version -split '-')[0] } else { $Version }
+    & $versionScript assert-not-lower $versionToCompare | Write-Output
     if (-not $SkipRestore) {
         & $dotnet tool restore
         if ($LASTEXITCODE -ne 0) { throw "dotnet tool restore failed." }
@@ -160,7 +161,6 @@ try {
     [IO.File]::WriteAllText((Join-Path $resolvedOutput $assetMetadata[0].Name), (ConvertTo-Json -InputObject $assetList -Depth 10), [Text.UTF8Encoding]::new($false))
 
     $publishSize = (Get-ChildItem -LiteralPath $publishDirectory -File -Recurse | Measure-Object -Property Length -Sum).Sum
-    $installedSize = $publishSize
     $metrics = [ordered]@{
         version = $Version
         packageKind = $PackageKind
@@ -170,7 +170,7 @@ try {
         publishBytes = [int64]$publishSize
         setupBytes = [int64](Get-Item -LiteralPath $friendlySetup).Length
         portableBytes = [int64](Get-Item -LiteralPath $friendlyPortable).Length
-        estimatedInstalledBytes = [int64]$installedSize
+        runtimePayloadBytes = [int64]$publishSize
     }
     $metricsPath = Join-Path $resolvedOutput "$friendlyPrefix-package-metrics.json"
     [IO.File]::WriteAllText($metricsPath, ($metrics | ConvertTo-Json), [Text.UTF8Encoding]::new($false))

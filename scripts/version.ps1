@@ -87,6 +87,10 @@ function Read-ProjectVersion {
 }
 
 function Test-VersionConsistency([string]$CurrentVersion) {
+    [xml]$source = Get-Content -LiteralPath $PropsPath -Raw
+    if (@($source.SelectNodes('/Project/PropertyGroup/*[self::VersionPrefix or self::VersionSuffix or self::AssemblyVersion or self::FileVersion or self::InformationalVersion]')).Count -gt 0) {
+        throw 'Assembly/File/Informational version must be derived from the sole Version source.'
+    }
     $repoRoot = (Resolve-Path -LiteralPath (Join-Path (Split-Path -Parent $PropsPath) ".")).Path
     $projectFiles = @(Get-ChildItem -LiteralPath $repoRoot -Recurse -Filter '*.csproj' -File |
         Where-Object { $_.FullName -notmatch '[\\/](bin|obj)[\\/]' })
@@ -111,6 +115,9 @@ function Test-VersionConsistency([string]$CurrentVersion) {
         if ($productVersion -ne $expectedAssemblyVersion) {
             throw "Assembly informational version '$productVersion' does not match '$expectedAssemblyVersion'."
         }
+        $fileVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path -LiteralPath $AssemblyPath)).FileVersion
+        $numericVersion = (($expectedAssemblyVersion -split '[-+]')[0]) + '.0'
+        if ($fileVersion -ne $numericVersion) { throw "Assembly file version '$fileVersion' does not match '$numericVersion'." }
     }
 }
 

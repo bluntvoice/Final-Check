@@ -4,7 +4,13 @@ Final Check 是一款面向合同版本更迭、修订比对和格式整理场�
 
 ## 当前状态
 
-Final Check v0.1.0 当前处于早期开发阶段，已经完成跨平台工程基础与最小 DOCX/SQLite 技术验证，尚未提供稳定发布版本。
+<!-- release-readme:current-version:start -->
+当前正式版本：尚未发布。
+<!-- release-readme:current-version:end -->
+
+<!-- release-readme:summary:start -->
+Final Check v0.1.0 当前处于早期开发阶段，Document Engine v0 与 Comparison Engine v0 已完成，尚未提供稳定发布版本或正式业务 UI。
+<!-- release-readme:summary:end -->
 
 ## 技术栈
 
@@ -51,7 +57,7 @@ Final Check 解决“改了什么、哪里改了、怎么整理、格式怎么�
 
 ## Version
 
-当前开发版本：`v0.1.0`。该版本号不代表已经发布正式 Release。
+唯一版本来源为 `Directory.Build.props`，可运行 `./scripts/version.ps1 print` 查看。开发版本、Internal Test Build 和正式 Release 的区别见 [Release process](docs/development/release-process.md)；源码版本号不代表已经创建 GitHub Release。
 
 ## License
 

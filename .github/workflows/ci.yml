@@ -32,6 +32,10 @@ jobs:
         shell: pwsh
         run: ./scripts/test-version.ps1
 
+      - name: Validate release infrastructure
+        shell: pwsh
+        run: ./scripts/test-release-infrastructure.ps1
+
       - name: Restore
         run: dotnet restore FinalCheck.sln
 
