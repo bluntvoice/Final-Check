@@ -12,6 +12,8 @@ Comparison Engine v0 的结果模型、匹配管线和确定性规则见 [`compa
 
 Windows 打包、单一版本源、安装/数据目录分离与发布 channel 决策见 [`ADR-0004-windows-packaging-and-release.md`](ADR-0004-windows-packaging-and-release.md)。Velopack 依赖仅进入 Desktop，不改变核心四层的跨平台边界。
 
+Format Restore Engine v0 的保守映射、最小属性写回与安全验证见 [`format-restore-engine.md`](format-restore-engine.md)；固定 Working Copy、journal、Undo 与持久化决策见 [`ADR-0005-format-restore-working-copy-and-undo.md`](ADR-0005-format-restore-working-copy-and-undo.md)。
+
 ## Solution 分层
 
 | 项目 | 职责 | 允许的主要依赖 |
@@ -19,8 +21,8 @@ Windows 打包、单一版本源、安装/数据目录分离与发布 channel �
 | `FinalCheck.App` | Avalonia Application、Views、ViewModels、样式与导航 | Core、Avalonia、MVVM Toolkit |
 | `FinalCheck.Desktop` | 桌面入口、DI Composition Root、生命周期与平台初始化 | 所有运行时项目 |
 | `FinalCheck.Core` | 领域模型、Snapshot、跨层接口 | .NET BCL |
-| `FinalCheck.Documents` | DOCX/Open XML 解析、Snapshot 序列化、后续格式恢复 | Core、Open XML SDK |
-| `FinalCheck.Comparison` | Snapshot 结构匹配、文字/格式 Diff 与归并接口 | Core |
+| `FinalCheck.Documents` | DOCX/Open XML 解析、Snapshot 序列化、格式属性恢复/验证/Undo | Core、Open XML SDK |
+| `FinalCheck.Comparison` | Snapshot 结构匹配、文字/格式 Diff、归并与格式恢复规划 | Core |
 | `FinalCheck.Data` | SQLite、EF Core、Migration、持久化 Entity | Core、EF Core |
 | `FinalCheck.Infrastructure` | 文件、哈希、数据路径、预览、更新等外围实现 | Core |
 
@@ -41,5 +43,6 @@ Windows 打包、单一版本源、安装/数据目录分离与发布 channel �
 - `IAppDataPathProvider`、`IFileHashService`、`IUpdateService`。
 - SQLite 初始 Migration 与 UTC 时间转换。
 - `DocumentNodeMapping` 格式恢复映射预留。
+- Format Restore Plan/Scope、可信 ComparisonNodeMapping、属性级 Renderer、固定 Working Copy/Undo/external-edit service；database schema 3 operation history。
 
 Comparison Engine v0 已完成段落匹配、文字 Diff、结构变化、格式 Diff、修订/批注归并与结果持久化；验收和已知限制以任务文件为准。Windows packaging / Release 基础设施独立于业务引擎，软件内 updater UI 仍未实现。

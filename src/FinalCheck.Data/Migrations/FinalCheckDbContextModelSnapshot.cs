@@ -16,7 +16,7 @@ namespace FinalCheck.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("FinalCheck:DatabaseSchemaVersion", 2)
+                .HasAnnotation("FinalCheck:DatabaseSchemaVersion", 3)
                 .HasAnnotation("ProductVersion", "10.0.12");
 
             modelBuilder.Entity("FinalCheck.Data.Entities.StoredComparisonResult", b =>
@@ -71,6 +71,28 @@ namespace FinalCheck.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("DocumentSnapshots", (string)null);
+                });
+            modelBuilder.Entity("FinalCheck.Data.Entities.StoredRestoredWorkingCopy", b =>
+                {
+                    b.Property<Guid>("ContractVersionId").ValueGeneratedOnAdd().HasColumnType("TEXT");
+                    b.Property<string>("Sha256").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
+                    b.Property<byte[]>("Payload").IsRequired().HasColumnType("BLOB");
+                    b.Property<DateTime>("UpdatedAtUtc").HasColumnType("TEXT");
+                    b.HasKey("ContractVersionId");
+                    b.ToTable("RestoredWorkingCopies", (string)null);
+                });
+
+            modelBuilder.Entity("FinalCheck.Data.Entities.StoredFormatRestoreOperation", b =>
+                {
+                    b.Property<Guid>("Id").ValueGeneratedOnAdd().HasColumnType("TEXT");
+                    b.Property<Guid>("ContractVersionId").HasColumnType("TEXT");
+                    b.Property<int>("SchemaVersion").HasColumnType("INTEGER");
+                    b.Property<string>("Status").IsRequired().HasColumnType("TEXT");
+                    b.Property<byte[]>("Payload").IsRequired().HasColumnType("BLOB");
+                    b.Property<DateTime>("CreatedAtUtc").HasColumnType("TEXT");
+                    b.HasKey("Id");
+                    b.HasIndex("ContractVersionId", "CreatedAtUtc");
+                    b.ToTable("FormatRestoreOperations", (string)null);
                 });
 #pragma warning restore 612, 618
         }

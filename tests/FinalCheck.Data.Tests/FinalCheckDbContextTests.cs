@@ -163,7 +163,7 @@ public sealed class FinalCheckDbContextTests
             Assert.Equal("baseline", entity.BaselineSnapshotId);
             Assert.Equal("current", entity.CurrentSnapshotId);
             Assert.Equal(DateTimeKind.Utc, entity.CreatedAtUtc.Kind);
-            Assert.Equal(2, (await context.Database.GetAppliedMigrationsAsync()).Count());
+            Assert.Equal(3, (await context.Database.GetAppliedMigrationsAsync()).Count());
             await context.Database.EnsureDeletedAsync();
         }
         finally
@@ -204,7 +204,7 @@ public sealed class FinalCheckDbContextTests
             context.ChangeTracker.Clear();
 
             Assert.True(await context.DocumentSnapshots.AnyAsync(snapshot => snapshot.Id == documentId));
-            Assert.Equal(2, (await context.Database.GetAppliedMigrationsAsync()).Count());
+            Assert.Equal(3, (await context.Database.GetAppliedMigrationsAsync()).Count());
             await context.Database.EnsureDeletedAsync();
         }
         finally

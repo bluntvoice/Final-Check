@@ -1271,7 +1271,10 @@ macOS CI 必须继续通过 Core/Documents/Comparison/Data 兼容性验证。
 * Phase 4 — Table / Cell Formatting：DONE
   - 实际完成：Table/Cell direct 宽度、对齐、底纹、六边框与可靠 row height/rule；Cell child 文本格式基于可信 parent mapping 派生；结构改变仅唯一未改文字锚点局部恢复，合并状态与新增行列保留；复杂 conditional/effective table style 明确 Partial/Unsupported。
   - 测试：新增 4 项 table/cell/row、改变正文、增行局部恢复/拒绝、merge state、样式边界测试；Release 全部 102/102 通过（Documents 42），table text 与未处理 OPC 内容保持。
-* Phase 5 — Working Copy / Undo / Preservation：TODO
+* Phase 5 — Working Copy / Undo / Preservation：DONE
+  - 实际完成：每版本稳定 working path；私有输出与 candidate 正式重解析、hash/语义保留校验、Prepared journal + 原子 replace/safe move + DB transaction；发布失败回滚/不确定状态保留，crash recovery；仅最近一次属性 Undo 且 hash/after 状态保护；外部编辑明确 preserve（追加 Snapshot/Comparison）或 regenerate（保留旧 backup）；schema 3 migration、版本化 Plan/operation/Items/history 与并发 metadata。
+  - 测试：新增 19 个 Workflow 用例及 3 个 Documents 安全用例；五类格式修订、Insert/Delete/comment/Track Changes 在恢复和 Undo 后保留，格式修订新增 0；取消中写、锁冲突、坏 candidate、DB 提交前失败回滚/提交后异常不回滚、journal before/after/unknown 分支、scope/idempotency、真实可信修改文字恢复与 Medium 拒绝、迁移历史/未知 schema 均通过。
+  - 本地最终：dotnet restore / Release build（0 warning / 0 error）/ test 124/124（Core 2、Documents 45、Comparison 52、Data 23、App 2）；version/release 隔离脚本与 actionlint 通过。Debug-only 隔离 AppData 启动响应正常/正常关闭，无业务 UI；正常用户数据库未用于实验。性能数据见 development/performance-baseline.md。最后 Windows/macOS CI 与一次 Test Build 的结果在 push 后补记，不创建 Tag/Release。
 
 允许：
 

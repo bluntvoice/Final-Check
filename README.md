@@ -9,7 +9,7 @@ Final Check 是一款面向合同版本更迭、修订比对和格式整理场�
 <!-- release-readme:current-version:end -->
 
 <!-- release-readme:summary:start -->
-Final Check v0.1.0 当前处于早期开发阶段，Document Engine v0 与 Comparison Engine v0 已完成，尚未提供稳定发布版本或正式业务 UI。
+Final Check v0.1.0 当前处于早期开发阶段，Document Engine v0、Comparison Engine v0 与 Format Restore Engine v0 已完成，尚未提供稳定发布版本或正式业务 UI。
 <!-- release-readme:summary:end -->
 
 ## 技术栈

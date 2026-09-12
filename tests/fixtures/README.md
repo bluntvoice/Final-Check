@@ -35,3 +35,27 @@ Current fixture catalog:
 - MixedChineseEnglishFont
 - UnsupportedNestedTable
 - PerformanceComposite
+
+## Format Restore generated fixtures
+
+`FormatRestoreFixtureFactory`, `FormatRestoreCharacterTests`, `FormatRestoreParagraphTests`,
+`FormatRestoreTableTests` and `FormatRestoreSafetyTests` generate fixtures in memory.
+`FormatRestoreWorkflowTests` writes only isolated GUID temporary DOCX/SQLite files.
+No real contract or user database is used. Semantic assertions cover:
+
+- CharacterFontRestore, FontSizeRestore, MultipleCharacterProperties, ChineseEnglishFonts
+- ParagraphAlignment, ParagraphIndent, ParagraphSpacing, LineSpacing
+- StyleBasedFormatting, DirectFormatting, ChangedTextSameNode, ChangedRunBoundary
+- AddedText, AddedParagraph, RevisionInsertPreservation, RevisionDeletePreservation
+- CommentPreservation, ExistingFormatRevision (all five property Change kinds), TrackChangesEnabled
+- TableFormatting, CellFormatting, TableStructureChanged, merge structure preservation
+- UndoLastRestore, ExternalWorkingCopyModification, explicit preserve/regenerate
+- IdempotentRestore, SelectedItems/Category scope, deterministic serializable plan
+- Cancellation before/during write, operation lock conflict, database failure rollback
+- Prepared-journal crash recovery, schema migration/history preservation, unknown payload rejection
+- Small (10 paragraphs) and Medium (300 paragraphs) performance measurements
+
+Property-writing tests may explicitly declare known fixture correspondence; workflow tests
+use the real Comparison Engine. Successful outputs are checked for text/format/annotations/XML
+structure, not expected DOCX binary equality; original files and failed working writes are
+also checked byte-for-byte.

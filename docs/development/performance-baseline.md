@@ -118,3 +118,16 @@ App 启动初期 Working Set 超过目标，但 Private Memory 在本次稳定�
 | 实际安装目录 | 189,785,622 | 180.99 |
 
 Setup 安装/启动/正常关闭/卸载重复验证 PASS，Portable 的根目录 `Final Check.exe` 实际启动/正常关闭 PASS。Setup 自身 ProductVersion/FileVersion 与 About assembly/Portable/metadata 都为 `0.1.0-dev.3.1`。安装后体积仍超过 150 MB 目标，但低于 200 MB 告警；上述缓存分析不变。
+
+## Format Restore Engine v0（2026-09-12）
+
+配置：Windows / .NET SDK 10.0.401、Runtime 10.0.12、Release；非敏感程序化 10 / 300 段 DOCX，每段恢复 paragraph alignment 与 character bold。先完成一次独立版本的 Plan/working restore 预热；解析与 Comparison 在计时前完成。Plan 仅 Generate；Execute 包括 renderer、两次正式重解析、保护 XML 校验、磁盘 flush/replace 与 SQLite persistence；Reparse 是两个进度阶段合计，已包含于 Execute，不额外相加。Allocated bytes 是进程 GC total allocated 增量，不是 live heap/Working Set/SLA。单次聚焦开发机结果：
+
+| Fixture | Plan ms | Execute ms | Reparse ms | Managed allocations B | Working DOCX B |
+|---|---:|---:|---:|---:|---:|
+| Small / 10 paragraphs | 1.794 | 60.211 | 6.006 | 3,300,384 | 1,291 |
+| Medium / 300 paragraphs | 61.242 | 310.640 | 40.765 | 72,251,576 | 2,197 |
+
+重复中文合成文本的 ZIP 压缩率较高，文件大小不代表复杂真实合同；内存增加主要来自 private package、Snapshot/JSON、protected semantic XML 与 operation payload。中型处理未出现不可接受开销，但不是任意大型/复杂 Word 文档性能保证。测试的 30s 阈值只用于异常回归。复验命令见 development README，保留旧基线不覆盖。
+
+Debug-only 显式隔离 AppData 启动：窗口 `Final Check`、Responding true，独立数据库创建正常，CloseMainWindow 正常退出。未将正常用户数据库用于本阶段启动/迁移实验；Release 构建没有 developer data override，不实现正式业务 UI。

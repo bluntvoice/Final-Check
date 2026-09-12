@@ -5,6 +5,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using FinalCheck.Core.Abstractions;
+using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
 using FinalCheck.Core.Formatting;
 
@@ -14,6 +15,47 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
 {
     internal const string W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
+    public async ValueTask<FormatRestoreRenderResult> RevertAsync(Stream source, string expectedSha256,
+        IReadOnlyList<FormatRestoreMutation> mutations, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        source.Position = 0;
+        using var copy = new MemoryStream();
+        await source.CopyToAsync(copy, cancellationToken);
+        var original = copy.ToArray();
+        var before = await parser.ParseAsync(copy, cancellationToken: cancellationToken);
+        if (before.Metadata.Sha256 != expectedSha256) throw new InvalidDataException("UndoHashMismatch.");
+        copy.Position = 0;
+        using (var document = WordprocessingDocument.Open(copy, true))
+        {
+            var nodes = OpenXmlRestoreNodeIndex.Build(document.MainDocumentPart!.Document!.Body!);
+            foreach (var mutation in mutations)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!nodes.TryGetValue(mutation.NodeId, out var node) ||
+                    (node is Run ? "rPr" : node is Paragraph ? "pPr" : node is Table ? "tblPr" : node is TableRow ? "trPr" : node is TableCell ? "tcPr" : "") != mutation.PropertyKind)
+                    throw new InvalidDataException("Undo mutation does not refer to a supported properties node.");
+                var existing = node.ChildElements.FirstOrDefault(e => e.LocalName == mutation.PropertyKind && e.NamespaceUri == W);
+                if (existing?.OuterXml != mutation.AfterPropertiesXml) throw new InvalidDataException("Undo properties do not match saved after state.");
+                existing?.Remove();
+                if (mutation.BeforePropertiesXml is { } xml)
+                {
+                    OpenXmlElement properties = mutation.PropertyKind switch
+                    {
+                        "rPr" => new RunProperties(xml), "pPr" => new ParagraphProperties(xml), "tblPr" => new TableProperties(xml),
+                        "trPr" => new TableRowProperties(xml), "tcPr" => new TableCellProperties(xml), _ => throw new InvalidDataException(),
+                    };
+                    ((OpenXmlCompositeElement)node).AddChild(properties, true);
+                }
+            }
+            document.MainDocumentPart!.Document!.Save();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        var after = await parser.ParseAsync(copy, cancellationToken: cancellationToken);
+        ValidatePreservation(original, copy.ToArray(), before, after);
+        return new(copy.ToArray(), after, mutations.Select(m => m with { BeforePropertiesXml = m.AfterPropertiesXml, AfterPropertiesXml = m.BeforePropertiesXml }).ToArray(), []);
+    }
+
     public async ValueTask<FormatRestoreRenderResult> RenderAsync(Stream source, FormatRestorePlan plan,
         FormatRestoreScope? scope = null, IProgress<FormatRestoreProgress>? progress = null,
         CancellationToken cancellationToken = default)
@@ -22,6 +64,12 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
         ArgumentNullException.ThrowIfNull(plan);
         if (!source.CanRead || !source.CanSeek) throw new ArgumentException("A readable seekable source is required.");
         if (plan.SchemaVersion != FormatRestorePlan.CurrentSchemaVersion) throw new InvalidDataException("Unsupported restore plan schema.");
+        if (!double.IsFinite(plan.Policy.MinimumScore) || plan.Policy.MinimumScore is < 0 or > 1 ||
+            plan.RestoreItems.Any(i => i.Eligibility == FormatRestoreEligibility.Eligible &&
+                (i.Mapping is null || i.Mapping.Confidence is not (ComparisonConfidenceLevel.Exact or ComparisonConfidenceLevel.High) ||
+                 !double.IsFinite(i.Confidence) || i.Confidence < plan.Policy.MinimumScore || i.Confidence > 1 ||
+                 !double.IsFinite(i.Mapping.Score) || i.Mapping.Score < plan.Policy.MinimumScore || i.Mapping.Score > 1)))
+            throw new InvalidDataException("Eligible restore items require trusted comparison evidence.");
         scope ??= new();
         var selected = SelectItems(plan, scope);
         cancellationToken.ThrowIfCancellationRequested();
@@ -39,6 +87,8 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
         using (var document = WordprocessingDocument.Open(copy, true))
         {
             var main = document.MainDocumentPart ?? throw new InvalidDataException("No main document part.");
+            if (main.Document!.Descendants().Any(e => e.NamespaceUri == W && e.LocalName.EndsWith("PrChange", StringComparison.Ordinal)))
+                diagnostics.Add(new("ExistingFormatRevisionPreserved", null, "Existing format revision subtrees are protected; no revision acceptance is performed."));
             var nodes = OpenXmlRestoreNodeIndex.Build(main.Document!.Body ?? throw new InvalidDataException("No document body."));
             var resolver = new OpenXmlFormattingResolver(main.StyleDefinitionsPart?.Styles, []);
             foreach (var item in selected)
@@ -225,7 +275,7 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
         if (properties is null)
         {
             properties = kind switch { "tblPr" => new TableProperties(), "tcPr" => new TableCellProperties(), "trPr" => new TableRowProperties(), _ => throw new InvalidDataException() };
-            node.InsertAt(properties, 0);
+            ((OpenXmlCompositeElement)node).AddChild(properties, true);
         }
         foreach (var (name, attributes) in TableAttributes(target))
         {
@@ -364,7 +414,7 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
                 foreach (var attribute in element.Attributes().Where(a => a.Name.Namespace == w && allowed[element.Name.LocalName].ContainsKey(a.Name.LocalName)).ToArray()) attribute.Remove();
                 if (!element.HasElements && !element.Attributes().Any(a => !a.IsNamespaceDeclaration)) element.Remove();
             }
-        document.Descendants(w + "rPr").Where(e => !e.HasElements && !e.HasAttributes).Remove();
+        document.Descendants(w + "rPr").Where(e => !e.HasElements && !e.Attributes().Any(a => !a.IsNamespaceDeclaration)).Remove();
         foreach (var properties in document.Descendants(w + "pPr").Where(p => !p.Ancestors().Any(a => a.Name.LocalName.EndsWith("Change", StringComparison.Ordinal))))
         {
             var paragraphAllowed = ParagraphAttributes(ParagraphFormatSnapshot.Empty);
@@ -375,7 +425,7 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
                 if (!element.HasElements && !element.Attributes().Any(a => !a.IsNamespaceDeclaration)) element.Remove();
             }
         }
-        document.Descendants(w + "pPr").Where(e => !e.HasElements && !e.HasAttributes).Remove();
+        document.Descendants(w + "pPr").Where(e => !e.HasElements && !e.Attributes().Any(a => !a.IsNamespaceDeclaration)).Remove();
         foreach (var kind in new[] { "tblPr", "tcPr", "trPr" })
         {
             var tableAllowed = kind == "tblPr" ? TableAttributes(new(Table: TableFormatSnapshot.Empty)) :
@@ -394,11 +444,21 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
                         border.Attributes().Where(a => a.Name.Namespace == w && new[] { "val", "color", "sz" }.Contains(a.Name.LocalName)).Remove();
                         if (!border.HasElements && !border.Attributes().Any(a => !a.IsNamespaceDeclaration)) border.Remove();
                     }
-                    if (!borders.HasElements && !borders.HasAttributes) borders.Remove();
+                    if (!borders.HasElements && !borders.Attributes().Any(a => !a.IsNamespaceDeclaration)) borders.Remove();
                 }
             }
-            document.Descendants(w + kind).Where(e => !e.HasElements && !e.HasAttributes).Remove();
+            document.Descendants(w + kind).Where(e => !e.HasElements && !e.Attributes().Any(a => !a.IsNamespaceDeclaration)).Remove();
         }
-        return document.ToString(SaveOptions.DisableFormatting);
+        // SDK property constructors can add redundant xmlns declarations. Compare expanded
+        // names and values rather than lexical prefixes without ignoring protected content.
+        return JsonSerializer.Serialize(SemanticXml(document.Root!));
     }
+
+    private static object SemanticXml(XElement element) => new
+    {
+        Name = element.Name.ToString(),
+        Attributes = element.Attributes().Where(a => !a.IsNamespaceDeclaration).OrderBy(a => a.Name.ToString(), StringComparer.Ordinal)
+            .Select(a => new { Name = a.Name.ToString(), a.Value }).ToArray(),
+        Nodes = element.Nodes().Select(n => n is XElement child ? SemanticXml(child) : (object)new { Kind = n.NodeType.ToString(), Value = n.ToString(SaveOptions.DisableFormatting) }).ToArray(),
+    };
 }

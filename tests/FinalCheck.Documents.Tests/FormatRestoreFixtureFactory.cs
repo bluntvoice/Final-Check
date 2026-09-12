@@ -42,11 +42,11 @@ internal static class FormatRestoreFixtureFactory
     public static FormatRestorePlan Plan(DocumentSnapshot baseline, DocumentSnapshot current)
     {
         var comparison = Engine().Compare(baseline, current);
-        if (baseline.Paragraphs.Count == current.Paragraphs.Count)
-            comparison = comparison with { NodeMappings = baseline.Paragraphs.Zip(current.Paragraphs).Select(pair =>
+        if (baseline.Paragraphs.Count > 0 && baseline.Paragraphs.Count == current.Paragraphs.Count)
+            comparison = comparison with { NodeMappings = comparison.NodeMappings.Where(m => m.CurrentNode.Kind != DocumentNodeKind.Paragraph).Concat(baseline.Paragraphs.Zip(current.Paragraphs).Select(pair =>
                 new ComparisonNodeMapping(new(pair.First.NodeId, DocumentNodeKind.Paragraph, pair.First.Index),
                     new(pair.Second.NodeId, DocumentNodeKind.Paragraph, pair.Second.Index), ComparisonMappingType.ExactText,
-                    ComparisonConfidenceLevel.High, 1, [], false, pair.First.DisplayText != pair.Second.DisplayText)).ToArray() };
+                    ComparisonConfidenceLevel.High, 1, [], false, pair.First.DisplayText != pair.Second.DisplayText))).ToArray() };
         return new SnapshotFormatRestorePlanner().Generate(baseline, current, comparison);
     }
 }

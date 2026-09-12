@@ -21,7 +21,7 @@ internal static class Program
         VelopackApp.Build().Run();
 
         var services = new ServiceCollection();
-        ConfigureServices(services);
+        ConfigureServices(services, args);
         var serviceProvider = services.BuildServiceProvider();
 
         using (var scope = serviceProvider.CreateScope())
@@ -42,9 +42,17 @@ internal static class Program
             .WithInterFont()
             .LogToTrace();
 
-    private static void ConfigureServices(IServiceCollection services)
+    private static void ConfigureServices(IServiceCollection services, string[] args)
     {
         services.AddSingleton<IAppDataPathProvider, PlatformAppDataPathProvider>();
+#if DEBUG
+        var developerPathIndex = Array.IndexOf(args, "--developer-data-directory");
+        if (developerPathIndex >= 0)
+        {
+            if (developerPathIndex + 1 >= args.Length) throw new ArgumentException("An absolute isolated developer data directory is required.");
+            services.AddSingleton<IAppDataPathProvider>(new DeveloperAppDataPathProvider(args[developerPathIndex + 1]));
+        }
+#endif
         services.AddSingleton<IFileHashService, Sha256FileHashService>();
         services.AddSingleton<IUpdateService, DeferredUpdateService>();
         services.AddSingleton<IDocumentParser, OpenXmlDocumentParser>();
@@ -60,6 +68,9 @@ internal static class Program
         services.AddSingleton<IChangeGroupingService, RuleBasedChangeGroupingService>();
         services.AddSingleton<IComparisonResultSerializer, JsonComparisonResultSerializer>();
         services.AddSingleton<IComparisonEngine, BasicComparisonEngine>();
+        services.AddSingleton<IFormatRestorePlanner, SnapshotFormatRestorePlanner>();
+        services.AddSingleton<IFormatRestoreRenderer, OpenXmlFormatRestoreRenderer>();
+        services.AddSingleton<IWorkingCopyComparisonService, WorkingCopyComparisonService>();
         services.AddSingleton<MainViewModel>();
 
         services.AddDbContext<FinalCheckDbContext>((serviceProvider, options) =>
@@ -69,5 +80,7 @@ internal static class Program
         });
         services.AddScoped<FinalCheckDatabaseInitializer>();
         services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
+        services.AddScoped<IFormatRestoreStore, FormatRestoreStore>();
+        services.AddScoped<IFormatRestoreWorkingCopyService, FormatRestoreWorkingCopyService>();
     }
 }

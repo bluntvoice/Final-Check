@@ -2,7 +2,7 @@
 
 ## 项目状态
 
-Final Check v0.1.0 的基础工程、Document Engine v0 与 Comparison Engine v0 已按各任务文件完成。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；尚未发布真实 Stable Release，也未实现正式业务 UI、格式恢复或 updater UI。
+Final Check v0.1.0 的基础工程、Document Engine v0、Comparison Engine v0 与 Format Restore Engine v0 已按各任务文件实现，验收状态以 task 为准。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；尚未发布真实 Stable Release，也未实现正式业务 UI 或 updater UI。
 
 ## 开发前阅读
 
@@ -84,6 +84,21 @@ dotnet test tests/FinalCheck.Documents.Tests/FinalCheck.Documents.Tests.csproj `
   --filter PerformanceCompositeRecordsJsonAndCompressionBaseline `
   --logger "console;verbosity=detailed"
 ```
+
+## Format Restore 开发验证
+
+先读 [task](../tasks/format-restore-engine-v0.md)、[architecture](../architecture/format-restore-engine.md) 与 ADR-0005。测试使用生成式非敏感 DOCX 和 GUID 隔离 SQLite/AppData；不得用用户合同或正常数据库试验迁移/Undo。
+
+```powershell
+dotnet test -c Release --filter FullyQualifiedName~FormatRestore
+dotnet test tests/FinalCheck.Data.Tests/FinalCheck.Data.Tests.csproj -c Release `
+  --filter SmallAndMediumRecordPlanExecutionReparseAllocationsAndWorkingSize `
+  --logger "console;verbosity=detailed"
+dotnet run --project src/FinalCheck.Desktop/FinalCheck.Desktop.csproj -c Debug -- `
+  --developer-data-directory C:\Temp\FinalCheck-Isolated-Developer-Check
+```
+
+Debug-only `--developer-data-directory` 必须显式绝对路径，拒绝正常 FinalCheck 数据目录；Release 包无此配置。它只用于启动/DI/迁移冒烟，不是正式 UI。底层服务调用方提供稳定 ContractVersion Guid、Snapshot/Comparison 与 Plan；外部编辑必须明确 preserve/regenerate，不自动猜测。当前数据库 schema 3 新增 restore history，旧 Snapshot/Comparison 保留。
 
 ## Solution 结构
 

@@ -35,6 +35,7 @@ public sealed class SnapshotFormatRestorePlanner(ITextDiffService? textDiffServi
         var diagnostics = new List<FormatRestoreDiagnostic>();
         var mapped = new HashSet<string>(StringComparer.Ordinal);
         progress?.Report(new(FormatRestoreStage.ResolvingMappings, 0, comparison.NodeMappings.Count));
+        progress?.Report(new(FormatRestoreStage.ResolvingTargetFormatting, 0, comparison.NodeMappings.Count));
         foreach (var mapping in comparison.NodeMappings.OrderBy(m => m.CurrentNode.NodeId, StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();

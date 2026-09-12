@@ -71,3 +71,26 @@ public sealed record FormatRestoreRenderResult(
     byte[] DocumentBytes, DocumentSnapshot Snapshot,
     IReadOnlyList<FormatRestoreMutation> Mutations,
     IReadOnlyList<FormatRestoreDiagnostic> Diagnostics);
+
+public enum FormatRestoreOperationKind { Restore, Undo, PreserveExternalChanges, Regenerate }
+public enum FormatRestoreOperationStatus { Prepared, Completed, Failed, Undone }
+public enum FormatRestoreResultStatus { Completed, NoChanges, WorkingCopyExternallyModified, RecoveryNeedsReview, Failed, Cancelled }
+
+public sealed record RestoredWorkingCopy(
+    Guid ContractVersionId, string OriginalPath, string OriginalSha256, string WorkingPath,
+    string Sha256, DocumentSnapshot Snapshot, DateTimeOffset UpdatedAt, Guid LastOperationId);
+
+public sealed record FormatRestoreOperation(
+    int SchemaVersion, Guid OperationId, Guid ContractVersionId, FormatRestoreOperationKind Kind,
+    FormatRestoreOperationStatus Status, FormatRestorePlan? Plan, FormatRestoreScope Scope,
+    DateTimeOffset CreatedAt, DateTimeOffset? CompletedAt, string? BeforeSha256, string AfterSha256,
+    IReadOnlyList<FormatRestoreMutation> Mutations, IReadOnlyList<FormatRestoreDiagnostic> Diagnostics,
+    RestoredWorkingCopy WorkingCopy, string TemporaryPath, string BackupPath,
+    Guid? UndoesOperationId = null, ComparisonResult? RebuiltComparison = null, string? PreviousMetadataSha256 = null)
+{
+    public const int CurrentSchemaVersion = 1;
+}
+
+public sealed record FormatRestoreResult(
+    FormatRestoreResultStatus Status, RestoredWorkingCopy? WorkingCopy,
+    FormatRestoreOperation? Operation, IReadOnlyList<FormatRestoreDiagnostic> Diagnostics);
