@@ -58,6 +58,14 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
                     var updated = run.RunProperties?.OuterXml;
                     if (old != updated) mutations.Add(new(item.CurrentNodeId, "rPr", old, updated));
                 }
+                else if (element is Paragraph paragraph && item.Category == FormatRestoreCategory.Paragraph && item.TargetFormatting.Paragraph is { } paragraphTarget)
+                {
+                    progress?.Report(new(FormatRestoreStage.ApplyingParagraphFormatting, mutations.Count, selected.Count));
+                    var old = paragraph.ParagraphProperties?.OuterXml;
+                    ApplyParagraph(paragraph, paragraphTarget, item.TargetFormatting.ParagraphStyleId, main.StyleDefinitionsPart?.Styles, resolver, diagnostics, item.CurrentNodeId);
+                    var updated = paragraph.ParagraphProperties?.OuterXml;
+                    if (old != updated) mutations.Add(new(item.CurrentNodeId, "pPr", old, updated));
+                }
                 else diagnostics.Add(new("UnsupportedRestoreCategory", item.CurrentNodeId, "This restore category has no writer yet."));
             }
             progress?.Report(new(FormatRestoreStage.Saving, mutations.Count, selected.Count));
@@ -74,6 +82,10 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
         foreach (var item in selected.Where(i => i.Eligibility == FormatRestoreEligibility.Eligible && i.Category == FormatRestoreCategory.Character))
             if (!afterRuns.TryGetValue(item.CurrentNodeId, out var run) || run.EffectiveFormatting != item.TargetFormatting.Character)
                 throw new InvalidDataException("ReparseValidationFailed: target character formatting did not take effect.");
+        var afterParagraphs = Paragraphs(after).ToDictionary(p => p.NodeId);
+        foreach (var item in selected.Where(i => i.Eligibility == FormatRestoreEligibility.Eligible && i.Category == FormatRestoreCategory.Paragraph))
+            if (!afterParagraphs.TryGetValue(item.CurrentNodeId, out var paragraph) || paragraph.EffectiveFormatting != item.TargetFormatting.Paragraph)
+                throw new InvalidDataException("ReparseValidationFailed: target paragraph formatting did not take effect.");
         cancellationToken.ThrowIfCancellationRequested();
         progress?.Report(new(FormatRestoreStage.Completed, mutations.Count, selected.Count));
         return new(bytes, after, mutations, diagnostics);
@@ -139,6 +151,84 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
         ["highlight"] = new() { ["val"] = format.Highlight },
     };
 
+    private static void ApplyParagraph(Paragraph paragraph, ParagraphFormatSnapshot target, string? targetStyle,
+        Styles? styles, OpenXmlFormattingResolver resolver, List<FormatRestoreDiagnostic> diagnostics, string nodeId)
+    {
+        var properties = paragraph.ParagraphProperties ??= new ParagraphProperties();
+        var oldStyle = properties.ParagraphStyleId?.Val?.Value;
+        if (targetStyle != oldStyle)
+        {
+            var beforeRuns = paragraph.Descendants<Run>().Select(r => resolver.ResolveRun(paragraph, r, null, "")).ToArray();
+            if (targetStyle is not null && styles?.Elements<Style>().Any(s => s.StyleId?.Value == targetStyle && s.Type?.Value == StyleValues.Paragraph) == true &&
+                ExtraStyleSignature(styles, oldStyle) == ExtraStyleSignature(styles, targetStyle))
+            {
+                properties.ParagraphStyleId = new ParagraphStyleId { Val = targetStyle };
+                if (!beforeRuns.SequenceEqual(paragraph.Descendants<Run>().Select(r => resolver.ResolveRun(paragraph, r, null, ""))))
+                    properties.ParagraphStyleId = oldStyle is null ? null : new ParagraphStyleId { Val = oldStyle };
+            }
+            if (properties.ParagraphStyleId?.Val?.Value != targetStyle)
+                diagnostics.Add(new("StyleReferencePreserved", nodeId, "Missing/incompatible style reference retained; only supported paragraph attributes are restored."));
+        }
+        var original = ParagraphAttributes(resolver.ResolveParagraph(paragraph, null, ""));
+        foreach (var (elementName, attributes) in ParagraphAttributes(target))
+        {
+            var changed = attributes.Keys.Where(name => attributes[name] != original[elementName][name]).ToArray();
+            if (changed.Length == 0) continue;
+            var element = properties.ChildElements.FirstOrDefault(e => e.LocalName == elementName && e.NamespaceUri == W);
+            foreach (var name in changed) element?.RemoveAttribute(name, W);
+            if (element is not null && !element.HasAttributes && !element.HasChildren) { element.Remove(); element = null; }
+            var inherited = ParagraphAttributes(resolver.ResolveParagraph(paragraph, null, ""))[elementName];
+            var needed = changed.Where(name => attributes[name] != inherited[name]).ToArray();
+            if (needed.Any(name => attributes[name] is null)) throw new InvalidDataException("UnrepresentableInheritedParagraphFormatting.");
+            if (needed.Length == 0) continue;
+            OpenXmlElement created = elementName switch
+            {
+                "jc" => new Justification(), "ind" => new Indentation(), "spacing" => new SpacingBetweenLines(),
+                _ => throw new InvalidDataException("Unsupported paragraph property."),
+            };
+            if (element is null) { element = created; properties.AddChild(element, true); }
+            foreach (var name in needed) element.SetAttribute(new("w", name, W, attributes[name]!));
+        }
+        if (!properties.HasChildren && !properties.HasAttributes) paragraph.ParagraphProperties = null;
+    }
+
+    internal static Dictionary<string, Dictionary<string, string?>> ParagraphAttributes(ParagraphFormatSnapshot format) => new()
+    {
+        ["jc"] = new() { ["val"] = format.Alignment },
+        ["ind"] = new() { ["left"] = format.LeftIndent, ["right"] = format.RightIndent, ["firstLine"] = format.FirstLineIndent, ["hanging"] = format.HangingIndent },
+        ["spacing"] = new() { ["before"] = format.SpacingBefore, ["after"] = format.SpacingAfter, ["line"] = format.LineSpacing, ["lineRule"] = format.LineRule },
+    };
+
+    private static string ExtraStyleSignature(Styles styles, string? styleId)
+    {
+        var index = styles.Elements<Style>().Where(s => s.StyleId?.Value is not null).ToDictionary(s => s.StyleId!.Value!);
+        styleId ??= styles.Elements<Style>().FirstOrDefault(s => s.Type?.Value == StyleValues.Paragraph && s.Default?.Value == true)?.StyleId?.Value;
+        var visited = new HashSet<string>();
+        var extra = new List<string>();
+        while (styleId is not null)
+        {
+            if (!visited.Add(styleId) || !index.TryGetValue(styleId, out var style)) return "invalid:" + styleId;
+            if (style.StyleRunProperties is { } runs && runs.HasChildren) extra.Add(runs.OuterXml);
+            if (style.StyleParagraphProperties is { } properties)
+            {
+                var clone = (StyleParagraphProperties)properties.CloneNode(true);
+                StripProperties(clone, ParagraphAttributes(ParagraphFormatSnapshot.Empty));
+                if (clone.HasChildren || clone.HasAttributes) extra.Add(clone.OuterXml);
+            }
+            styleId = style.BasedOn?.Val?.Value;
+        }
+        return string.Join("|", extra);
+    }
+
+    private static void StripProperties(OpenXmlElement properties, Dictionary<string, Dictionary<string, string?>> allowed)
+    {
+        foreach (var child in properties.ChildElements.Where(e => e.NamespaceUri == W && allowed.ContainsKey(e.LocalName)).ToArray())
+        {
+            foreach (var name in allowed[child.LocalName].Keys) child.RemoveAttribute(name, W);
+            if (!child.HasChildren && !child.HasAttributes) child.Remove();
+        }
+    }
+
     internal static bool Same(Dictionary<string, string?> left, Dictionary<string, string?> right) =>
         left.Count == right.Count && left.All(a => right.TryGetValue(a.Key, out var value) && a.Value == value);
 
@@ -183,6 +273,17 @@ public sealed class OpenXmlFormatRestoreRenderer(IDocumentParser parser) : IForm
                 if (!element.HasElements && !element.Attributes().Any(a => !a.IsNamespaceDeclaration)) element.Remove();
             }
         document.Descendants(w + "rPr").Where(e => !e.HasElements && !e.HasAttributes).Remove();
+        foreach (var properties in document.Descendants(w + "pPr").Where(p => !p.Ancestors().Any(a => a.Name.LocalName.EndsWith("Change", StringComparison.Ordinal))))
+        {
+            var paragraphAllowed = ParagraphAttributes(ParagraphFormatSnapshot.Empty);
+            paragraphAllowed.Add("pStyle", new() { ["val"] = null });
+            foreach (var element in properties.Elements().Where(e => e.Name.Namespace == w && paragraphAllowed.ContainsKey(e.Name.LocalName)).ToArray())
+            {
+                foreach (var attribute in element.Attributes().Where(a => a.Name.Namespace == w && paragraphAllowed[element.Name.LocalName].ContainsKey(a.Name.LocalName)).ToArray()) attribute.Remove();
+                if (!element.HasElements && !element.Attributes().Any(a => !a.IsNamespaceDeclaration)) element.Remove();
+            }
+        }
+        document.Descendants(w + "pPr").Where(e => !e.HasElements && !e.HasAttributes).Remove();
         return document.ToString(SaveOptions.DisableFormatting);
     }
 }

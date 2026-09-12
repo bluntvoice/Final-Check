@@ -50,7 +50,31 @@ public sealed class SnapshotFormatRestorePlanner(ITextDiffService? textDiffServi
             AddCharacterItems(bp, cp, mapping, eligible, items, diagnostics, cancellationToken);
         }
         foreach (var paragraph in currentParagraphs.Values.Where(p => !mapped.Contains(p.NodeId)))
-            diagnostics.Add(new("UnmappedNode", paragraph.NodeId, "No comparison mapping; no speculative restore."));
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var neighbours = comparison.NodeMappings.Where(m => m.CurrentNode.Kind == DocumentNodeKind.Paragraph &&
+                Trusted(m, policy) && currentParagraphs.ContainsKey(m.CurrentNode.NodeId) && baselineParagraphs.ContainsKey(m.BaselineNode.NodeId) &&
+                currentParagraphs[m.CurrentNode.NodeId].Identity.ParentNodeId == paragraph.Identity.ParentNodeId).ToArray();
+            var previous = neighbours.Where(m => currentParagraphs[m.CurrentNode.NodeId].Index < paragraph.Index)
+                .OrderByDescending(m => currentParagraphs[m.CurrentNode.NodeId].Index).FirstOrDefault();
+            var next = neighbours.Where(m => currentParagraphs[m.CurrentNode.NodeId].Index > paragraph.Index)
+                .OrderBy(m => currentParagraphs[m.CurrentNode.NodeId].Index).FirstOrDefault();
+            var candidates = new[] { previous, next }.OfType<ComparisonNodeMapping>()
+                .Where(m => SameLevel(paragraph, currentParagraphs[m.CurrentNode.NodeId])).ToArray();
+            var targets = candidates.Select(m => baselineParagraphs[m.BaselineNode.NodeId]).ToArray();
+            if (targets.Length == 2 && targets[0].EffectiveFormatting == targets[1].EffectiveFormatting &&
+                targets[0].StyleId == targets[1].StyleId && SameLevel(targets[0], targets[1]))
+            {
+                var bp = targets[0];
+                AddItem(items, bp.NodeId, paragraph.Identity,
+                    new(Paragraph: paragraph.EffectiveFormatting, ParagraphStyleId: paragraph.StyleId),
+                    new(Paragraph: bp.EffectiveFormatting, ParagraphStyleId: bp.StyleId),
+                    FormatRestoreCategory.Paragraph, true, candidates[0], "SameLevelMappedNeighbourConsensus");
+                AddCharacterItems(bp, paragraph, candidates[0], true, items, diagnostics, cancellationToken);
+                diagnostics.Add(new("AddedParagraphFallbackUsed", paragraph.NodeId, "Same-level trusted neighbours agree; original mapping is retained as evidence."));
+            }
+            else diagnostics.Add(new("UnmappedNode", paragraph.NodeId, "No reliable same-level neighbour consensus; no speculative restore."));
+        }
         progress?.Report(new(FormatRestoreStage.ValidatingPlan, items.Count, items.Count));
         var orderedItems = items.OrderBy(i => i.RestoreItemId, StringComparer.Ordinal).ToArray();
         var orderedDiagnostics = diagnostics.OrderBy(d => d.NodeId, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
@@ -143,6 +167,10 @@ public sealed class SnapshotFormatRestorePlanner(ITextDiffService? textDiffServi
     internal static bool Trusted(ComparisonNodeMapping mapping, FormatRestorePolicy policy) =>
         mapping.Confidence is ComparisonConfidenceLevel.Exact or ComparisonConfidenceLevel.High &&
         double.IsFinite(mapping.Score) && mapping.Score >= policy.MinimumScore && mapping.Score <= 1;
+
+    private static bool SameLevel(DocumentParagraphSnapshot left, DocumentParagraphSnapshot right) =>
+        left.StyleId == right.StyleId && left.Numbering?.LevelIndex == right.Numbering?.LevelIndex &&
+        (left.Numbering is null) == (right.Numbering is null);
 
     internal static void AddItem(List<FormatRestoreItem> items, string? baselineId,
         DocumentNodeIdentitySnapshot identity, RestoreFormatting current, RestoreFormatting target,

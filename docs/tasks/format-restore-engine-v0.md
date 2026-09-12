@@ -1265,7 +1265,9 @@ macOS CI 必须继续通过 Core/Documents/Comparison/Data 兼容性验证。
 * Phase 2 — Character Formatting：DONE
   - 实际完成：四字体槽/字号/颜色/粗斜体/下划线/删除线/高亮最小属性写回；UTF-16 Diff 位置投影、统一段落格式与邻近一致格式的新增文字 fallback；Run 边界不同仍可恢复，跨冲突目标保守跳过；私有流写回并正式重解析，文本/修订/批注/OPC 原样内容验证、Scope、取消和 hash 拒绝。
   - 测试：新增 6 个字符恢复测试覆盖所有支持属性、改变内容、Run 边界、mixed format、Insert/Delete/comment/existing rPrChange/Track Changes、继承样式去除 override、选择范围、取消与 stale hash；Release 全部 92/92 通过（Documents 32）。
-* Phase 3 — Paragraph Formatting：TODO
+* Phase 3 — Paragraph Formatting：DONE
+  - 实际完成：pPr 属性级对齐、左右/首行/悬挂缩进、段前后、行距/rule；兼容 Style reference 与最小 direct override，不复制段落/正文/样式库；新增段落按同容器同级前后可信 mapping 目标一致 fallback，缺失样式和不足证据诊断。
+  - 测试：新增 6 个段落用例覆盖首行/悬挂、完整间距、兼容样式无 flatten、缺失样式保守 override、新增段落 fallback/拒绝；Release 98/98 通过（Documents 38）。
 * Phase 4 — Table / Cell Formatting：TODO
 * Phase 5 — Working Copy / Undo / Preservation：TODO
 

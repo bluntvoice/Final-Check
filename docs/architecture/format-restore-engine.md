@@ -25,3 +25,9 @@ Phase 1 建立计划模型和纯 Snapshot 生成；Phase 2 已加入字符写回
 ## Reparse / 保留验证
 
 Renderer 在私有 MemoryStream 中编辑，正式 Document Engine 重新解析；验证目标有效格式、所有 Run 的 raw/display/content、revision 完整模型、comment/anchor、节点身份和表格数量。额外按 OPC part 检查：其他 part 原样保留，正文 XML 只允许支持的属性变化；已有格式修订子树完全保留，不接受修订、不创建 Change 节点。取消不返回未验证结果。所有真实文件生命周期在 Phase 5 独立实现。
+
+## Paragraph restore / Style / 新增段落
+
+只修改 pPr 中对齐、缩进、首行/悬挂、段前后及行距/rule 支持属性。优先去除 override 复用继承；可用的 target Style reference 仅在其未知属性/字符属性继承链兼容、且切换不改变当前 Run 有效字符格式时采用。缺失/不兼容样式保留当前 reference，支持属性使用最小 direct override 并报告 StyleReferencePreserved；不导入或覆盖整个样式库。
+
+新增段落 fallback 只接受同一容器、同编号层级和 style profile 的前后两个 Exact/High 映射，且两侧 baseline 目标格式/样式一致；引用原始邻近 mapping 作为额外恢复证据，并报告 AddedParagraphFallbackUsed。没有双侧一致证据的首尾新增段落/层级冲突保留未处理诊断，不随机选 global/template 自定义样式。未来上层可提供人工样式选择，v0 不建立不存在的样式库。
