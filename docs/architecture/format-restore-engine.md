@@ -46,6 +46,8 @@ Table/Cell 沿用 Comparison 的结构位置 mapping，不额外识别同尺寸�
 
 `IFormatRestoreWorkingCopyService` 接受调用方稳定的 ContractVersion Guid；v0 不提前建立项目管理实体。每个版本只维护 `AppData/WorkingCopies/<version-guid>/restored.docx`。原文件仅以路径/hash 标识，打开只读，不设置 readonly、不替换原文件。后续恢复使用当前 working file；原文件和其他版本文件不参与覆盖。
 
+这是当前旧 AppData 实现。正式路径契约改为独立 `DataRoot/WorkingCopies/<version-guid>/restored.docx`，详见 [storage-and-paths.md](storage-and-paths.md)；尚未接入可变 provider。迁移必须同时处理 working metadata / operation 的受校验绝对路径、backup/journal 与 Undo 引用，保留原文路径、文件 SHA 和历史身份；仅改根目录字符串不能视为安全实现。
+
 私有 Renderer 验证 → 唯一 candidate 文件（CreateNew、flush）→ 再正式 parse/hash 验证 → 保存 Prepared journal → 再查旧 working hash → File.Replace（含旧文件 backup）/首次 safe move → 数据库 transaction Completed + working metadata。发布临界区不响应取消，避免“已发布但被标记取消”；取消发生在临界区前则旧文件保持完整。跨进程 operation.lock 仅协调本应用，同样拒绝 symlink/reparse-point 路径。文件系统与 SQLite 不是共同事务，详细决策见 ADR-0005。
 
 发布后数据库失败：确认是否已提交；已提交不 rollback，否则 hash 仍是本操作 after 时从 backup 回滚。数据库状态无法确定或检测到外部编辑则保留文件/backup/journal并返回 RecoveryNeedsReview，不猜测。恢复 Prepared 时：after hash 且重新 parse 与记录一致则完成 metadata；before hash 则标失败；其他 hash 进入人工调查。不会把未验证 candidate 自动升级为工作文件。仅清理本操作唯一临时 candidate，不清理用户文件。

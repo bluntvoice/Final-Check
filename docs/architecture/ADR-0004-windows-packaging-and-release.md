@@ -1,6 +1,6 @@
 # ADR-0004：Windows packaging、版本与发布通道
 
-- 状态：Accepted
+- 状态：Accepted；安装/数据位置产品约束由 ADR-0006 部分补充取代
 - 日期：2026-09-12
 - 适用版本：v0.1.0
 
@@ -10,7 +10,7 @@
 - SDK 从该值派生 Assembly/File Version 的数字部分及完整 Informational Version；关闭 Informational Version 的隐式 Git SHA 后缀。About 和侧栏读取 App assembly metadata，不另存版本常量。
 - Windows x64 使用 Release、self-contained，不启用 trimming / NativeAOT。统一 PowerShell 脚本调用固定的 Velopack 1.2.0。
 - Velopack NuGet 依赖仅存在于 Desktop；其生命周期入口必须先于 UI、DI 和数据库访问。核心四层不依赖 Velopack。
-- 固定包 ID 为 `FinalCheck.App`，默认用户安装目录 `%LocalAppData%\FinalCheck.App`。现有用户数据目录 `%LocalAppData%\FinalCheck` 保持不变，禁止将数据库、Snapshot、日志、Backup 和设置放入安装目录或 `current`。
+- 固定包 ID 为 `FinalCheck.App`。当前原生 Setup 默认安装目录为 `%LocalAppData%\FinalCheck.App`，现有用户数据位于 `%LocalAppData%\FinalCheck`；这是已实现基线，不是交互目录选择验收。正式首装可选目录、独立可迁移 DataRoot / bootstrap 依据 [ADR-0006](ADR-0006-install-location-and-data-root.md) 与 [Installer Spike](installer-architecture.md) 逐步验证接入；旧数据不因需求落档直接搬迁。禁止将数据库、Snapshot、日志、Backup 和设置放入安装目录或 `current`。
 - Test / Prerelease / Stable 使用不同 metadata channel：`test` / `beta` / `win`。Internal Test 只存在于 Actions Artifact，不向 GitHub Releases 发布。
 - updater 的完整 `.nupkg` 与 `releases.<channel>.json` 保留标准名称、版本、hash 和内容。安装包和 Portable 输出采用含版本的友好名称，上传专用 `assets.<channel>.json` 的对应文件名同步更新并验证。
 

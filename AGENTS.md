@@ -154,6 +154,14 @@ Final Check 涉及合同、历史版本和结构化文档数据，后续开发�
 - 文件路径、哈希、快照与历史记录必须保持一致
 - 任何迁移逻辑均须考虑失败恢复
 
+## 安装与数据路径长期原则
+
+- 安装位置与应用数据位置是独立概念；业务数据永不写入可替换/卸载的安装目录。
+- Windows 首装必须显示并允许浏览选择目录；Test / Prerelease / Stable 使用同一机制，更新/维护/卸载沿用实际实例位置，不提供多目录 side-by-side。
+- 业务存储统一通过独立 DataRoot 与平台抽象定位；bootstrap 在默认配置位置保留最小启动信息，不以目标 SQLite 作为唯一定位源。
+- 更改数据位置必须完整一致性复制、验证、可恢复切换，失败保护旧数据，成功默认保留旧数据；禁止用剪切/自动删除代替迁移，不未经验证宣称支持 SQLite 网络盘。
+- 详细路径/兼容/迁移与安装器 Spike 分别见 `docs/architecture/storage-and-paths.md`、`docs/architecture/installer-architecture.md`。需求/方案落档不代表功能已实现；未验证前不替换现有 Velopack packaging workflow。
+
 ## Git 操作安全
 
 执行 Git 操作前必须先检查 `git status`。

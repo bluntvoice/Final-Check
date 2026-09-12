@@ -4,6 +4,8 @@
 
 Final Check v0.1.0 的基础工程、Document Engine v0、Comparison Engine v0 与 Format Restore Engine v0 已按各任务文件实现，验收状态以 task 为准。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；尚未发布真实 Stable Release，也未实现正式业务 UI 或 updater UI。
 
+可选安装目录、独立可迁移 DataRoot / bootstrap 已完成产品与架构落档，**尚未实现** Installer Wizard / Storage Settings / 数据迁移，不改变现有 Velopack workflow 或运行时数据路径。
+
 ## 开发前阅读
 
 1. [`AGENTS.md`](../../AGENTS.md)
@@ -139,6 +141,17 @@ dotnet tool run dotnet-ef migrations add <MigrationName> `
 ```
 
 数据库时间统一使用 UTC；UI 层负责转换为本地时间。
+
+## 安装与数据路径后续开发
+
+先读 [Storage and paths](../architecture/storage-and-paths.md)、[Installer Architecture / Spike](../architecture/installer-architecture.md)、[ADR-0006](../architecture/ADR-0006-install-location-and-data-root.md) 与 [Release process](release-process.md) 的待实施门禁。
+
+- 安装目录与数据目录独立；业务数据绝不写入可替换/卸载的安装目录。首装可见目录/Browse、三类包同一机制、维护/更新/卸载沿用实际位置是正式要求，不是当前原生 Setup 的既有能力。
+- 新用户正式默认 DataRoot `%LocalAppData%\FinalCheck\Data`，locator `%LocalAppData%\FinalCheck\bootstrap.json`；当前旧库 `%LocalAppData%\FinalCheck\finalcheck.db` 保持不变。没有 bootstrap 不能直接判断为新用户并创建空库。
+- `IDataRootProvider`、bootstrap store、path policy、maintenance coordinator、session factory、migration/usage service 只完成职责设计，生产代码仍使用 `IAppDataPathProvider`。不单独增加可变路径字段而遗漏旧 scope/连接池、managed absolute path/history 和跨进程写入。
+- Storage Settings 在隔离固定磁盘/生成式有数据 SQLite 和 DOCX 中验证复制、WAL、SHA/数量/大小、重新打开/重解析、locator 提交与 crash 恢复；失败保护旧 root，成功默认保留旧数据，立即刷新 UI/统计。不能用用户库试迁移或直接剪切。
+- Snapshot / Comparison / restore payload 当前包含在 SQLite，逻辑 payload 统计不能与 Database 物理大小重复累加；统计跟随 root generation。原始 DOCX 路径与 PRD 导出位置不变。
+- Windows fixed-disk 路径、权限/空间、同步目录/网络/可移动/链接阻断属于 Infrastructure/Desktop；Core/Documents/Comparison/Data 不引入 Registry、Shell 等 API。安装器 Spike 未通过前不改发布流水线或升级 Velopack 依赖。
 
 ## 平台政策
 

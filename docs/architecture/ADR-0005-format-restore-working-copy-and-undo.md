@@ -10,7 +10,7 @@
 
 ## Decision
 
-1. Core 使用调用方稳定 ContractVersion Guid；Infrastructure 管理独立 AppData 下固定 working path。恢复规划复用 ComparisonNodeMapping，不另建匹配算法。
+1. Core 使用调用方稳定 ContractVersion Guid；Infrastructure 当前管理独立 AppData 下固定 working path。未来 DataRoot 归属与已有绝对路径兼容迁移依据 [ADR-0006](ADR-0006-install-location-and-data-root.md) / [storage-and-paths.md](storage-and-paths.md)，不直接切换路径或改变本 ADR 的发布/Undo 安全管线。恢复规划复用 ComparisonNodeMapping，不另建匹配算法。
 2. Documents 只修改支持的属性，优先 style/inheritance 与最小 direct override；不复制 baseline 正文/表格/样式库。未知属性、OPC parts、格式修订子树保护；私有输出正式重解析验证后才可发布。
 3. Candidate → parse/hash validation → durable Prepared operation → recheck current SHA → atomic replace/safe move → SQLite metadata/operation completion。保存旧文件 backup。原子文件替换与数据库不能组成同一事务，因此使用 journal 与 before/after hashes 恢复，不声称跨资源绝对原子性。
 4. metadata SHA 并发 token 与版本 operation.lock 防止本应用重复操作；symlink/reparse-point 拒绝。外部编辑器不是合作锁参与者，要求关闭文件编辑，hash 不符明确拒绝。

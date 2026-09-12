@@ -27,3 +27,4 @@ Document Engine 需要把短生命周期的 Open XML DOM 转换为可长期保�
 - 未能从旧版本恢复的字段必须产生 Partial/Diagnostic，不得伪装完整。
 - payload 压缩如正式采用，需要新的存储格式标识和向后兼容路径。
 - Comparison Engine 只依赖 Snapshot，不直接依赖 DOCX 文件或 Open XML Package。
+- 数据库物理位置、DataRoot、bootstrap 与一致性目录迁移见 [storage-and-paths.md](storage-and-paths.md) / [ADR-0006](ADR-0006-install-location-and-data-root.md)。改变数据目录不改变 Snapshot 历史事实或 schema；payload 当前仍在 SQLite 内，统计不重复计算磁盘占用。

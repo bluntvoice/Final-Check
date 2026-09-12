@@ -64,7 +64,7 @@ Windows 使用 .NET 10 + Avalonia、Release、win-x64 self-contained，不要求
 
 | 文件 | 用途 |
 |---|---|
-| `FinalCheck-v<version>-win-x64-Setup.exe` | 普通用户的 per-user 安装程序 |
+| `FinalCheck-v<version>-win-x64-Setup.exe` | 当前原生 per-user Setup；交互目录选择尚未接入，不能以此验收新安装要求 |
 | `FinalCheck-v<version>-win-x64-Portable.zip` | 完整 Portable layout，解压后运行根目录 `Final Check.exe`，不要仅复制 current |
 | `FinalCheck-v<version>-win-x64-SHA256.txt` | 每个输出文件的 SHA-256 完整性校验 |
 | `FinalCheck.App-<version>[-channel]-full.nupkg` | Velopack 完整 updater package，名称/内容不改 |
@@ -76,11 +76,33 @@ Windows 使用 .NET 10 + Avalonia、Release、win-x64 self-contained，不要求
 
 ## Data safety / 安装
 
-固定包 ID `FinalCheck.App`，默认安装到 `%LocalAppData%\FinalCheck.App`；用户数据库保持 `%LocalAppData%\FinalCheck\finalcheck.db`。数据、Snapshot、设置、日志、Backup 均不得保存到安装目录或 `current`。不要使用 `Setup --installto` 指向数据目录。Portable 也使用同一用户数据目录，**不是携带数据库的隔离沙盒**；安装/Portable 两种运行方式不能同时打开同一数据库执行开发实验。
+固定包 ID `FinalCheck.App`。**当前已实现基线：**原生 Setup 默认安装到 `%LocalAppData%\FinalCheck.App`；用户数据库保持旧路径 `%LocalAppData%\FinalCheck\finalcheck.db`，本轮需求落档不直接搬迁。**正式产品契约：**安装位置允许用户交互选择，业务存储独立 DataRoot，新用户默认 `%LocalAppData%\FinalCheck\Data`，小型 bootstrap 位于 `%LocalAppData%\FinalCheck\bootstrap.json`；实际路径功能尚未接入。数据、Snapshot、设置、业务缓存/日志、Backup 均不得保存到安装目录或 `current`，也不得使用 `Setup --installto` 指向数据目录。Portable 当前也使用同一用户数据目录，**不是携带数据库的隔离沙盒**；安装/Portable 两种运行方式不能同时打开同一数据库执行开发实验。
 
-Velopack 更新替换 `current`，卸载移除整个包 ID 目录。因此包 ID 不能改成 `FinalCheck`。Install/uninstall hooks 在数据库初始化前快速退出；源码运行和普通启动才访问用户数据库。手工验收已有用户数据时应先备份、记录 schema/hash，并避免运行会升级现有 schema 的旧/实验构建。
+Velopack 更新替换实际安装根目录中的 `current`，卸载处理该实际根目录；不能重新拼默认包 ID 路径进行更新或卸载。包 ID 仍固定，不能改成 `FinalCheck`。独立 DataRoot / bootstrap 在安装、更新和普通卸载中保留。Install/uninstall hooks 在数据库初始化前快速退出；源码运行和普通启动才访问用户数据库。手工验收已有用户数据时应先备份、记录 schema/hash，并避免运行会升级现有 schema 的旧/实验构建。
 
 安装包当前未签名，Windows 可能显示 SmartScreen/发行者提示；仅信任来源明确且 checksum 通过的产物，不关闭系统安全保护。可使用官方 `Setup --silent` 禁止安装后自动启动，再从安装目录显式启动验证。
+
+## 可选安装目录：待实施门禁
+
+正式 Setup 必须显示完整目录和“浏览”修改入口，推荐默认值不能无交互直接采用；支持 D/E 盘等当前用户可写的本机固定磁盘目录。Test / Prerelease / Stable 复用同一机制。已有实例显示并沿用实际位置进行维护/升级，不重新落到 C 盘，不提供多目录 side-by-side；更新后 shortcut、Registry registration、卸载项持续正确。
+
+Velopack 1.2.0 的 `--installto` / MSI `VELOPACK_INSTALLDIR` 提供指定路径能力，不等于产品 Browse UI。推荐先验证轻量 Final Check Wizard 包装未修改的原生 Setup，而不是立即改用 MSI 或 fork updater。调查依据、MSI 限制、单实例检测和完整验收矩阵见 [Installer Architecture / Spike](../architecture/installer-architecture.md)。
+
+当前 workflow / packaging 脚本 / validator **保持原样**，原生 Test Artifact 可用于内部构建回归，但不是新安装目录要求的通过证据。面向用户交付的 Setup 在以下检查完成前不能宣称满足新要求；这是文档验收门禁，尚未自动化接入 workflow：
+
+1. 隔离环境中的可见目录/Browse/取消、D/E 盘/空格/中文、权限/空间/危险非空目录验证。
+2. 旧默认实例与新自定义实例识别、同版本维护/覆盖安装及至少两次原目录 UpdateManager 升级，不创建 C 盘副本或双实例。
+3. 更新后的快捷方式、InstallLocation、UninstallString、实际卸载及独立数据/历史/bootstrap 保留。
+4. 包 ID/channel/feed/nupkg 不变，包装层与原生载荷的版本/hash/签名、公开 Setup / assets 清单与体积验证；三类包使用同一入口，不能只修 Test。
+5. 既有 Release build/test、Windows/macOS CI、Internal Test Build 与 package verifier 回归。只有 Spike 通过后另行提交包装器和发布接入，不创建 Tag / Release 来测试安装器。
+
+## DataRoot 与存储迁移：待实施门禁
+
+Application install location and application data location are independent concepts. User data must never be stored inside the replaceable application installation directory.
+
+路径/接口/SQLite 备份与非破坏迁移依据 [storage-and-paths.md](../architecture/storage-and-paths.md)、[ADR-0006](../architecture/ADR-0006-install-location-and-data-root.md)。后续 Storage Settings 接入须验证旧布局兼容不误建空库、有数据/WAL 的一致性复制、托管路径和恢复历史/Undo、失败/crash 恢复、旧数据保留，以及新 root 无需重启生效/统计正确。原始 DOCX 不复制，手动导出路径不随 root 改变。NAS/SMB、同步目录和可移动盘不作为首阶段 SQLite 主库支持。
+
+bootstrap 定位与业务 schema 升级分离；安装/更新/卸载不能重置 bootstrap、移动数据、删除旧 root 或在 lifecycle hooks 初始化数据库。任何版本的实际迁移仍需独立验收，旧引擎测试通过不代表新存储功能已完成。
 
 ## Updater readiness / 平台范围
 

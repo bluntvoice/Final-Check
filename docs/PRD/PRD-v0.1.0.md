@@ -1518,18 +1518,60 @@ MVP 支持：
 
 # 45. 存储空间管理
 
-提供独立页面。
+提供独立页面，并在“设置 → 存储”提供数据位置管理入口。以下为 v0.1.0 正式产品要求；需求落档不代表设置页、路径迁移或安装向导已经实现。
+
+## 45.1 存储统计与位置操作
 
 显示：
 
 - 总数据占用
 - 项目数据
-- 快照
-- 历史比对
-- 缓存
-- 临时文件
+- Database
+- Snapshot / 快照
+- Comparison / 历史比对
+- Format Restore records / 格式恢复记录
+- Working Copy
+- Backup / 内部备份与恢复
+- Cache
+- Logs / Temp
+
+“设置 → 存储”必须显示当前数据位置、当前占用空间，并提供“打开数据文件夹”“更改数据位置”。统计针对当前实际 DataRoot；迁移成功后立即刷新，无需重启。SQLite 内 Snapshot / Comparison / 恢复 payload 的逻辑占用须注明包含于 Database，不重复累加到物理总占用。
 
 清理前必须明确说明影响范围。
+
+## 45.2 安装目录与数据目录独立
+
+> Application install location and application data location are independent concepts.
+>
+> User data must never be stored inside the replaceable application installation directory.
+
+SQLite、Snapshot、Comparison、格式恢复记录、Working Copy、内部 backup / recovery、应用缓存、日志/临时文件、可迁移设置及应用运行数据统一由独立 DataRoot 管理，不得放在应用安装目录或可替换的 current 中。
+
+新用户默认数据目录可以为 `%LocalAppData%\FinalCheck\Data`；用户可改为 `D:\FinalCheckData` 等本机可写的固定磁盘绝对目录。已有旧 AppData 数据须识别并兼容，不得因为新默认路径创建空库而隐藏旧历史。
+
+原始用户 DOCX 仍只记录原路径，不复制到 DataRoot。手动导出的 DOCX / Excel / 修改说明继续遵循第 48–50 章的输出路径与同名文件规则；更改 DataRoot 不改变原始或导出文件位置。
+
+## 45.3 启动定位
+
+允许在 `%LocalAppData%\FinalCheck\bootstrap.json` 保留小型启动配置，仅记录当前 DataRoot、必要 storage schema / version 和最小启动恢复信息。实际业务数据位于 DataRoot；不得以目标 SQLite 内设置作为 DataRoot 的唯一来源。配置位置通过平台抽象提供，为 macOS 保留兼容性。
+
+配置损坏、目录不可达或既有数据库缺失时明确提示恢复，不静默回退默认目录创建新数据库。
+
+## 45.4 非破坏性更改数据位置
+
+正式流程：选择新目录 → 验证路径/写权限/空间 → 阻止新数据库及托管文件写入并等待当前操作结束 → 将完整一致性数据复制到目标临时目录 → 验证数据库、关键文件、必要 SHA-256 / 数量 / 大小 → 使用新目录重新打开数据层并验证完整性 → 原子更新 bootstrap → 正式切换。
+
+- 迁移需要 operation record / 日志，记录阶段、校验与失败原因，支持恢复和重试。
+- 禁止直接剪切、删除原数据或覆盖目标已有另一套数据；不能只复制活动 SQLite 的 .db 而遗漏 WAL 中已提交数据。
+- 未成功切换前任何失败保持旧 DataRoot 生效、旧数据完整，清楚显示失败阶段和原因并允许重试。提交不确定/崩溃时依据 durable locator 与 operation record 恢复，禁止猜测双写或静默退回旧库形成分叉；具体提交边界见 storage architecture。
+- 成功后新路径立即生效，UI 与统计无需重启；旧路径数据默认保留，后续只有用户明确选择并确认影响范围才能清理，不自动删除。
+- 托管 Working Copy / backup 引用随迁移保持可用，Snapshot、Comparison 和格式恢复历史/Undo 关系不丢失，不改写原始 DOCX 或历史文档内容。
+
+## 45.5 首阶段外部存储政策
+
+v0.1.0 首阶段正式支持 Windows 本机固定磁盘、用户有读写权限的绝对目录。NAS / SMB / 映射网络盘、可移动磁盘、已识别 OneDrive 等同步目录不作为主 DataRoot 支持，应阻止并解释风险；SQLite 主库未经可靠性验证不得宣称支持网络盘。无法充分识别的同步工具风险明确披露，不能因为“可写”就视为可靠支持。
+
+实施与验收依据：[storage-and-paths.md](../architecture/storage-and-paths.md)。
 
 ---
 
@@ -1911,6 +1953,14 @@ MVP 建议至少包括：
 7. 安装失败可重试；
 8. 更新失败不影响当前软件继续使用；
 9. 更新过程中保护本地数据库和历史记录。
+
+## 58.1 Windows 安装目录选择与原地更新
+
+Windows Setup 首次运行必须让用户看到完整安装目录，并提供“浏览”修改；可提供推荐默认目录，但不得默认无交互直接安装到 C 盘 `%LocalAppData%`。支持 `D:\Applications\Final Check`、`E:\Programs\Final Check` 等当前用户可写的本地固定磁盘目录。
+
+Test / Prerelease / Stable 安装包使用一致的目录机制。后续更新与覆盖安装识别当前实际安装位置并在原目录升级，不因版本/channel 变化回到 C 盘；卸载以实际安装目录为准。禁止破坏 Velopack updater 链、快捷方式或卸载/Registry registration，禁止将 DataRoot 置于可卸载安装根目录。无需同时在多个目录安装同一实例，不实现 side-by-side。
+
+当前原生 Velopack Setup 和隐藏指定目录参数不能直接视为满足交互需求。先完成 [Installer Architecture / Spike](../architecture/installer-architecture.md) 的目录 UI、连续更新、维护/卸载与数据安全验证，再接入发布流程；需求落档不授权未经验证重写现有打包体系。
 
 ---
 
