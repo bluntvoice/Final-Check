@@ -27,7 +27,9 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
     {
         try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
     }
-    public const int DatabaseSchemaVersion = 6;
+    public const int DatabaseSchemaVersion = 7;
+    public DbSet<StoredContractVersion> ContractVersions => Set<StoredContractVersion>();
+    public DbSet<StoredNegotiationRound> NegotiationRounds => Set<StoredNegotiationRound>();
     public DbSet<StoredProject> Projects => Set<StoredProject>();
     public DbSet<StoredProjectFolder> ProjectFolders => Set<StoredProjectFolder>();
     public DbSet<StoredTemplate> Templates => Set<StoredTemplate>();
@@ -49,6 +51,21 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             value => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime(),
             value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
+        modelBuilder.Entity<StoredNegotiationRound>(entity =>
+        {
+            entity.ToTable("NegotiationRounds"); entity.HasKey(x => x.Id); entity.HasAlternateKey(x => new { x.ProjectId, x.Number });
+            entity.HasOne<StoredProject>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<StoredContractVersion>(entity =>
+        {
+            entity.ToTable("ContractVersions"); entity.HasKey(x => x.Id);
+            entity.Property(x => x.FilePath).IsRequired(); entity.Property(x => x.FileName).IsRequired(); entity.Property(x => x.Sha256).IsRequired();
+            entity.Property(x => x.Notes).IsRequired(); entity.Property(x => x.OriginalSourceJson).IsRequired();
+            entity.Property(x => x.ModifiedAtUtc).HasConversion(utcDateTimeConverter); entity.Property(x => x.ImportedAtUtc).HasConversion(utcDateTimeConverter);
+            entity.HasIndex(x => new { x.ProjectId, x.RoundNumber, x.ImportedAtUtc }); entity.HasIndex(x => new { x.ProjectId, x.Sha256 });
+            entity.HasOne<StoredNegotiationRound>().WithMany().HasForeignKey(x => new { x.ProjectId, x.RoundNumber }).HasPrincipalKey(x => new { x.ProjectId, x.Number }).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(x => x.SnapshotId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<StoredProjectFolder>(entity =>
         {
             entity.ToTable("ProjectFolders"); entity.HasKey(x => x.Id); entity.Property(x => x.Name).IsRequired(); entity.HasIndex(x => x.Name).IsUnique();

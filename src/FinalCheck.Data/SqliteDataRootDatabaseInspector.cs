@@ -7,7 +7,7 @@ namespace FinalCheck.Data;
 public sealed class SqliteDataRootDatabaseInspector : IDataRootDatabaseInspector
 {
     internal static readonly string[] KnownMigrations =
-    ["20260910021629_InitialCreate", "20260910143000_AddComparisonResults", "20260912110000_AddFormatRestoreHistory", "20260912234643_AddIndependentComparisonRecords", "20260913054718_AddTemplateCenter", "20260913055622_AddContractProjects"];
+    ["20260910021629_InitialCreate", "20260910143000_AddComparisonResults", "20260912110000_AddFormatRestoreHistory", "20260912234643_AddIndependentComparisonRecords", "20260913054718_AddTemplateCenter", "20260913055622_AddContractProjects", "20260913060404_AddContractVersionsAndRounds"];
 
     public async Task ValidateAsync(string databasePath, CancellationToken cancellationToken = default)
     {
@@ -58,6 +58,11 @@ public sealed class SqliteDataRootDatabaseInspector : IDataRootDatabaseInspector
             await command.ExecuteNonQueryAsync(cancellationToken);
             command.CommandText = "SELECT Id, TemplateId, Version, FilePath, FileName, FileSize, ModifiedAtUtc, Sha256, SnapshotId, IsCurrent, ParseStatus, CreatedAtUtc FROM TemplateVersions LIMIT 0";
             await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        if (migrations.Count >= 7)
+        {
+            command.CommandText = "SELECT Id, ProjectId, Number FROM NegotiationRounds LIMIT 0"; await command.ExecuteNonQueryAsync(cancellationToken);
+            command.CommandText = "SELECT Id, ProjectId, FilePath, FileName, FileSize, ModifiedAtUtc, Sha256, SnapshotId, Role, RoundNumber, ImportedAtUtc, Notes, OriginalSourceJson, DuplicateReference, ParseStatus FROM ContractVersions LIMIT 0"; await command.ExecuteNonQueryAsync(cancellationToken);
         }
         if (migrations.Count >= 6)
         {

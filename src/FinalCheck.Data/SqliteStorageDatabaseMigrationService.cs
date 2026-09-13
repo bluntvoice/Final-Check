@@ -57,6 +57,8 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
             }
             OriginalPaths = originals;
             foreach (var row in await context.TemplateVersions.AsNoTracking().ToArrayAsync(token)) originals.Add(Path.GetFullPath(row.FilePath));
+            foreach (var row in await context.ContractVersions.AsNoTracking().ToArrayAsync(token))
+            { var version = ContractVersionStore.Map(row); originals.Add(Path.GetFullPath(version.Source.Path)); originals.Add(Path.GetFullPath(version.OriginalSourceMetadata.Path)); }
         }
         public async Task BackupAsync(string stagingRoot, Guid operationId, CancellationToken cancellationToken = default)
         {
@@ -111,6 +113,15 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
         private async Task<Dictionary<string, string>> FactsAsync(FinalCheckDbContext context, string logicalRoot, CancellationToken token)
         {
             var facts = new Dictionary<string, string>();
+            foreach (var row in await context.NegotiationRounds.AsNoTracking().ToArrayAsync(token))
+            { if (row.Number < 1) throw new InvalidDataException("Invalid round."); facts.Add("round:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row))); }
+            foreach (var row in await context.ContractVersions.AsNoTracking().ToArrayAsync(token))
+            {
+                _ = ContractVersionStore.Map(row); var snapshot = await new DocumentSnapshotStore(context, snapshots).LoadAsync(row.SnapshotId, token);
+                if (snapshot is null || snapshot.Metadata.Sha256 != row.Sha256 || row.DuplicateReference is { } duplicate &&
+                    !await context.ContractVersions.AnyAsync(v => v.Id == duplicate && v.ProjectId == row.ProjectId && v.Sha256 == row.Sha256, token)) throw new InvalidDataException("Invalid version Snapshot/duplicate identity.");
+                facts.Add("version:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
+            }
             foreach (var row in await context.ProjectFolders.AsNoTracking().ToArrayAsync(token)) facts.Add("folder:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
             foreach (var row in await context.Projects.AsNoTracking().ToArrayAsync(token))
             {

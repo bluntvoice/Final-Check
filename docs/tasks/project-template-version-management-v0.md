@@ -1262,7 +1262,10 @@ Template v1
   * 实际完成（2026-09-13）：项目创建/编辑、明确填写对方、模板绑定/切换/解绑、空类型继承与手动覆盖、一层逻辑 Folder、自定义/预设颜色 Tag；项目元数据列表按更新时间倒序，支持名称/模板/类型/时间/Folder/Tag 筛选、20 行分页和虚拟化。过滤或刷新后保留编辑项目和模板版本身份，避免误创建或静默解绑。
   * 数据兼容：schema 6 增量 Projects / ProjectFolders，模板版本归属校验，停用模板保留既有绑定但拒绝新绑定；Storage inspector / migration facts 同步项目及标签，旧快照/历史 payload 不变；模板删除提示纳入项目引用。
   * 验证：新增 5 项 Data 和 4 项 App 测试，Release 全量 259/259、Desktop build 0 warning / 0 error；100 项目首个 20 行元数据页冷查询 534.4 ms（包含 EF 冷启动，后台执行），损坏 Snapshot JSON 不影响元数据列表。Phase 3–5 尚未开始，最终安装及实际拖拽仍待最终 HEAD 验收。
-* Phase 3 — Version / Round：TODO
+* Phase 3 — Version / Round：DONE
+  * 实际完成（2026-09-13）：后台批量只读导入、逐文件明确角色/轮次的多选 picker/drop 队列、排序/移除、相同 hash 默认跳过与显式重复引用；轮次与版本增量 schema 7、元数据分页/按轮次或时间排序、共享原生冻结快照预览、同 hash 源路径重关联与原始来源保留。当前轮/下一轮/已有轮次可选择，不跳过轮次；导入既不自动比对，也不改变基准。
+  * 安全与兼容：一个事务追加完整批次，部分失败/取消回滚；加入队列后 hash 改变要求重新加入确认；旧 schema 6 payload 增量升级保留。Storage facts / original exclusions 纳入轮次、版本及原始来源；源 DOCX 位于旧 DataRoot 内时也不迁移或删除。
+  * 验证：新增 5 项 Data / 3 项 VM 测试，Release 全量 267/267、Desktop build 0 warning / 0 error，版本选择修正后 App 41/41 复测。50 版本/20 模板元数据页 26.4 ms，不读取 Snapshot JSON。实际 Template/Version 系统 Drag & Drop 待最终 HEAD 安装包验收；左右角色拖拽区域非硬要求未实现，角色逐行明确确认。
 * Phase 4 — Baseline / Comparison：TODO
 * Phase 5 — Project Detail / History / Archive：TODO
 

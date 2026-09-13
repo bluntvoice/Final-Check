@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:views="using:FinalCheck.App.Views" x:Class="FinalCheck.App.Views.VersionManagementView" x:DataType="vm:VersionManagementViewModel">
+ <StackPanel Spacing="8">
+  <TextBlock Text="合同版本 / 谈判轮次" FontSize="18" />
+  <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+  <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+   <Border x:Name="DropZone" Background="#182B4055" BorderBrush="#58738B" BorderThickness="1" Padding="12" AutomationProperties.Name="合同版本拖入区域"><TextBlock Text="拖入一份或多份 DOCX（随后逐份确认角色和轮次）" TextWrapping="Wrap" /></Border>
+   <Button Content="选择合同 DOCX（可多选）" Click="PickFiles" />
+   <WrapPanel><Button Content="当前轮" Command="{Binding CurrentRoundCommand}" /><Button Content="下一轮" Command="{Binding NextRoundCommand}" /><ComboBox ItemsSource="{Binding RoundNumbers}" SelectedItem="{Binding ImportRound}" Width="80" /><NumericUpDown Value="{Binding ImportRound}" Minimum="1" Maximum="10000" Width="100" /><Button Content="应用轮次到待导入项" Command="{Binding ApplyRoundCommand}" /></WrapPanel>
+   <ListBox ItemsSource="{Binding ImportQueue}" MaxHeight="300" AutomationProperties.Name="待导入版本列表">
+    <ListBox.ItemTemplate><DataTemplate x:DataType="vm:VersionImportRow"><StackPanel Spacing="6"><TextBlock Text="{Binding Source.Name}" FontWeight="SemiBold" /><TextBlock Text="{Binding Source.Path}" FontSize="11" TextWrapping="Wrap" />
+     <WrapPanel><ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding Role}" PlaceholderText="必须选择我方/对方" Width="180" /><NumericUpDown Value="{Binding RoundNumber}" Minimum="1" Maximum="10000" Width="100" /><TextBox Text="{Binding Notes}" PlaceholderText="版本备注" Width="140" /></WrapPanel>
+     <TextBlock Text="{Binding DuplicateMessage}" TextWrapping="Wrap" /><CheckBox Content="仍然导入相同内容" IsChecked="{Binding AllowDuplicate}" IsVisible="{Binding Duplicate}" />
+     <WrapPanel><Button Content="上移" Command="{ReflectionBinding $parent[UserControl].DataContext.MoveUpCommand}" CommandParameter="{Binding}" /><Button Content="下移" Command="{ReflectionBinding $parent[UserControl].DataContext.MoveDownCommand}" CommandParameter="{Binding}" /><Button Content="移除" Command="{ReflectionBinding $parent[UserControl].DataContext.RemoveCommand}" CommandParameter="{Binding}" /></WrapPanel>
+    </StackPanel></DataTemplate></ListBox.ItemTemplate>
+   </ListBox>
+   <Button Content="确认角色与轮次并导入（不自动比对）" Command="{Binding ImportCommand}" />
+   <WrapPanel><ComboBox ItemsSource="{Binding OrderOptions}" SelectedItem="{Binding Order}" Width="140" /><Button Content="刷新版本列表" Command="{Binding RefreshCommand}" /></WrapPanel>
+   <ListBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" SelectionChanged="SelectVersion" Height="240" AutomationProperties.Name="谈判轮次版本列表"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel><ListBox.ItemTemplate><DataTemplate x:DataType="vm:VersionTimelineItem"><StackPanel Spacing="4"><TextBlock Text="{Binding Heading}" TextWrapping="Wrap" /><TextBlock Text="{Binding State}" FontSize="11" /><TextBlock Text="{Binding Version.ImportedAt}" FontSize="11" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+   <Button Content="加载更多版本" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" />
+   <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" FontSize="12" />
+   <TextBox Text="{Binding SourcePath}" PlaceholderText="所选版本原文件路径 / 手动重关联路径" />
+   <WrapPanel><Button Content="预览版本 Snapshot" Command="{Binding PreviewCommand}" /><Button Content="查找附近源文件" Command="{Binding FindSourceCommand}" /><Button Content="重新关联（同 hash）" Command="{Binding RelinkCommand}" /></WrapPanel>
+   <ListBox ItemsSource="{Binding PreviewBlocks}" Height="220"><ListBox.ItemTemplate><DataTemplate x:DataType="vm:PreviewBlock"><views:SnapshotPreviewBlock Block="{Binding}" /></DataTemplate></ListBox.ItemTemplate></ListBox>
+  </StackPanel>
+ </StackPanel>
+</UserControl>

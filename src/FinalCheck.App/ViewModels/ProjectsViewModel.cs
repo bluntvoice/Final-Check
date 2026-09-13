@@ -5,8 +5,9 @@ using FinalCheck.Core.Management;
 
 namespace FinalCheck.App.ViewModels;
 
-public partial class ProjectsViewModel(IProjectService? service = null, ITemplateService? templateService = null) : ViewModelBase
+public partial class ProjectsViewModel(IProjectService? service = null, ITemplateService? templateService = null, VersionManagementViewModel? versions = null) : ViewModelBase
 {
+    public VersionManagementViewModel Versions { get; } = versions ?? new();
     public ObservableCollection<ProjectListItem> Projects { get; } = [];
     public ObservableCollection<Template> Templates { get; } = [];
     public ObservableCollection<ProjectFolder> Folders { get; } = [];
@@ -44,7 +45,7 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
     }
     public async Task SelectProjectAsync(ProjectListItem item)
     {
-        if (IsBusy || service is null) return;
+        if (IsBusy || Versions.IsBusy || service is null) return;
         await PerformAsync(async () =>
         {
             var project = await service.GetAsync(item.Project.ProjectId); SelectedProject = item;
@@ -58,12 +59,14 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
             }
             finally { loadingSelection = false; }
             Tags.Clear(); foreach (var tag in project.Tags) Tags.Add(tag); Message = "编辑项目不会改变已有版本或历史比对。";
+            await Versions.OpenProjectAsync(project.ProjectId);
         });
     }
-    [RelayCommand] private void NewProject()
+    [RelayCommand] private async Task NewProjectAsync()
     {
-        if (IsBusy) return; editingProjectId = null; SelectedProject = null; BoundTemplate = null; boundVersionId = null; ProjectName = ""; Counterparty = ""; ContractType = ""; FolderName = ""; Notes = ""; Tags.Clear();
+        if (IsBusy || Versions.IsBusy) return; editingProjectId = null; SelectedProject = null; BoundTemplate = null; boundVersionId = null; ProjectName = ""; Counterparty = ""; ContractType = ""; FolderName = ""; Notes = ""; Tags.Clear();
         Message = "填写项目名称，明确对方信息；绑定模板可继承合同类型。";
+        await Versions.OpenProjectAsync(null);
     }
     [RelayCommand] private void SuggestName()
     { if (IsBusy) return; ProjectName = string.Join(" - ", new[] { BoundTemplate?.Name, Counterparty }.Where(x => !string.IsNullOrWhiteSpace(x))); Message = "这是轻量名称建议，请核对或修改后保存；对方名称不会自动猜测。"; }
@@ -121,10 +124,11 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
         boundVersionId = saved.BoundTemplateVersionId; await LoadCoreAsync(false);
         SelectedProject = Projects.SingleOrDefault(x => x.Project.ProjectId == saved.ProjectId) ?? new(saved, BoundTemplate?.Name ?? "未绑定模板", "", FolderName);
         ContractType = saved.ContractType; Message = "项目已保存；模板切换仅影响未来比对，既有历史不改变。";
+        if (Versions.ProjectId != saved.ProjectId) await Versions.OpenProjectAsync(saved.ProjectId);
     });
     private async Task PerformAsync(Func<Task> operation)
     {
-        if (IsBusy) return; IsBusy = true;
+        if (IsBusy || Versions.IsBusy) return; IsBusy = true;
         try { await operation(); }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or IOException) { Message = e.Message; }
         catch (Exception) { Message = "项目操作失败，原有数据保持不变，请重试。"; }

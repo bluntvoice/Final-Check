@@ -1,5 +1,7 @@
 # Storage and Paths
 
+Project management schema 7 adds ContractVersions / NegotiationRounds incrementally. Storage migration verifies version Snapshot/hash, original-source and duplicate identities plus row digests; both relinked paths and immutable original source paths are excluded from managed-data copying/usage. Original DOCX is never moved, copied or deleted by DataRoot migration.
+
 - 日期：2026-09-13
 - 状态：Storage Foundation Phase 1–5、Release build/test、Windows/macOS CI 和一次 Test Build / 实际 Release payload 隔离启动已验证，证据见 task。正式 Storage Settings UI 尚未实现。
 - 决策：[ADR-0006](ADR-0006-install-location-and-data-root.md)。

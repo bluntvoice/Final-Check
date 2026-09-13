@@ -40,6 +40,13 @@ public sealed class SqliteStorageUsageReader : IStorageDatabaseUsageReader
             await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken)) originals.Add(Path.GetFullPath(reader.GetString(0)));
         }
+        {
+            using var command = connection.CreateCommand(); command.Transaction = transaction;
+            command.CommandText = "SELECT FilePath, OriginalSourceJson FROM ContractVersions";
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            { originals.Add(Path.GetFullPath(reader.GetString(0))); var original = JsonSerializer.Deserialize<Core.Comparisons.ComparisonFile>(reader.GetString(1)) ?? throw new InvalidDataException("Invalid source metadata."); originals.Add(Path.GetFullPath(original.Path)); }
+        }
         foreach (var table in new[] { "RestoredWorkingCopies", "FormatRestoreOperations" })
         {
             using var command = connection.CreateCommand();

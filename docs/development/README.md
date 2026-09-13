@@ -1,5 +1,7 @@
 # Final Check Development
 
+Project management Phase 3 adds schema 7 incremental versions/rounds. The multi-file import queue requires explicit roles and rounds, defaults duplicate content to skip, and never compares or changes baseline automatically. Sources remain external; rollback, legacy upgrade and full Storage migration are tested. Real native drag/drop remains a final-package acceptance gate.
+
 ## 项目状态
 
 Final Check v0.1.0 的基础工程、Document Engine v0、Comparison Engine v0 与 Format Restore Engine v0 已按各任务文件实现，验收状态以 task 为准。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；尚未发布真实 Stable Release，也未实现正式业务 UI 或 updater UI。

@@ -30,19 +30,5 @@ public sealed class TemplateService(IComparisonFileInspector files, IDocumentPar
     { var source = await files.InspectAsync(path, token); await Run(s => s.RelinkAsync(versionId, source, token), token); }
     public Task<TemplateReferences> ReferencesAsync(Guid id, CancellationToken token = default) => Run(s => s.ReferencesAsync(id, token), token);
     public Task DeleteAsync(Guid id, bool confirmed, CancellationToken token = default) => Run(s => s.DeleteAsync(id, confirmed, token), token);
-    public Task<IReadOnlyList<ComparisonFile>> FindRelinkCandidatesAsync(TemplateVersion version, CancellationToken token = default) => Task.Run(async () =>
-    {
-        var root = Path.GetDirectoryName(version.Source.Path); var matches = new List<ComparisonFile>();
-        if (root is null || !Directory.Exists(root)) return (IReadOnlyList<ComparisonFile>)matches;
-        // Bounded, read-only nearby scan. Every candidate must match hash; never silently update a path.
-        var directories = new[] { root }.Concat(Directory.EnumerateDirectories(root).Where(p => (File.GetAttributes(p) & FileAttributes.ReparsePoint) == 0).Take(20));
-        foreach (var candidate in directories.SelectMany(p => Directory.EnumerateFiles(p, "*.docx")).Take(500))
-        {
-            token.ThrowIfCancellationRequested();
-            try { if (new FileInfo(candidate).Length != version.Source.Size) continue; var file = await files.InspectAsync(candidate, token);
-                if (file.Sha256.Equals(version.Source.Sha256, StringComparison.OrdinalIgnoreCase)) matches.Add(file); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
-        }
-        return matches.OrderByDescending(f => f.Name == version.Source.Name).ThenBy(f => f.Path, StringComparer.Ordinal).ToArray();
-    }, token);
+    public Task<IReadOnlyList<ComparisonFile>> FindRelinkCandidatesAsync(TemplateVersion version, CancellationToken token = default) => SourceRelinkScanner.FindAsync(files, version.Source, token);
 }
