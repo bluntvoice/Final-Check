@@ -20,6 +20,8 @@ Format Restore Engine v0 的保守映射、最小属性写回与安全验证见 
 
 模板、项目、版本与轮次管理见 [project-template-version-management.md](project-template-version-management.md)；逐 Phase 实施与验收见 [task](../tasks/project-template-version-management-v0.md)。Quick Compare 与项目比对复用同一结果 UI；已审阅仅表示人工查看，不表示接受合同修改。
 
+当前项目管理 schema 9 由 schema 5–9 增量 migrations 建立，不重建旧库。归档/回收站可恢复；二次确认永久删除采用引用保护与 durable exact-file cleanup journal，原始 DOCX、共享资源和旧 Quick Compare 保留。
+
 Quick Compare / Comparison UI 的入口、会话与逐阶段实现见 [comparison-ui.md](comparison-ui.md)；实际验收状态以 [task](../tasks/comparison-ui-v0.md) 为准。
 
 | 项目 | 职责 | 允许的主要依赖 |

@@ -5,6 +5,7 @@
   <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
   <Button Content="取消项目比对" Command="{Binding CancelComparisonCommand}" IsVisible="{Binding IsComparing}" />
   <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+   <StackPanel Spacing="8" IsEnabled="{Binding CanImport}">
    <Border x:Name="DropZone" Background="#182B4055" BorderBrush="#58738B" BorderThickness="1" Padding="12" AutomationProperties.Name="合同版本拖入区域"><TextBlock Text="拖入一份或多份 DOCX（随后逐份确认角色和轮次）" TextWrapping="Wrap" /></Border>
    <Button Content="选择合同 DOCX（可多选）" Click="PickFiles" />
    <WrapPanel><Button Content="当前轮" Command="{Binding CurrentRoundCommand}" /><Button Content="下一轮" Command="{Binding NextRoundCommand}" /><ComboBox ItemsSource="{Binding RoundNumbers}" SelectedItem="{Binding ImportRound}" Width="80" /><NumericUpDown Value="{Binding ImportRound}" Minimum="1" Maximum="10000" Width="100" /><Button Content="应用轮次到待导入项" Command="{Binding ApplyRoundCommand}" /></WrapPanel>
@@ -17,6 +18,7 @@
    </ListBox>
    <Button Content="确认角色与轮次并导入（不自动比对）" Command="{Binding ImportCommand}" />
    <Border IsVisible="{Binding BaselinePrompt}" BorderBrush="#D68910" BorderThickness="1" Padding="8"><StackPanel Spacing="6"><TextBlock Text="是否将新我方版本设为当前基准？默认：否。" TextWrapping="Wrap" /><ComboBox ItemsSource="{Binding NewOwnVersions}" SelectedItem="{Binding NewOwnBaseline}" PlaceholderText="如需设置，明确选择一个新我方版本"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ContractVersion"><TextBlock Text="{Binding Source.Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox><Button Content="否，保留现有基准（默认）" Command="{Binding KeepBaselineCommand}" /><Button Content="明确设为当前我方基准" Command="{Binding ConfirmNewBaselineCommand}" /></StackPanel></Border>
+   </StackPanel>
    <WrapPanel><ComboBox ItemsSource="{Binding OrderOptions}" SelectedItem="{Binding Order}" Width="140" /><Button Content="刷新版本列表" Command="{Binding RefreshCommand}" /></WrapPanel>
    <ListBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" SelectionChanged="SelectVersion" Height="240" AutomationProperties.Name="谈判轮次版本列表"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel><ListBox.ItemTemplate><DataTemplate x:DataType="vm:VersionTimelineItem"><StackPanel Spacing="4"><TextBlock Text="{Binding Heading}" TextWrapping="Wrap" /><TextBlock Text="{Binding State}" FontSize="11" /><TextBlock Text="{Binding Version.ImportedAt}" FontSize="11" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
    <Button Content="加载更多版本" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" />

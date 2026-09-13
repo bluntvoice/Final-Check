@@ -27,6 +27,7 @@
     <Compile Include="..\..\src\FinalCheck.Desktop\ProjectService.cs" Link="ProjectService.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\ContractVersionService.cs" Link="ContractVersionService.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\ProjectComparisonService.cs" Link="ProjectComparisonService.cs" />
+    <Compile Include="..\..\src\FinalCheck.Desktop\ProjectLifecycleService.cs" Link="ProjectLifecycleService.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\SourceRelinkScanner.cs" Link="SourceRelinkScanner.cs" />
   </ItemGroup>
 

@@ -34,6 +34,8 @@
           <Button Content="模板中心" Command="{Binding NavigateCommand}" CommandParameter="templates" />
           <Button Content="快速比对" Command="{Binding NavigateCommand}" CommandParameter="compare" />
           <Button Content="合同项目" Command="{Binding NavigateCommand}" CommandParameter="projects" />
+          <Button Content="归档" Command="{Binding NavigateCommand}" CommandParameter="archive" />
+          <Button Content="回收站" Command="{Binding NavigateCommand}" CommandParameter="recycle" />
           <Button Content="比对结果" Command="{Binding NavigateCommand}" CommandParameter="results" IsVisible="{Binding HasResults}" />
           <Button Content="关于" Command="{Binding NavigateCommand}" CommandParameter="about" />
         </StackPanel>

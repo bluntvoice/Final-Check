@@ -32,7 +32,7 @@ internal static class Program
             throw;
         }
         using var serviceProvider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
-        try { DesktopStorageServices.InitializeAsync(serviceProvider).GetAwaiter().GetResult(); }
+        try { DesktopStorageServices.InitializeAsync(serviceProvider).GetAwaiter().GetResult(); ProjectLifecycleService.RecoverAsync(serviceProvider).GetAwaiter().GetResult(); }
         catch (Exception error)
         {
             StorageStartupDiagnostics.Write(platformPaths, "StorageRecoveryInitialization", error);
@@ -99,6 +99,7 @@ internal static class Program
         services.AddSingleton<IProjectService, ProjectService>();
         services.AddSingleton<IContractVersionService, ContractVersionService>();
         services.AddSingleton<IProjectComparisonService, ProjectComparisonService>();
+        services.AddSingleton<IProjectLifecycleService, ProjectLifecycleService>();
         services.AddSingleton<VersionManagementViewModel>();
         services.AddSingleton<ProjectsViewModel>();
         services.AddSingleton<MainViewModel>();
@@ -108,6 +109,7 @@ internal static class Program
         services.AddScoped<IProjectStore, ProjectStore>();
         services.AddScoped<IContractVersionStore, ContractVersionStore>();
         services.AddScoped<IProjectComparisonStore, ProjectComparisonStore>();
+        services.AddScoped<IProjectLifecycleStore, ProjectLifecycleStore>();
         services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
         services.AddScoped<IComparisonRecordStore, ComparisonRecordStore>();
         services.AddScoped<IFormatRestoreStore, FormatRestoreStore>();

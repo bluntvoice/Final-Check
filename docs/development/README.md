@@ -1,12 +1,8 @@
 # Final Check Development
 
-Project comparison Phase 4 uses schema 8 immutable context links and the existing Engine/result/review UI. New Own imports default to keeping the current baseline; user selection and execution are explicit. Project comparisons use frozen imported Snapshots; changed originals require new versions. Bounded history reads existing review metadata, not Snapshot/result payloads, and keeps 已审阅 independent of acceptance.
-
-Project management Phase 3 adds schema 7 incremental versions/rounds. The multi-file import queue requires explicit roles and rounds, defaults duplicate content to skip, and never compares or changes baseline automatically. Sources remain external; rollback, legacy upgrade and full Storage migration are tested. Real native drag/drop remains a final-package acceptance gate.
-
 ## 项目状态
 
-Final Check v0.1.0 的基础工程、Document Engine v0、Comparison Engine v0 与 Format Restore Engine v0 已按各任务文件实现，验收状态以 task 为准。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；尚未发布真实 Stable Release，也未实现正式业务 UI 或 updater UI。
+Final Check v0.1.0 的基础工程、Document / Comparison / Format Restore Engine、Comparison UI 与 Project / Template / Version Management 已按各任务实施，验收状态以 task 为准。项目管理 schema 9 由增量迁移建立模板、项目、明确角色/轮次的批量版本、当前我方基准、独立比对历史和可恢复归档/回收站。Quick Compare 共用 Engine/result/review UI，已审阅不表示接受。新我方导入默认保留基准，冻结 Snapshot 不随源文件或模板修改重算。永久删除二次确认、引用保护与持久清理日志详见 [架构](../architecture/project-template-version-management.md)。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；未创建 Stable Release，updater UI 尚未实现。
 
 可选安装目录已完成架构落档，Installer Wizard 尚未实现。Storage Foundation v0 Phase 1–5 基础实现完成：bootstrap / 旧库识别、路径政策、非破坏迁移 / session rebind、启动 recovery 和 usage；验收证据以 [storage task](../tasks/storage-foundation-v0.md) 为准。正式 Storage Settings UI 未实现，Velopack workflow 未改变。
 

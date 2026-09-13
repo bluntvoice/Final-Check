@@ -18,7 +18,7 @@ public partial class MainViewModel : ViewModelBase
     public ComparisonSetupViewModel Comparison { get; }
     public TemplateCenterViewModel Templates { get; }
     public ProjectsViewModel Projects { get; }
-    public bool IsProjects => SelectedPage == "projects";
+    public bool IsProjects => SelectedPage is "projects" or "archive" or "recycle";
     public bool IsTemplates => SelectedPage == "templates";
     [ObservableProperty] private ComparisonResultsViewModel? results;
     public bool HasResults => Results is not null;
@@ -57,10 +57,12 @@ public partial class MainViewModel : ViewModelBase
             "about" => ("关于 Final Check", $".NET 10 + Avalonia 12 · {AppVersionLabel}"),
             "templates" => ("模板中心", "维护标准模板及历史版本 · 原始 DOCX 保持不变"),
             "projects" => ("合同项目", "管理项目与模板绑定 · 既有历史保持不变"),
+            "archive" => ("归档项目", "数据保留 · 可恢复到活跃项目"),
+            "recycle" => ("项目回收站", "可恢复 · 永久删除需要二次确认"),
             _ => ("Final Check", "选择两份 DOCX，查看文字、格式、修订与批注变化。"),
         };
         if (IsTemplates) Templates.RefreshCommand.Execute(null);
-        if (IsProjects) Projects.RefreshCommand.Execute(null);
+        if (IsProjects) { Projects.StatusFilter = SelectedPage switch { "archive" => "归档", "recycle" => "回收站", _ => "活跃项目" }; Projects.RefreshCommand.Execute(null); }
     }
     private async Task ShowResultAsync(ComparisonWorkflowResult result)
     {
@@ -99,7 +101,7 @@ public partial class MainViewModel : ViewModelBase
         (CurrentPageTitle, CurrentPageDescription) = destination switch
         { "about" => ("关于 Final Check", $".NET 10 + Avalonia 12 · {AppVersionLabel}"), "templates" => ("模板中心", "维护标准模板及历史版本 · 原始 DOCX 保持不变"), "projects" => ("合同项目", "管理项目与模板绑定 · 既有历史保持不变"), _ => ("Final Check", "比对已请求取消。") };
         if (IsTemplates) Templates.RefreshCommand.Execute(null);
-        if (IsProjects) Projects.RefreshCommand.Execute(null);
+        if (IsProjects) { Projects.StatusFilter = destination switch { "archive" => "归档", "recycle" => "回收站", _ => "活跃项目" }; Projects.RefreshCommand.Execute(null); }
     }
 
     private static string GetAppVersion()

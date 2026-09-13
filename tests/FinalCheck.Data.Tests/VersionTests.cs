@@ -11,6 +11,13 @@ using Xunit.Abstractions;
 namespace FinalCheck.Data.Tests;
 public sealed class VersionTests(ITestOutputHelper output)
 {
+    [Fact] public async Task ReorderedBatchCanImportSequentialRoundsInUserChosenQueueOrder()
+    {
+        using var fixture = new StorageFixture(); var database = Path.Combine(fixture.DirectoryPath, "data", "finalcheck.db"); await fixture.CreateDatabaseAsync(database); Guid id;
+        await using (var db = fixture.OpenDatabase(database)) id = await ProjectAsync(db); using var provider = Services(fixture, database); var service = Service(provider); var file = Path.Combine(fixture.DirectoryPath, "round.docx"); ComparisonWorkflowTests.WriteDocument(file, "30");
+        var imported = await service.ImportAsync(id, [new(file, ContractVersionRole.Counterparty, 2, "先显示第二轮", true), new(file, ContractVersionRole.Own, 1, "后显示第一轮", true)]);
+        Assert.Equal(2, imported[0].RoundNumber); Assert.Equal(1, imported[1].RoundNumber); var rounds = await service.RoundsAsync(id); Assert.Equal(2, rounds.Count); Assert.Equal(1, rounds[0].Number); Assert.Equal(2, rounds[1].Number);
+    }
     internal static ServiceProvider Services(StorageFixture fixture, string database)
     {
         var services = new ServiceCollection(); services.AddScoped(_ => fixture.OpenDatabase(database)); services.AddSingleton<IDocumentSnapshotSerializer, JsonDocumentSnapshotSerializer>();

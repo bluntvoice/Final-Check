@@ -156,6 +156,8 @@ Debug-only 显式隔离 AppData 启动：窗口 `Final Check`、Responding true�
 
 ## Comparison UI v0（2026-09-13）
 
+Project / Template / Version Management v0 元数据验收：100 项目首个 20 行页冷查询 534.4 ms（包含 EF 冷查询开销，后台执行）；单项目 50 版本 / 20 行页 26.4 ms；单项目 30 Comparison / 20 行历史页 71.0 ms。另验证 20 模板/版本元数据列表。均使用生成式独立 SQLite fixture、分页/虚拟化，不读取全量 Snapshot JSON；上述是本机测试观测，不是复杂合同 SLA 或最终安装包 UI/内存实测。
+
 Windows / .NET 10.0.401，Release，程序化中文 DOCX，真实 inspector + parser + Comparison Engine + SQLite persistence。20 段完整工作流 333.8 ms；400 段 953.2 ms（分别 20/400 个文字变化）。这包含源 hash、两侧解析、比对和持久化，不包含 fixture/数据库初始化；合成压缩文本不代表真实复杂合同 SLA。App 测试另验证 4000 段不可变 preview 在后台生成、节点定位与导航可用，不在模型阶段创建 UI containers。
 
 开发窗口另实际选入 20/400 段带表格和字体变化的 DOCX，结果分别 41/801 项；双栏仅实现可见行，长文滚动后复用少量 realized containers，文字/表格定位、逻辑联动/解除/重新开启、最大化/还原观察通过。最终包体积/内存和安装/重启状态恢复以最终 HEAD 的 Test Build 实测报告为准，不以源码运行或上次包指标冒充。

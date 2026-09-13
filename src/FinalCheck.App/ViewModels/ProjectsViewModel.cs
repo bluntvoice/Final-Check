@@ -5,9 +5,21 @@ using FinalCheck.Core.Management;
 
 namespace FinalCheck.App.ViewModels;
 
-public partial class ProjectsViewModel(IProjectService? service = null, ITemplateService? templateService = null, VersionManagementViewModel? versions = null) : ViewModelBase
+public partial class ProjectsViewModel : ViewModelBase
 {
-    public VersionManagementViewModel Versions { get; } = versions ?? new();
+    private readonly IProjectService? service;
+    private readonly ITemplateService? templateService;
+    private readonly IProjectLifecycleService? lifecycle;
+    public ProjectsViewModel(IProjectService? service = null, ITemplateService? templateService = null, VersionManagementViewModel? versions = null, IProjectLifecycleService? lifecycle = null)
+    {
+        this.service = service; this.templateService = templateService; this.lifecycle = lifecycle; Versions = versions ?? new();
+        Versions.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Versions.IsBusy)) OnPropertyChanged(nameof(CanEdit)); };
+    }
+    public VersionManagementViewModel Versions { get; }
+    public IReadOnlyList<string> StatusOptions { get; } = ["活跃项目", "归档", "回收站"];
+    [ObservableProperty] private string statusFilter = "活跃项目";
+    [ObservableProperty] private bool permanentPrompt;
+    [ObservableProperty] private string permanentWarning = "";
     public ObservableCollection<ProjectListItem> Projects { get; } = [];
     public ObservableCollection<Template> Templates { get; } = [];
     public ObservableCollection<ProjectFolder> Folders { get; } = [];
@@ -32,7 +44,7 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool hasMore;
     [ObservableProperty] private string message = "尚未创建合同项目。";
-    public bool CanEdit => !IsBusy;
+    public bool CanEdit => !IsBusy && !Versions.IsBusy;
     private Guid? boundVersionId;
     private Guid? editingProjectId;
     private ProjectQuery activeQuery = new();
@@ -50,6 +62,7 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
         {
             var project = await service.GetAsync(item.Project.ProjectId); SelectedProject = item;
             editingProjectId = project.ProjectId;
+            PermanentPrompt = false;
             ProjectName = project.ProjectName; Counterparty = project.Counterparty; ContractType = project.ContractType; Notes = project.Notes; FolderName = item.FolderName;
             loadingSelection = true;
             try
@@ -64,7 +77,7 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
     }
     [RelayCommand] private async Task NewProjectAsync()
     {
-        if (IsBusy || Versions.IsBusy) return; editingProjectId = null; SelectedProject = null; BoundTemplate = null; boundVersionId = null; ProjectName = ""; Counterparty = ""; ContractType = ""; FolderName = ""; Notes = ""; Tags.Clear();
+        if (IsBusy || Versions.IsBusy) return; PermanentPrompt = false; editingProjectId = null; SelectedProject = null; BoundTemplate = null; boundVersionId = null; ProjectName = ""; Counterparty = ""; ContractType = ""; FolderName = ""; Notes = ""; Tags.Clear();
         Message = "填写项目名称，明确对方信息；绑定模板可继承合同类型。";
         await Versions.OpenProjectAsync(null);
     }
@@ -96,6 +109,7 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
             finally { loadingSelection = false; }
         }
         await LoadCoreAsync(false);
+        if (Versions.ProjectId is not null) await Versions.RefreshCommand.ExecuteAsync(null);
     });
     [RelayCommand] private Task SearchAsync() => PerformAsync(() => LoadCoreAsync(false));
     [RelayCommand] private Task LoadMoreAsync() => PerformAsync(() => LoadCoreAsync(true));
@@ -103,7 +117,7 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
     {
         if (service is null) return;
         var since = TimeFilter switch { "最近 7 天" => DateTimeOffset.UtcNow.AddDays(-7), "最近 30 天" => DateTimeOffset.UtcNow.AddDays(-30), _ => (DateTimeOffset?)null };
-        if (!append) activeQuery = new(SearchText.Trim(), FilterTemplate?.TemplateId, FilterType.Trim(), since, FolderId: FilterFolder?.FolderId, Tag: FilterTag.Trim());
+        if (!append) activeQuery = new(SearchText.Trim(), FilterTemplate?.TemplateId, FilterType.Trim(), since, Status: StatusFilter switch { "归档" => ProjectStatus.Archived, "回收站" => ProjectStatus.Recycled, _ => ProjectStatus.Active }, FolderId: FilterFolder?.FolderId, Tag: FilterTag.Trim());
         var rows = await service.ListAsync(activeQuery with { Offset = append ? Projects.Count : 0 });
         var selectedId = editingProjectId;
         if (!append) Projects.Clear(); foreach (var row in rows) Projects.Add(row); HasMore = rows.Count == 20;
@@ -125,13 +139,35 @@ public partial class ProjectsViewModel(IProjectService? service = null, ITemplat
         SelectedProject = Projects.SingleOrDefault(x => x.Project.ProjectId == saved.ProjectId) ?? new(saved, BoundTemplate?.Name ?? "未绑定模板", "", FolderName);
         ContractType = saved.ContractType; Message = "项目已保存；模板切换仅影响未来比对，既有历史不改变。";
         if (Versions.ProjectId != saved.ProjectId) await Versions.OpenProjectAsync(saved.ProjectId);
+        else await Versions.RefreshCommand.ExecuteAsync(null);
+    });
+    [RelayCommand] private Task ArchiveAsync() => ChangeStatusAsync(ProjectStatus.Archived);
+    [RelayCommand] private Task RecycleAsync() => ChangeStatusAsync(ProjectStatus.Recycled);
+    [RelayCommand] private Task RestoreAsync() => ChangeStatusAsync(ProjectStatus.Active);
+    private Task ChangeStatusAsync(ProjectStatus status) => PerformAsync(async () =>
+    {
+        if (lifecycle is null || editingProjectId is not { } id) return;
+        await lifecycle.SetStatusAsync(id, status); PermanentPrompt = false; await LoadCoreAsync(false); await Versions.RefreshCommand.ExecuteAsync(null);
+        Message = status switch { ProjectStatus.Archived => "项目已归档，数据保留；可在归档列表恢复。", ProjectStatus.Recycled => "项目已进入回收站，尚未永久删除；可恢复。", _ => "项目已恢复到活跃列表，版本与历史保留。" };
+    });
+    [RelayCommand] private Task RequestPermanentDeleteAsync() => PerformAsync(async () =>
+    {
+        if (service is null || editingProjectId is not { } id) return; var project = await service.GetAsync(id);
+        if (project.Status != ProjectStatus.Recycled) throw new ArgumentException("请先将项目移入回收站。");
+        PermanentWarning = $"再次确认永久删除「{project.ProjectName}」？项目、版本、独占快照/比对/审阅/恢复记录将被删除，无法从回收站恢复。共享资源及外部原始 DOCX 永不删除。"; PermanentPrompt = true;
+    });
+    [RelayCommand] private void CancelPermanentDelete() { if (!IsBusy) PermanentPrompt = false; }
+    [RelayCommand] private Task ConfirmPermanentDeleteAsync() => PerformAsync(async () =>
+    {
+        if (!PermanentPrompt || lifecycle is null || editingProjectId is not { } id) return;
+        var result = await lifecycle.DeleteAsync(id, true); PermanentPrompt = false; editingProjectId = null; SelectedProject = null; ProjectName = ""; Counterparty = ""; Notes = ""; FolderName = ""; ContractType = ""; BoundTemplate = null; boundVersionId = null; Tags.Clear(); await Versions.OpenProjectAsync(null); await LoadCoreAsync(false); Message = result.Diagnostic;
     });
     private async Task PerformAsync(Func<Task> operation)
     {
         if (IsBusy || Versions.IsBusy) return; IsBusy = true;
         try { await operation(); }
         catch (Exception e) when (e is ArgumentException or InvalidOperationException or IOException) { Message = e.Message; }
-        catch (Exception) { Message = "项目操作失败，原有数据保持不变，请重试。"; }
+        catch (Exception) { Message = "项目操作失败，请刷新核对实际状态后重试；外部原始 DOCX 不会被删除。"; }
         finally { IsBusy = false; }
     }
 }

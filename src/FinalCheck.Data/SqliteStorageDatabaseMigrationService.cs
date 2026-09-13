@@ -59,6 +59,7 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
             foreach (var row in await context.TemplateVersions.AsNoTracking().ToArrayAsync(token)) originals.Add(Path.GetFullPath(row.FilePath));
             foreach (var row in await context.ContractVersions.AsNoTracking().ToArrayAsync(token))
             { var version = ContractVersionStore.Map(row); originals.Add(Path.GetFullPath(version.Source.Path)); originals.Add(Path.GetFullPath(version.OriginalSourceMetadata.Path)); }
+            foreach (var row in await context.ProjectDeletionOperations.AsNoTracking().ToArrayAsync(token)) foreach (var path in ProjectLifecycleStore.Decode(row).OriginalPaths) originals.Add(Path.GetFullPath(path));
         }
         public async Task BackupAsync(string stagingRoot, Guid operationId, CancellationToken cancellationToken = default)
         {
@@ -113,6 +114,12 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
         private async Task<Dictionary<string, string>> FactsAsync(FinalCheckDbContext context, string logicalRoot, CancellationToken token)
         {
             var facts = new Dictionary<string, string>();
+            foreach (var row in await context.ProjectDeletionOperations.AsNoTracking().ToArrayAsync(token))
+            {
+                var journal = ProjectLifecycleStore.Decode(row);
+                if (journal.Files.Any(f => Path.IsPathFullyQualified(f.RelativePath) || f.RelativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(p => p is ".." or ".") || f.Sha256.Length != 64)) throw new InvalidDataException("Invalid deletion cleanup paths.");
+                facts.Add("project-deletion:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
+            }
             foreach (var row in await context.ProjectComparisons.AsNoTracking().ToArrayAsync(token))
             {
                 if (!Enum.IsDefined((Core.Management.ProjectBaselineType)row.BaselineType) ||

@@ -24,8 +24,15 @@ public sealed record VersionTimelineItem(ContractVersion Version)
     public string Heading => $"第 {Version.RoundNumber} 轮 · {(Version.Role == ContractVersionRole.Own ? "我方" : "对方")} · {Version.Source.Name}";
     public string State => $"{Version.ParseStatus}{(Version.IsCurrentBaseline ? " · 当前我方基准" : "")}{(Version.DuplicateReference is null ? "" : " · 内容相同")}";
 }
-public partial class VersionManagementViewModel(IContractVersionService? service = null, IProjectComparisonService? comparisons = null, IComparisonWorkflowService? workflow = null) : ViewModelBase
+public partial class VersionManagementViewModel(IContractVersionService? service = null, IProjectComparisonService? comparisons = null, IComparisonWorkflowService? workflow = null, IProjectLifecycleService? lifecycle = null) : ViewModelBase
 {
+    public ObservableCollection<ProjectComparisonHistory> ProjectHistory { get; } = [];
+    [ObservableProperty] private bool hasMoreHistory;
+    [ObservableProperty] private string projectHistoryMessage = "尚未进行版本比对。";
+    [ObservableProperty] private ProjectSummary? summary;
+    public bool CanImport => CanEdit && (Summary is null || Summary.Status == ProjectStatus.Active);
+    public string SummaryText => Summary is not { } s ? "保存并选择项目以查看状态。" : $"状态：{s.Status}\n当前我方基准：{s.CurrentBaseline}\n最新版本：{s.LatestVersion}\n最新比对：{(s.LatestComparison is { } c ? c.CreatedAt.ToString("u") + " · " + c.CurrentName + " vs " + c.BaselineName + $"\n总变化 {c.Total} · 未处理 {c.Unresolved} · 已审阅 {c.Reviewed} · 忽略 {c.Ignored}" : "尚未进行版本比对。 ")}\nPending Restore：{s.PendingRestoreCount}";
+    partial void OnSummaryChanged(ProjectSummary? value) { OnPropertyChanged(nameof(SummaryText)); OnPropertyChanged(nameof(CanImport)); }
     public event Func<ComparisonWorkflowResult, Task>? Completed;
     public ObservableCollection<ProjectBaselineOption> Baselines { get; } = [];
     public ObservableCollection<ContractVersion> NewOwnVersions { get; } = [];
@@ -52,11 +59,11 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     [ObservableProperty] private string message = "导入第一份合同版本开始管理。";
     public bool CanEdit => ProjectId is not null && !IsBusy;
     private bool loadedChronological;
-    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanEdit));
-    partial void OnProjectIdChanged(Guid? value) => OnPropertyChanged(nameof(CanEdit));
+    partial void OnIsBusyChanged(bool value) { OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanImport)); }
+    partial void OnProjectIdChanged(Guid? value) { OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanImport)); }
     public async Task OpenProjectAsync(Guid? id)
     {
-        if (IsBusy) return; ProjectId = id; ImportQueue.Clear(); Versions.Clear(); RoundNumbers.Clear(); SelectedVersion = null; PreviewBlocks.Clear(); Detail = ""; SourcePath = ""; Baselines.Clear(); History.Clear(); NewOwnVersions.Clear(); BaselinePrompt = false; SelectedBaseline = null;
+        if (IsBusy) return; ProjectId = id; Summary = null; ProjectHistory.Clear(); HasMoreHistory = false; ImportQueue.Clear(); Versions.Clear(); RoundNumbers.Clear(); SelectedVersion = null; PreviewBlocks.Clear(); Detail = ""; SourcePath = ""; Baselines.Clear(); History.Clear(); NewOwnVersions.Clear(); BaselinePrompt = false; SelectedBaseline = null;
         if (id is not null) await RefreshAsync();
     }
     public Task AcceptFilesAsync(IEnumerable<string> paths) => PerformAsync(async () =>
@@ -99,12 +106,15 @@ public partial class VersionManagementViewModel(IContractVersionService? service
         foreach (var version in versions) Versions.Add(new(version)); HasMore = versions.Count == 20;
         RoundNumbers.Clear(); foreach (var round in await service.RoundsAsync(id)) RoundNumbers.Add(round.Number);
         ImportRound = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max();
+        if (lifecycle is not null) Summary = await lifecycle.SummaryAsync(id);
+        if (!append && comparisons is not null) await LoadHistoryCoreAsync(false);
         Message = Versions.Count == 0 ? "导入第一份合同版本开始管理。" : $"显示 {Versions.Count} 份版本；完整 Snapshot 仅在预览时读取。";
     }
     public Task SelectVersionAsync(VersionTimelineItem item) => PerformAsync(async () =>
     {
         if (service is null) return; var version = await service.GetAsync(item.Version.ContractVersionId); SelectedVersion = item; SourcePath = version.Source.Path; PreviewBlocks.Clear();
         Detail = $"{new VersionTimelineItem(version).Heading}\nSHA-256: {version.Source.Sha256}\n导入: {version.ImportedAt:u}\nSnapshot: {version.SnapshotId} · {version.ParseStatus}\n{version.Notes}";
+        if (lifecycle is not null) { var restore = await lifecycle.RestoreStateAsync(version.ContractVersionId); Detail += $"\n{(version.IsCurrentBaseline ? "当前我方基准" : "非当前我方基准")}\n{restore.Message}\nPending Restore: {restore.PendingCount}"; }
         if (comparisons is not null && ProjectId is { } id)
         {
             var choices = await comparisons.ChoicesAsync(id, version.ContractVersionId); Baselines.Clear(); foreach (var option in choices.Options) Baselines.Add(option);
@@ -140,6 +150,10 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     [RelayCommand] private void CancelComparison() => comparisonCancellation?.Cancel();
     [RelayCommand] private Task OpenHistoryAsync(ProjectComparisonHistory? history) => PerformAsync(async () =>
     { if (workflow is null || history is null || history.ProjectId != ProjectId) return; var result = await workflow.LoadAsync(history.RecordId) ?? throw new InvalidDataException("历史记录缺失。"); if (Completed is { } handler) await handler(result); });
+    [RelayCommand] private Task RefreshHistoryAsync() => PerformAsync(async () => { await LoadHistoryCoreAsync(false); if (lifecycle is not null && ProjectId is { } id) Summary = await lifecycle.SummaryAsync(id); });
+    [RelayCommand] private Task LoadMoreHistoryAsync() => PerformAsync(() => LoadHistoryCoreAsync(true));
+    private async Task LoadHistoryCoreAsync(bool append)
+    { if (comparisons is null || ProjectId is not { } id) return; var rows = await comparisons.HistoryAsync(id, offset: append ? ProjectHistory.Count : 0); if (!append) ProjectHistory.Clear(); foreach (var row in rows) ProjectHistory.Add(row); HasMoreHistory = rows.Count == 20; ProjectHistoryMessage = ProjectHistory.Count == 0 ? "尚未进行版本比对。" : $"显示 {ProjectHistory.Count} 条独立历史；已审阅仅表示人工查看，不表示接受修改。"; }
     [RelayCommand] private Task PreviewAsync() => PerformAsync(async () =>
     {
         if (service is null || SelectedVersion is not { } item) return; var snapshot = await service.LoadSnapshotAsync(item.Version.ContractVersionId);

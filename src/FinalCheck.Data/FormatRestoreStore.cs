@@ -96,7 +96,7 @@ public sealed class FormatRestoreStore(FinalCheckDbContext context, IDocumentSna
         Status = operation.Status.ToString(), Payload = JsonSerializer.SerializeToUtf8Bytes(operation), CreatedAtUtc = operation.CreatedAt.UtcDateTime,
     };
 
-    private static FormatRestoreOperation Decode(StoredFormatRestoreOperation entity)
+    internal static FormatRestoreOperation Decode(StoredFormatRestoreOperation entity)
     {
         var operation = JsonSerializer.Deserialize<FormatRestoreOperation>(entity.Payload) ?? throw new InvalidDataException("Invalid restore payload.");
         if (entity.SchemaVersion != FormatRestoreOperation.CurrentSchemaVersion || operation.SchemaVersion != entity.SchemaVersion ||

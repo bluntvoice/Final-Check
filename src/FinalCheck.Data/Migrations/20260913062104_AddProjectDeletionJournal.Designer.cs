@@ -3,6 +3,7 @@ using System;
 using FinalCheck.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FinalCheck.Data.Migrations
 {
     [DbContext(typeof(FinalCheckDbContext))]
-    partial class FinalCheckDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260913062104_AddProjectDeletionJournal")]
+    partial class AddProjectDeletionJournal
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -46,6 +46,15 @@ public sealed class ContractVersionStore(FinalCheckDbContext db, DocumentSnapsho
         var project = await db.Projects.SingleAsync(x => x.Id == projectId, token);
         if (project.Status != (int)ProjectStatus.Active) throw new InvalidOperationException("请先恢复项目再导入版本。");
         var rounds = (await db.NegotiationRounds.Where(x => x.ProjectId == projectId).ToArrayAsync(token)).ToList();
+        // Validate/create requested rounds in number order, independent of user queue order.
+        foreach (var number in versions.Select(x => x.Request.RoundNumber).Distinct().Order())
+        {
+            if (number is < 1 or > 10000) throw new ArgumentException("请选择合法轮次。");
+            if (rounds.Any(x => x.Number == number)) continue;
+            var max = rounds.Count == 0 ? 0 : rounds.Max(x => x.Number);
+            if (number != max + 1) throw new ArgumentException("请选择已有轮次或下一轮，不能跳过轮次。");
+            var round = new StoredNegotiationRound { Id = Guid.NewGuid(), ProjectId = projectId, Number = number }; db.NegotiationRounds.Add(round); rounds.Add(round);
+        }
         var added = new List<StoredContractVersion>(); var now = DateTime.UtcNow;
         foreach (var prepared in versions)
         {
@@ -53,12 +62,6 @@ public sealed class ContractVersionStore(FinalCheckDbContext db, DocumentSnapsho
             if (!Enum.IsDefined(request.Role) || request.RoundNumber < 1 || request.RoundNumber > 10000 || file.Sha256 != prepared.Snapshot.Metadata.Sha256 || !Path.IsPathFullyQualified(file.Path)) throw new ArgumentException("明确选择合法角色和轮次，且文件与快照身份必须一致。");
             var duplicate = added.FirstOrDefault(x => x.Sha256 == file.Sha256)?.Id ?? await db.ContractVersions.Where(x => x.ProjectId == projectId && x.Sha256 == file.Sha256).OrderBy(x => x.ImportedAtUtc).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(token);
             if (duplicate is not null && !request.AllowDuplicate) throw new InvalidOperationException("已存在内容完全相同的版本，请跳过或明确选择仍然导入。");
-            if (!rounds.Any(x => x.Number == request.RoundNumber))
-            {
-                var max = rounds.Count == 0 ? 0 : rounds.Max(x => x.Number);
-                if (request.RoundNumber != max + 1) throw new ArgumentException("请选择已有轮次或下一轮，不能跳过轮次。");
-                var round = new StoredNegotiationRound { Id = Guid.NewGuid(), ProjectId = projectId, Number = request.RoundNumber }; db.NegotiationRounds.Add(round); rounds.Add(round);
-            }
             var snapshotId = await snapshots.SaveAsync(prepared.Snapshot, token);
             var row = new StoredContractVersion { Id = Guid.NewGuid(), ProjectId = projectId, FilePath = file.Path, FileName = file.Name, FileSize = file.Size, ModifiedAtUtc = file.ModifiedAt.UtcDateTime,
                 Sha256 = file.Sha256, SnapshotId = snapshotId, Role = (int)request.Role, RoundNumber = request.RoundNumber, ImportedAtUtc = now.AddTicks(added.Count), Notes = request.Notes,

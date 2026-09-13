@@ -7,7 +7,7 @@ namespace FinalCheck.Data;
 public sealed class SqliteDataRootDatabaseInspector : IDataRootDatabaseInspector
 {
     internal static readonly string[] KnownMigrations =
-    ["20260910021629_InitialCreate", "20260910143000_AddComparisonResults", "20260912110000_AddFormatRestoreHistory", "20260912234643_AddIndependentComparisonRecords", "20260913054718_AddTemplateCenter", "20260913055622_AddContractProjects", "20260913060404_AddContractVersionsAndRounds", "20260913061331_AddProjectComparisonContext"];
+    ["20260910021629_InitialCreate", "20260910143000_AddComparisonResults", "20260912110000_AddFormatRestoreHistory", "20260912234643_AddIndependentComparisonRecords", "20260913054718_AddTemplateCenter", "20260913055622_AddContractProjects", "20260913060404_AddContractVersionsAndRounds", "20260913061331_AddProjectComparisonContext", "20260913062104_AddProjectDeletionJournal"];
 
     public async Task ValidateAsync(string databasePath, CancellationToken cancellationToken = default)
     {
@@ -59,6 +59,8 @@ public sealed class SqliteDataRootDatabaseInspector : IDataRootDatabaseInspector
             command.CommandText = "SELECT Id, TemplateId, Version, FilePath, FileName, FileSize, ModifiedAtUtc, Sha256, SnapshotId, IsCurrent, ParseStatus, CreatedAtUtc FROM TemplateVersions LIMIT 0";
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
+        if (migrations.Count >= 9)
+        { command.CommandText = "SELECT Id, ProjectId, Status, Payload, CreatedAtUtc FROM ProjectDeletionOperations LIMIT 0"; await command.ExecuteNonQueryAsync(cancellationToken); }
         if (migrations.Count >= 8)
         { command.CommandText = "SELECT RecordId, ProjectId, CurrentVersionId, BaselineType, OwnBaselineVersionId, TemplateBaselineVersionId, BaselineSourceSnapshotId, CurrentSourceSnapshotId, BaselineName, CurrentName, TotalChanges, CreatedAtUtc FROM ProjectComparisons LIMIT 0"; await command.ExecuteNonQueryAsync(cancellationToken); }
         if (migrations.Count >= 7)

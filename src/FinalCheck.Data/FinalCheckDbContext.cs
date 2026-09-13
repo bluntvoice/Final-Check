@@ -27,7 +27,8 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
     {
         try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
     }
-    public const int DatabaseSchemaVersion = 8;
+    public const int DatabaseSchemaVersion = 9;
+    public DbSet<StoredProjectDeletion> ProjectDeletionOperations => Set<StoredProjectDeletion>();
     public DbSet<StoredProjectComparison> ProjectComparisons => Set<StoredProjectComparison>();
     public DbSet<StoredContractVersion> ContractVersions => Set<StoredContractVersion>();
     public DbSet<StoredNegotiationRound> NegotiationRounds => Set<StoredNegotiationRound>();
@@ -52,6 +53,12 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             value => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime(),
             value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
+        modelBuilder.Entity<StoredProjectDeletion>(entity =>
+        {
+            entity.ToTable("ProjectDeletionOperations"); entity.HasKey(x => x.Id); entity.Property(x => x.Payload).IsRequired(); entity.Property(x => x.Status).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).HasConversion(utcDateTimeConverter); entity.HasIndex(x => new { x.Status, x.CreatedAtUtc });
+            // Durable cleanup audit must survive deletion of the project; intentionally no project FK.
+        });
         modelBuilder.Entity<StoredProjectComparison>(entity =>
         {
             entity.ToTable("ProjectComparisons"); entity.HasKey(x => x.RecordId);

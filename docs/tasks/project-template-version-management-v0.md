@@ -1270,7 +1270,10 @@ Template v1
   * 实际完成（2026-09-13）：本项目 Own-only 基准校验、新我方导入独立默认否提示、模板当前/历史或当前我方基准选择、项目 baseline type 记忆与对方版本当前我方建议；只预选、不自动执行，也不使用上一版对方作基准。冻结 Snapshot 调用现有 Engine，共享结果/审阅页与历史打开，支持后台执行及取消/离开提示。
   * 历史安全：schema 8 原子追加项目 Comparison context 与既有独立冻结 Record/result，保存前再次校验归属与输入身份；模板/基准切换不重算旧记录。模板删除引用包含历史 context，即使项目已切换模板；元数据分页从稳定 review payload 读取实际计数，不维护第二套审阅状态。
   * 验证：新增 5 项 Data / 3 项 VM 测试，Release 全量 275/275、Desktop build 0 warning / 0 error；包含同版本多 Comparison、Own-only、模板切换、Confirmed 保留、原文失效、取消、schema 7 增量升级和 Storage 完整迁移。30 历史/20 行元数据页 71.0 ms，不读取 Snapshot/result JSON。
-* Phase 5 — Project Detail / History / Archive：TODO
+* Phase 5 — Project Detail / History / Archive：DONE
+  * 实际完成（2026-09-13）：分 Tab 项目工作台、当前状态/最新版本与比对/实际审阅计数、版本恢复状态、项目完整历史分页、共享历史打开、归档/回收站与恢复、永久删除二次确认、独占资源引用检查及 schema 9 durable cleanup journal。托管文件按精确路径/hash staging → 再验证 → 清理，中断可启动重试；原始 DOCX/共享资源/未追踪或变更文件保留。不执行递归目录删除或猜测性 orphan cleanup。
+  * 验证：新增 6 项 Data / 2 项 VM 测试，并补充批量队列排序不依赖轮次顺序的回归测试；Release restore/build 全部通过，build 0 warning / 0 error，全量 284/284（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 46）。真实 Format Restore Working Copy/records 独占清理且无关既有恢复历史保留；Prepared restore 阻断永久删除、取消、旧 schema 8 升级、共享模板/Quick Compare 保留、清理 staging 中断重试/原文重叠/路径越界/变更文件保护、归档回收与二次确认均覆盖。
+  * 边界：左右角色拖拽区域、Quick Compare → Project、自动模板匹配及正式 Restore/Storage/Installer/AI UI 未实现。无可证明归属的旧 unlinked restore-generated payload 保守保留；空 lock/staging 目录允许保留。最终 HEAD Windows/macOS CI、Test Build、实际安装/版本链/系统拖拽/重启/卸载是提交后执行的独立验收门禁，当前未以测试或旧包冒充完成，结果另在最终报告记录。
 
 ---
 

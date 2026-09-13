@@ -17,7 +17,7 @@ public sealed class ProjectComparisonTests(ITestOutputHelper output)
     {
         var services = new ServiceCollection(); services.AddScoped(_ => env.Factory.CreateDbContext()); services.AddSingleton<IDocumentSnapshotSerializer, JsonDocumentSnapshotSerializer>();
         services.AddSingleton<IComparisonResultSerializer, JsonComparisonResultSerializer>(); services.AddScoped<DocumentSnapshotStore>(); services.AddScoped<IContractVersionStore, ContractVersionStore>();
-        services.AddScoped<IProjectComparisonStore, ProjectComparisonStore>(); services.AddScoped<IComparisonRecordStore, ComparisonRecordStore>(); return services.BuildServiceProvider();
+        services.AddScoped<IProjectComparisonStore, ProjectComparisonStore>(); services.AddScoped<IComparisonRecordStore, ComparisonRecordStore>(); services.AddScoped<IProjectLifecycleStore, ProjectLifecycleStore>(); return services.BuildServiceProvider();
     }
     internal static async Task<(Guid Project, TemplateDetails Template, IReadOnlyList<ContractVersion> Versions)> ChainAsync(MigrationEnvironment env, ServiceProvider provider)
     {

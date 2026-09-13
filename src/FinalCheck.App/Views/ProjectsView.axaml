@@ -4,6 +4,7 @@
  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
   <WrapPanel IsEnabled="{Binding CanEdit}">
    <Button Content="新建项目" Command="{Binding NewProjectCommand}" Margin="0,0,8,8" /><Button Content="刷新" Command="{Binding RefreshCommand}" Margin="0,0,8,8" />
+   <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" Width="120" Margin="0,0,8,8" />
    <TextBox Text="{Binding SearchText}" PlaceholderText="项目名称搜索" Width="150" Margin="0,0,8,8" AutomationProperties.Name="项目搜索" />
    <TextBox Text="{Binding FilterType}" PlaceholderText="筛选合同类型" Width="130" Margin="0,0,8,8" />
    <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding FilterTemplate}" PlaceholderText="全部模板" Width="130" Margin="0,0,8,8"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:Template"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
@@ -21,7 +22,12 @@
     </ListBox>
     <Button Grid.Row="1" Content="加载更多项目" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" />
    </Grid>
-   <ScrollViewer Grid.Column="1">
+   <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
+    <Expander Header="项目当前状态 / 最新版本与比对 / 审阅计数" IsExpanded="False"><TextBlock Text="{Binding Versions.SummaryText}" TextWrapping="Wrap" FontSize="12" /></Expander>
+    <WrapPanel Grid.Row="1" IsEnabled="{Binding CanEdit}"><Button Content="归档项目" Command="{Binding ArchiveCommand}" /><Button Content="删除到回收站" Command="{Binding RecycleCommand}" /><Button Content="恢复到活跃项目" Command="{Binding RestoreCommand}" /><Button Content="永久删除回收站项目…" Command="{Binding RequestPermanentDeleteCommand}" /></WrapPanel>
+    <Border Grid.Row="2" IsVisible="{Binding PermanentPrompt}" BorderBrush="#C0392B" BorderThickness="1" Padding="8"><StackPanel Spacing="6"><TextBlock Text="{Binding PermanentWarning}" TextWrapping="Wrap" /><Button Content="再次确认，永久删除项目及独占托管数据" Command="{Binding ConfirmPermanentDeleteCommand}" /><Button Content="取消永久删除" Command="{Binding CancelPermanentDeleteCommand}" /></StackPanel></Border>
+    <TabControl Grid.Row="3">
+     <TabItem Header="基本信息"><ScrollViewer>
     <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
      <TextBlock Text="项目基本信息" FontSize="18" />
      <TextBox Text="{Binding ProjectName}" PlaceholderText="项目名称（必填）" AutomationProperties.Name="项目名称" />
@@ -39,9 +45,12 @@
      <Button Content="添加标签" Command="{Binding AddTagCommand}" />
      <ItemsControl ItemsSource="{Binding Tags}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="m:ProjectTag"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="{Binding Name}" Foreground="{Binding Color}" /><Button Content="移除标签" Command="{ReflectionBinding $parent[UserControl].DataContext.RemoveTagCommand}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
      <Button Content="保存项目" Command="{Binding SaveCommand}" />
-     <views:VersionManagementView DataContext="{Binding Versions}" />
     </StackPanel>
-   </ScrollViewer>
+     </ScrollViewer></TabItem>
+     <TabItem Header="版本 / 谈判轮次"><ScrollViewer><views:VersionManagementView DataContext="{Binding Versions}" /></ScrollViewer></TabItem>
+     <TabItem Header="比对历史"><views:ProjectHistoryView DataContext="{Binding Versions}" /></TabItem>
+    </TabControl>
+   </Grid>
   </Grid>
  </Grid>
 </UserControl>

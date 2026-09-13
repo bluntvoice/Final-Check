@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:m="using:FinalCheck.Core.Management" x:Class="FinalCheck.App.Views.ProjectHistoryView" x:DataType="vm:VersionManagementViewModel">
+ <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
+  <TextBlock Text="{Binding ProjectHistoryMessage}" TextWrapping="Wrap" />
+  <Button Grid.Row="1" Content="刷新项目历史与实际审阅计数" Command="{Binding RefreshHistoryCommand}" IsEnabled="{Binding CanEdit}" />
+  <ListBox Grid.Row="2" ItemsSource="{Binding ProjectHistory}" AutomationProperties.Name="项目独立比对历史" IsEnabled="{Binding CanEdit}"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel><ListBox.ItemTemplate><DataTemplate x:DataType="m:ProjectComparisonHistory"><StackPanel Spacing="4"><TextBlock Text="{Binding CreatedAt}" /><TextBlock Text="{Binding CurrentName}" TextWrapping="Wrap" /><TextBlock Text="{Binding BaselineName}" TextWrapping="Wrap" /><TextBlock Text="{Binding BaselineType, StringFormat='Baseline Type: {0}'}" /><TextBlock Text="{Binding Total, StringFormat='总变化：{0}'}" /><TextBlock Text="{Binding Unresolved, StringFormat='未处理：{0}'}" /><TextBlock Text="{Binding Reviewed, StringFormat='已审阅：{0}'}" /><TextBlock Text="{Binding Ignored, StringFormat='忽略：{0}'}" /><Button Content="打开历史比对" Command="{ReflectionBinding $parent[UserControl].DataContext.OpenHistoryCommand}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+  <Button Grid.Row="3" Content="加载更多历史" Command="{Binding LoadMoreHistoryCommand}" IsVisible="{Binding HasMoreHistory}" IsEnabled="{Binding CanEdit}" />
+ </Grid>
+</UserControl>

@@ -5,11 +5,11 @@ namespace FinalCheck.App.Tests;
 
 public sealed class ProjectsTests
 {
-    private sealed class Service : IProjectService
+    internal sealed class Service : IProjectService
     {
         public ProjectQuery? Query { get; private set; }
         public List<ProjectListItem> Rows { get; } = [];
-        public Task<IReadOnlyList<ProjectListItem>> ListAsync(ProjectQuery query, CancellationToken token = default) { Query = query; return Task.FromResult<IReadOnlyList<ProjectListItem>>(Rows.Where(r => r.Project.ProjectName.Contains(query.Search)).Skip(query.Offset).Take(query.Limit).ToArray()); }
+        public Task<IReadOnlyList<ProjectListItem>> ListAsync(ProjectQuery query, CancellationToken token = default) { Query = query; return Task.FromResult<IReadOnlyList<ProjectListItem>>(Rows.Where(r => r.Project.ProjectName.Contains(query.Search) && r.Project.Status == query.Status).Skip(query.Offset).Take(query.Limit).ToArray()); }
         public Task<ContractProject> GetAsync(Guid id, CancellationToken token = default) => Task.FromResult(Rows.Single(r => r.Project.ProjectId == id).Project);
         public Task<IReadOnlyList<ProjectFolder>> FoldersAsync(CancellationToken token = default) => Task.FromResult<IReadOnlyList<ProjectFolder>>([]);
         public Task<ContractProject> SaveAsync(Guid? id, ProjectEdit edit, CancellationToken token = default)
