@@ -13,6 +13,15 @@ public partial class VersionImportRow(ComparisonFile source, int round) : ViewMo
     public IReadOnlyList<string> Roles { get; } = ["我方版本", "对方版本"];
     [ObservableProperty] private string? role;
     [ObservableProperty] private int roundNumber = round;
+    [ObservableProperty] private decimal? roundInput = round;
+    public bool HasValidRound => RoundInput is >= 1 and <= 10000 && RoundInput == decimal.Truncate(RoundInput.Value);
+    public string RoundValidationMessage => HasValidRound ? "" : "轮次必须为 1–10000 的整数。";
+    partial void OnRoundNumberChanged(int value) => RoundInput = value;
+    partial void OnRoundInputChanged(decimal? value)
+    {
+        if (HasValidRound) RoundNumber = (int)value!.Value;
+        OnPropertyChanged(nameof(HasValidRound)); OnPropertyChanged(nameof(RoundValidationMessage));
+    }
     [ObservableProperty] private string notes = "";
     [ObservableProperty] private bool duplicate;
     [ObservableProperty] private bool allowDuplicate;
@@ -53,6 +62,22 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     [ObservableProperty] private bool hasMore;
     [ObservableProperty] private string order = "按轮次";
     [ObservableProperty] private int importRound = 1;
+    [ObservableProperty] private decimal? importRoundInput = 1;
+    [ObservableProperty] private int? existingRoundSelection;
+    public bool HasValidImportRound => ImportRoundInput is >= 1 and <= 10000 && ImportRoundInput == decimal.Truncate(ImportRoundInput.Value);
+    public string RoundValidationMessage => HasValidImportRound ? "" : "请填写 1–10000 的整数轮次；空白或非整数不会用于导入。";
+    partial void OnImportRoundChanged(int value)
+    { ImportRoundInput = value; ExistingRoundSelection = RoundNumbers.Contains(value) ? value : null; }
+    partial void OnImportRoundInputChanged(decimal? value)
+    {
+        if (HasValidImportRound) ImportRound = (int)value!.Value;
+        OnPropertyChanged(nameof(HasValidImportRound)); OnPropertyChanged(nameof(RoundValidationMessage));
+    }
+    partial void OnExistingRoundSelectionChanged(int? value)
+    {
+        // ComboBox refresh/navigation may deselect; this is not a request to clear the numeric editor.
+        if (value is { } number && RoundNumbers.Contains(number)) ImportRoundInput = number;
+    }
     [ObservableProperty] private VersionTimelineItem? selectedVersion;
     [ObservableProperty] private string sourcePath = "";
     [ObservableProperty] private string detail = "";
@@ -69,6 +94,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     public Task AcceptFilesAsync(IEnumerable<string> paths) => PerformAsync(async () =>
     {
         if (service is null || ProjectId is not { } id) return;
+        if (!HasValidImportRound) throw new ArgumentException(RoundValidationMessage);
         var incoming = paths.ToArray();
         if (incoming.Length == 0 || incoming.Any(p => !p.EndsWith(".docx", StringComparison.OrdinalIgnoreCase)) || incoming.Length + ImportQueue.Count > 100) throw new ArgumentException("请选择 1–100 份 DOCX。");
         // No role guess or parse. Queue rows require explicit user selection before import.
@@ -79,9 +105,10 @@ public partial class VersionManagementViewModel(IContractVersionService? service
         }
         Message = "请逐份明确选择我方/对方和轮次；重复内容默认跳过。导入不会自动比对。";
     });
-    [RelayCommand] private void CurrentRound() { ImportRound = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max(); }
-    [RelayCommand] private void NextRound() { ImportRound = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max() + 1; }
-    [RelayCommand] private void ApplyRound() { if (!IsBusy) foreach (var row in ImportQueue) row.RoundNumber = ImportRound; }
+    [RelayCommand] private void CurrentRound() { ImportRoundInput = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max(); }
+    [RelayCommand] private void NextRound() { ImportRoundInput = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max() + 1; }
+    [RelayCommand] private void ApplyRound()
+    { if (IsBusy) return; if (!HasValidImportRound) { Message = RoundValidationMessage; return; } foreach (var row in ImportQueue) row.RoundInput = ImportRoundInput; }
     [RelayCommand] private void Remove(VersionImportRow? row) { if (!IsBusy && row is not null) { ImportQueue.Remove(row); RecheckQueueDuplicates(); } }
     [RelayCommand] private void MoveUp(VersionImportRow? row) { var index = row is null ? -1 : ImportQueue.IndexOf(row); if (!IsBusy && index > 0) { ImportQueue.Move(index, index - 1); RecheckQueueDuplicates(); } }
     [RelayCommand] private void MoveDown(VersionImportRow? row) { var index = row is null ? -1 : ImportQueue.IndexOf(row); if (!IsBusy && index >= 0 && index < ImportQueue.Count - 1) { ImportQueue.Move(index, index + 1); RecheckQueueDuplicates(); } }
@@ -90,6 +117,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     {
         if (service is null || ProjectId is not { } id) return;
         if (ImportQueue.Any(x => x.Role is not ("我方版本" or "对方版本"))) throw new ArgumentException("每份文件都必须明确选择角色（包括准备跳过的重复项）。");
+        if (ImportQueue.Any(x => !x.HasValidRound)) throw new ArgumentException("每份待导入文件的轮次必须为 1–10000 的整数；请修正空白或非整数轮次。");
         var selected = ImportQueue.Where(x => !x.Duplicate || x.AllowDuplicate).ToArray();
         if (selected.Length == 0) { Message = "重复内容已跳过，没有新增版本。"; ImportQueue.Clear(); return; }
         var result = await service.ImportAsync(id, selected.Select(x => new VersionImport(x.Source.Path, x.Role == "我方版本" ? ContractVersionRole.Own : ContractVersionRole.Counterparty, x.RoundNumber, x.Notes, x.AllowDuplicate, x.Source.Sha256)).ToArray());
@@ -105,7 +133,8 @@ public partial class VersionManagementViewModel(IContractVersionService? service
         var versions = await service.ListAsync(id, loadedChronological, append ? Versions.Count : 0); if (!append) { SelectedVersion = null; SelectedBaseline = null; Baselines.Clear(); History.Clear(); Detail = ""; SourcePath = ""; PreviewBlocks.Clear(); Versions.Clear(); }
         foreach (var version in versions) Versions.Add(new(version)); HasMore = versions.Count == 20;
         RoundNumbers.Clear(); foreach (var round in await service.RoundsAsync(id)) RoundNumbers.Add(round.Number);
-        ImportRound = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max();
+        ImportRoundInput = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max();
+        ExistingRoundSelection = RoundNumbers.Contains(ImportRound) ? ImportRound : null;
         if (lifecycle is not null) Summary = await lifecycle.SummaryAsync(id);
         if (!append && comparisons is not null) await LoadHistoryCoreAsync(false);
         Message = Versions.Count == 0 ? "导入第一份合同版本开始管理。" : $"显示 {Versions.Count} 份版本；完整 Snapshot 仅在预览时读取。";

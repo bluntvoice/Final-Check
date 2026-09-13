@@ -54,4 +54,33 @@ public sealed class VersionManagementTests
         await vm.SelectVersionAsync(vm.Versions[0]); Assert.False(service.PreviewLoaded); await vm.PreviewCommand.ExecuteAsync(null); Assert.True(service.PreviewLoaded);
         await vm.OpenProjectAsync(null); Assert.Empty(vm.ImportQueue); Assert.Empty(vm.Versions); Assert.False(vm.CanEdit);
     }
+    [Fact] public async Task RoundListDeselectAndRefreshDoNotClearNumericEditor()
+    {
+        var service = new Service(); var id = Guid.NewGuid();
+        await service.ImportAsync(id, [new("existing.docx", ContractVersionRole.Own, 2, "")]);
+        var vm = new VersionManagementViewModel(service); await vm.OpenProjectAsync(id);
+        vm.RoundNumbers.CollectionChanged += (_, _) => vm.ExistingRoundSelection = null;
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(2, vm.ImportRound); Assert.Equal(2m, vm.ImportRoundInput); Assert.Equal(2, vm.ExistingRoundSelection);
+        vm.ExistingRoundSelection = null; Assert.Equal(2m, vm.ImportRoundInput);
+        vm.NextRoundCommand.Execute(null);
+        Assert.Equal(3, vm.ImportRound); Assert.Equal(3m, vm.ImportRoundInput); Assert.Null(vm.ExistingRoundSelection);
+        vm.ExistingRoundSelection = 2; Assert.Equal(2m, vm.ImportRoundInput);
+    }
+    [Fact] public async Task EmptyFractionalAndOutOfRangeRoundInputsNeverImportWithLastValidRound()
+    {
+        var service = new Service(); var vm = new VersionManagementViewModel(service); await vm.OpenProjectAsync(Guid.NewGuid());
+        vm.ImportRoundInput = null; await vm.AcceptFilesAsync(["new.docx"]);
+        Assert.Empty(vm.ImportQueue); Assert.Contains("空白", vm.Message);
+        vm.CurrentRoundCommand.Execute(null); Assert.Equal(1m, vm.ImportRoundInput);
+        await vm.AcceptFilesAsync(["new.docx"]); var row = vm.ImportQueue[0]; row.Role = "我方版本";
+        foreach (var input in new decimal?[] { null, 1.5m, 0m, 10001m })
+        {
+            row.RoundInput = input; Assert.False(row.HasValidRound);
+            await vm.ImportCommand.ExecuteAsync(null); Assert.Null(service.Imported); Assert.Single(vm.ImportQueue);
+        }
+        vm.ImportRoundInput = 1.5m; vm.ApplyRoundCommand.Execute(null); Assert.Equal(10001m, row.RoundInput);
+        vm.ImportRoundInput = 1m; vm.ApplyRoundCommand.Execute(null); Assert.Equal(1m, row.RoundInput);
+        Assert.True(row.HasValidRound); await vm.ImportCommand.ExecuteAsync(null); Assert.Equal(1, Assert.Single(service.Imported!).RoundNumber);
+    }
 }

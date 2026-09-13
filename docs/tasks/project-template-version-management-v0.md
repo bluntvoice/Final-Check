@@ -1278,6 +1278,14 @@ Template v1
 
 ---
 
+## 最终包验收续记（2026-09-13）
+
+- `d43aba015dba2b4c4e8173f6a9876b4128e1815d` 的 Windows/macOS CI（34751075805）PASS；Test Build 34751090294 的 `0.1.0-dev.8.1` 实际下载，Actions ZIP digest / 全部 SHA-256 / 版本 / metadata 校验 PASS，官方 Setup 静默升级 exit 0，实际 UI 版本一致。
+- 该包实测模板导航后向原逻辑模板追加 v1.0.1 并明确切 Current，旧 v1.0.0 保留；原项目仍绑定历史 v1.0.0。既有 Quick Compare 与项目历史的 record payload SHA-256、快照身份和已审阅状态未变；最终包再次运行我方 v2 vs 对方 v2，追加第二条 12 项变化的独立项目历史，不覆盖旧结果。
+- 实际归档→恢复、正常退出→重启恢复 PASS。经用户动作前确认，实际回收站→立即恢复 PASS，同一 ProjectId 恢复 Active、四份版本/两轮/当前我方基准及两条项目历史保留；未永久删除。六份脱敏源 DOCX SHA-256 不变，DataRoot 中无原始 DOCX 副本。
+- 继续验收发现已有轮次列表取消选择导致 null→Int32 绑定异常。已分离 nullable 列表选择与 nullable decimal 数字输入；仅有效整数进入原模型，空白/小数/越界轮次不得用残留值导入。新增列表刷新/短暂失选和无效输入 2 项回归测试，相关 VersionManagement 5/5 PASS；Release restore/build PASS、0 warning / 0 error，全量 288/288（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 50），0 failed / skipped。
+- 此轮修正提交后，`dev.8.1` 不再代表最终 HEAD；须重跑最终 HEAD CI/Test Build、实际升级及轮次/导航/历史复验。实际 Template + Contract Version 跨窗口 Drag/drop 仍待用户操作（自动化接口拒绝跨窗口终点），卸载数据保留待拖拽验收后执行。总体继续 IN PROGRESS，不能把旧包或 VM 测试冒充最终验收完成。
+
 # 28. 每 Phase 纪律
 
 每 Phase：
