@@ -12,6 +12,7 @@ public sealed class TemplateCenterTests
         private readonly Template template = new(Guid.NewGuid(), "代理协议", "代理", true, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "");
         public TemplateDetails Detail { get; }
         public bool DeleteConfirmed { get; private set; }
+        public Guid? ImportedTemplateId { get; private set; }
         public Service()
         {
             Detail = new(template, [new(Guid.NewGuid(), template.TemplateId, "1.0.0", new(Path.GetFullPath("source.docx"), "source.docx", 1, DateTimeOffset.UtcNow, new('A', 64)), Guid.NewGuid(), true, DateTimeOffset.UtcNow, DocumentParseStatus.Complete)]);
@@ -19,7 +20,8 @@ public sealed class TemplateCenterTests
         public Task<IReadOnlyList<Template>> ListAsync(int offset = 0, int limit = 100, CancellationToken token = default) => Task.FromResult<IReadOnlyList<Template>>([template]);
         public Task<TemplateDetails> GetAsync(Guid id, CancellationToken token = default) => Task.FromResult(Detail);
         public Task<DocumentSnapshot> LoadSnapshotAsync(Guid versionId, CancellationToken token = default) => Task.FromResult(DocumentSnapshot.Empty);
-        public Task<TemplateDetails> ImportAsync(Guid? templateId, string name, string contractType, string version, string path, CancellationToken token = default) => Task.FromResult(Detail);
+        public Task<TemplateDetails> ImportAsync(Guid? templateId, string name, string contractType, string version, string path, CancellationToken token = default)
+        { ImportedTemplateId = templateId; return Task.FromResult(Detail); }
         public Task UpdateAsync(Guid id, string name, string contractType, string notes, bool enabled, CancellationToken token = default) => Task.CompletedTask;
         public Task SetCurrentAsync(Guid id, Guid versionId, CancellationToken token = default) => Task.CompletedTask;
         public Task RelinkAsync(Guid versionId, string path, CancellationToken token = default) => Task.CompletedTask;
@@ -56,5 +58,35 @@ public sealed class TemplateCenterTests
         vm.StatusFilter = "已审阅"; Assert.Single(vm.Entries); Assert.DoesNotContain("已确认", vm.StatusOptions);
         Assert.Equal(ComparisonReviewState.Confirmed, vm.Changes[0].ReviewState);
         await Task.CompletedTask;
+    }
+    [Fact] public async Task ListRefreshRetainsEditingIdentityAndImportsIntoExistingTemplate()
+    {
+        var service = new Service(); var vm = new TemplateCenterViewModel(service);
+        await vm.SelectTemplateAsync(service.Detail.Template);
+        var versionId = vm.SelectedVersion!.TemplateVersionId;
+        vm.Templates.CollectionChanged += (_, args) =>
+        {
+            if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset) vm.SelectedTemplate = null;
+        };
+        vm.Name = "Edited draft";
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(service.Detail.Template.TemplateId, vm.SelectedTemplate!.TemplateId);
+        Assert.Equal(versionId, vm.SelectedVersion!.TemplateVersionId);
+        Assert.Equal("Edited draft", vm.Name);
+        // A view may also transiently clear selection when detaching during navigation.
+        vm.SelectedTemplate = null;
+        await vm.AcceptFilesAsync(["next.docx"]);
+        await vm.ImportCommand.ExecuteAsync(null);
+        Assert.Equal(service.Detail.Template.TemplateId, service.ImportedTemplateId);
+    }
+    [Fact] public async Task ExplicitNewTemplateStartsNewIdentityAfterExistingTemplateSelection()
+    {
+        var service = new Service(); var vm = new TemplateCenterViewModel(service);
+        await vm.SelectTemplateAsync(service.Detail.Template);
+        vm.NewTemplateCommand.Execute(null);
+        Assert.Null(vm.SelectedTemplate); Assert.Null(vm.SelectedVersion); Assert.Empty(vm.Versions);
+        await vm.AcceptFilesAsync(["new.docx"]);
+        await vm.ImportCommand.ExecuteAsync(null);
+        Assert.Null(service.ImportedTemplateId);
     }
 }

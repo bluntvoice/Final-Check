@@ -1274,6 +1274,7 @@ Template v1
   * 实际完成（2026-09-13）：分 Tab 项目工作台、当前状态/最新版本与比对/实际审阅计数、版本恢复状态、项目完整历史分页、共享历史打开、归档/回收站与恢复、永久删除二次确认、独占资源引用检查及 schema 9 durable cleanup journal。托管文件按精确路径/hash staging → 再验证 → 清理，中断可启动重试；原始 DOCX/共享资源/未追踪或变更文件保留。不执行递归目录删除或猜测性 orphan cleanup。
   * 验证：新增 6 项 Data / 2 项 VM 测试，并补充批量队列排序不依赖轮次顺序的回归测试；Release restore/build 全部通过，build 0 warning / 0 error，全量 284/284（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 46）。真实 Format Restore Working Copy/records 独占清理且无关既有恢复历史保留；Prepared restore 阻断永久删除、取消、旧 schema 8 升级、共享模板/Quick Compare 保留、清理 staging 中断重试/原文重叠/路径越界/变更文件保护、归档回收与二次确认均覆盖。
   * 边界：左右角色拖拽区域、Quick Compare → Project、自动模板匹配及正式 Restore/Storage/Installer/AI UI 未实现。无可证明归属的旧 unlinked restore-generated payload 保守保留；空 lock/staging 目录允许保留。最终 HEAD Windows/macOS CI、Test Build、实际安装/版本链/系统拖拽/重启/卸载是提交后执行的独立验收门禁，当前未以测试或旧包冒充完成，结果另在最终报告记录。
+  * 最终安装验收修正（2026-09-13）：实际安装包已验证首轮批量导入、明确角色/第二轮、我方 v2 默认否及独立设基准、对方 v2 vs 我方 v2 的 12 项变化、1 项已审阅及项目历史打开；重新进入模板中心时发现列表 deselect 与旧编辑内容并存，可能误建同名模板。已将编辑 TemplateId 与短暂列表选择解耦，仅显式“新增模板”清除，并补充刷新/导航失选与显式新模板 2 项回归测试。修正后 Release restore/build PASS、0 warning / 0 error，全量 286/286；正常提交 push 后须从新的最终 HEAD 重跑 CI/Test Build 并验收模板升级、重启/生命周期/卸载。原测试包不再作为最终包；系统跨窗口 Drag/drop 因自动化接口单窗口边界限制仍未完成，须实际人工拖入，不能以 picker 或单测代替。测试生成的同名逻辑模板保留，不擅自删除或改写历史数据。
 
 ---
 
