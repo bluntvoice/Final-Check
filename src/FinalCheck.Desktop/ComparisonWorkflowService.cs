@@ -59,4 +59,6 @@ public sealed class ComparisonWorkflowService(IComparisonFileInspector files, ID
     { await using var scope = scopes.CreateAsyncScope(); return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().ListAsync(cancellationToken); }, cancellationToken);
     public Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default) => Task.Run(async () =>
     { await using var scope = scopes.CreateAsyncScope(); return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().LoadAsync(recordId, cancellationToken); }, cancellationToken);
+    public Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default) => Task.Run(async () =>
+    { await using var scope = scopes.CreateAsyncScope(); return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().UpdateReviewAsync(recordId, changeIds, state, cancellationToken); }, cancellationToken);
 }

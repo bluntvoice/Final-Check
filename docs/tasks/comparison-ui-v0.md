@@ -1178,7 +1178,9 @@ Cancel 后：
 - Phase 3 — Results：DONE
   - 实际完成：正式结果页顶部文件/时间/统计、Engine 原 Groups 默认归并与逐项切换、同一原 ChangeItem 的位置/摘要/展开、多属性格式差异、Word 修订与批注证据、Medium/Low 与 Partial 提示；DifferenceSpan UTF-16 精确双侧高亮，不在 UI 重做 diff / grouping。正文/表格位置来自 Snapshot 节点索引，不编造 Word 页码。首页可后台恢复最近记录。
   - 验证：新增 6 项 Results VM 测试（0 修改、归并/逐项共享、数字/UTF-16 高亮、多属性格式/移动、Partial/低可信、修订/批注）；Release 224/224 回归通过，Desktop 构建零警告/零错误。GUID Debug 数据目录实例的实际窗口首页与双侧输入观察通过；最终安装包试用仍在全部阶段后执行。
-- Phase 4 — Filter / Review：TODO
+- Phase 4 — Filter / Review：DONE
+  - 实际完成：状态/类型交集筛选、两侧全文/位置/批注即时搜索、原变化计数；默认隐藏忽略并保留确认，忽略可显示/恢复、仅看未处理；归并/逐项共享原 ChangeId 状态，组摘要包含全部成员而批量操作只影响当前显示成员。后台短 scope 保存，数据库 compare-and-swap 合并竞争写入，成功后更新 UI，失败不伪装成功；原 Snapshot / Comparison payload 不变。
+  - 验证：新增 6 项 review VM 测试、2 项真实 SQLite 集成测试（新 scope 恢复、冻结 payload 不变、并发不同 ChangeId 合并、非法/取消保护）；Release 232/232 通过，Desktop build 零警告/零错误。重启窗口的实际状态恢复试用纳入最终安装包验收。
 - Phase 5 — Preview / Navigation：TODO
 
 ---

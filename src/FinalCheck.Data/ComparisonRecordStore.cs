@@ -17,8 +17,9 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
         var record = JsonSerializer.Deserialize<ComparisonRecord>(payload, JsonOptions) ?? throw new InvalidDataException("Invalid comparison record.");
         if (record.SchemaVersion != ComparisonRecord.CurrentSchemaVersion || record.RecordId == Guid.Empty ||
             record.BaselineSnapshotId == Guid.Empty || record.CurrentSnapshotId == Guid.Empty || record.ResultId == Guid.Empty ||
-            !Path.IsPathFullyQualified(record.BaselineFile.Path) || !Path.IsPathFullyQualified(record.CurrentFile.Path) ||
-            record.BaselineFile.Sha256.Length != 64 || record.CurrentFile.Sha256.Length != 64 ||
+            record.BaselineFile is null || record.CurrentFile is null ||
+            !Path.IsPathFullyQualified(record.BaselineFile.Path ?? "") || !Path.IsPathFullyQualified(record.CurrentFile.Path ?? "") ||
+            record.BaselineFile.Sha256?.Length != 64 || record.CurrentFile.Sha256?.Length != 64 ||
             record.ReviewStates is null || record.ReviewStates.Values.Any(value => !Enum.IsDefined(value)))
             throw new InvalidDataException("Unknown comparison record schema/identity.");
         return record;
@@ -67,5 +68,23 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
     {
         var rows = await context.ComparisonRecords.AsNoTracking().OrderByDescending(r => r.CreatedAtUtc).Take(50).ToArrayAsync(cancellationToken);
         return rows.Select(row => Decode(row.Payload)).ToArray();
+    }
+    public async Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds,
+        ComparisonReviewState state, CancellationToken cancellationToken = default)
+    {
+        if (!Enum.IsDefined(state) || changeIds.Count == 0) throw new ArgumentException("Invalid review operation.");
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var row = await context.ComparisonRecords.AsNoTracking().SingleAsync(r => r.Id == recordId, cancellationToken);
+            var record = Decode(row.Payload); var states = record.ReviewStates.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+            foreach (var id in changeIds)
+            { if (!states.ContainsKey(id)) throw new ArgumentException("Change is not part of this comparison."); states[id] = state; }
+            var updated = record with { ReviewStates = states }; var payload = JsonSerializer.SerializeToUtf8Bytes(updated);
+            // Compare-and-swap merges with freshly loaded states instead of overwriting another operation's review work.
+            var count = await context.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE ComparisonRecords SET Payload = {payload} WHERE Id = {recordId} AND Payload = {row.Payload}", cancellationToken);
+            if (count == 1) return updated;
+        }
+        throw new DbUpdateConcurrencyException("Review states changed concurrently; reload and retry.");
     }
 }

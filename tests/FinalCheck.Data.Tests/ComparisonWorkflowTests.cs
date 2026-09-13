@@ -122,6 +122,43 @@ public sealed class ComparisonWorkflowTests
         var usage = await new SqliteStorageUsageReader().ReadAsync(context.ManagedPaths.DatabasePath);
         Assert.Contains(path, usage.OriginalPaths);
     }
+    [Fact] public async Task ReviewPersistsAcrossNewScopesWithoutChangingFrozenPayloads()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
+        var path = Path.Combine(env.Fixture.DirectoryPath, "review.docx"); var right = Path.Combine(env.Fixture.DirectoryPath, "review-current.docx");
+        WriteDocument(path, "30"); WriteDocument(right, "60"); var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
+        var result = await workflow.ExecuteAsync(await workflow.ValidateAsync(await inspector.InspectAsync(path), await inspector.InspectAsync(right)));
+        byte[] snapshot; byte[] comparison;
+        await using (var context = env.Factory.CreateDbContext())
+        {
+            snapshot = (await context.DocumentSnapshots.AsNoTracking().SingleAsync(s => s.Id == result.Record.CurrentSnapshotId)).Payload;
+            comparison = (await context.ComparisonResults.AsNoTracking().SingleAsync(s => s.Id == result.Record.ResultId)).Payload;
+        }
+        var id = result.Result.Changes[0].ChangeId;
+        await workflow.UpdateReviewAsync(result.Record.RecordId, [id], ComparisonReviewState.Confirmed);
+        await using var fresh = Services(env); var loaded = await Workflow(fresh).LoadAsync(result.Record.RecordId);
+        Assert.Equal(ComparisonReviewState.Confirmed, loaded!.Record.ReviewStates[id]);
+        await using var check = env.Factory.CreateDbContext();
+        Assert.Equal(snapshot, (await check.DocumentSnapshots.AsNoTracking().SingleAsync(s => s.Id == result.Record.CurrentSnapshotId)).Payload);
+        Assert.Equal(comparison, (await check.ComparisonResults.AsNoTracking().SingleAsync(s => s.Id == result.Record.ResultId)).Payload);
+        Assert.Equal((await inspector.InspectAsync(right)).Sha256, result.Record.CurrentFile.Sha256);
+    }
+    [Fact] public async Task ConcurrentReviewsMergeDifferentChangeIdsAndRejectInvalidOperations()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
+        var left = Path.Combine(env.Fixture.DirectoryPath, "parallel-left.docx"); var right = Path.Combine(env.Fixture.DirectoryPath, "parallel-right.docx");
+        WriteDocument(left, "30"); WriteDocument(right, "60"); var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
+        var result = await workflow.ExecuteAsync(await workflow.ValidateAsync(await inspector.InspectAsync(left), await inspector.InspectAsync(right)));
+        var first = result.Result.Changes[0].ChangeId; var second = result.Result.Changes[1].ChangeId;
+        await Task.WhenAll(workflow.UpdateReviewAsync(result.Record.RecordId, [first], ComparisonReviewState.Confirmed),
+            workflow.UpdateReviewAsync(result.Record.RecordId, [second], ComparisonReviewState.Ignored));
+        await Assert.ThrowsAsync<ArgumentException>(() => workflow.UpdateReviewAsync(result.Record.RecordId, ["unknown"], ComparisonReviewState.Confirmed));
+        await Assert.ThrowsAsync<ArgumentException>(() => workflow.UpdateReviewAsync(result.Record.RecordId, [first], (ComparisonReviewState)999));
+        using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => workflow.UpdateReviewAsync(result.Record.RecordId, [first], ComparisonReviewState.Ignored, cancellation.Token));
+        var loaded = await workflow.LoadAsync(result.Record.RecordId);
+        Assert.Equal(ComparisonReviewState.Confirmed, loaded!.Record.ReviewStates[first]); Assert.Equal(ComparisonReviewState.Ignored, loaded.Record.ReviewStates[second]);
+    }
     private sealed class StageCapture : IProgress<string> { public List<string> Values { get; } = []; public void Report(string value) => Values.Add(value); }
     private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<string>
     { public void Report(string value) { if (value == "正在比较文字…") cancellation.Cancel(); } }

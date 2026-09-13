@@ -55,7 +55,7 @@ public partial class MainViewModel : ViewModelBase
     }
     private void ShowResult(ComparisonWorkflowResult result)
     {
-        Results = new ComparisonResultsViewModel(result); SelectedPage = "results";
+        Results = new ComparisonResultsViewModel(result, workflow); SelectedPage = "results";
         CurrentPageTitle = "比对结果"; CurrentPageDescription = "查看修改事实 · 原始文件保持不变";
     }
     [RelayCommand] private async Task LoadRecentAsync()

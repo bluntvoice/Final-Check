@@ -29,6 +29,7 @@ public interface IComparisonRecordStore
         DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default);
+    Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default);
 }
 public interface IComparisonWorkflowService
 {
@@ -36,4 +37,5 @@ public interface IComparisonWorkflowService
     Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default);
+    Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default);
 }

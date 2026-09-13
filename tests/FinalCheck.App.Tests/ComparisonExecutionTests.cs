@@ -22,6 +22,7 @@ public sealed class ComparisonExecutionTests
         }
         public Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ComparisonRecord>>([]);
         public Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default) => Task.FromResult<ComparisonWorkflowResult?>(null);
+        public Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
     private static ComparisonSetupViewModel VM(Workflow service) => new(null, service) { BaselineFile = File("baseline"), CurrentFile = File("current") };
     [Fact] public async Task SuccessfulExecutionCompletesSessionAndReleasesBusyState()
