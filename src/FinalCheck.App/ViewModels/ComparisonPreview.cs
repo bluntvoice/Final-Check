@@ -12,9 +12,9 @@ public sealed record PreviewBlock(string NodeId, string Label, IReadOnlyList<str
 /// <summary>Immutable snapshot projection, not a Word renderer or another comparison algorithm.</summary>
 public static class ComparisonPreviewBuilder
 {
-    public static IReadOnlyList<PreviewBlock> Build(DocumentSnapshot snapshot, ComparisonResult result, bool baseline)
+    public static IReadOnlyList<PreviewBlock> Build(DocumentSnapshot snapshot, ComparisonResult? result = null, bool baseline = false)
     {
-        var changes = result.Changes.GroupBy(c => baseline ? c.BaselineNodeId ?? "" : c.CurrentNodeId ?? "")
+        var changes = (result?.Changes ?? []).GroupBy(c => baseline ? c.BaselineNodeId ?? "" : c.CurrentNodeId ?? "")
             .ToDictionary(g => g.Key, g => g.ToArray(), StringComparer.Ordinal);
         PreviewParagraph Paragraph(DocumentParagraphSnapshot paragraph, IReadOnlyList<ComparisonChangeItem>? additional = null)
         {

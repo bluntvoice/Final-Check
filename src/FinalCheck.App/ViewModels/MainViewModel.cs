@@ -9,12 +9,14 @@ public partial class MainViewModel : ViewModelBase
 {
     public MainViewModel() : this(new ComparisonSetupViewModel()) { }
     private readonly IComparisonWorkflowService? workflow;
-    public MainViewModel(ComparisonSetupViewModel comparison, IComparisonWorkflowService? workflow = null)
+    public MainViewModel(ComparisonSetupViewModel comparison, IComparisonWorkflowService? workflow = null, TemplateCenterViewModel? templates = null)
     {
-        Comparison = comparison; this.workflow = workflow;
+        Comparison = comparison; this.workflow = workflow; Templates = templates ?? new();
         Comparison.Completed += async result => { if (IsSetup) await ShowResultAsync(result); };
     }
     public ComparisonSetupViewModel Comparison { get; }
+    public TemplateCenterViewModel Templates { get; }
+    public bool IsTemplates => SelectedPage == "templates";
     [ObservableProperty] private ComparisonResultsViewModel? results;
     public bool HasResults => Results is not null;
     partial void OnResultsChanged(ComparisonResultsViewModel? value) => OnPropertyChanged(nameof(HasResults));
@@ -24,9 +26,9 @@ public partial class MainViewModel : ViewModelBase
     public bool IsHome => SelectedPage == "home";
     public bool IsSetup => SelectedPage == "compare";
     public bool IsResults => SelectedPage == "results";
-    public bool IsOther => !IsHome && !IsSetup && !IsResults;
+    public bool IsOther => !IsHome && !IsSetup && !IsResults && !IsTemplates;
     partial void OnSelectedPageChanged(string value)
-    { navigationRevision++; OnPropertyChanged(nameof(IsHome)); OnPropertyChanged(nameof(IsSetup)); OnPropertyChanged(nameof(IsOther)); OnPropertyChanged(nameof(IsResults)); }
+    { navigationRevision++; OnPropertyChanged(nameof(IsHome)); OnPropertyChanged(nameof(IsSetup)); OnPropertyChanged(nameof(IsOther)); OnPropertyChanged(nameof(IsResults)); OnPropertyChanged(nameof(IsTemplates)); }
     public string AppVersion { get; } = GetAppVersion();
 
     public string AppVersionLabel => $"v{AppVersion}";
@@ -50,9 +52,10 @@ public partial class MainViewModel : ViewModelBase
             "compare" => ("新建比对", "基准版本与当前版本 · 独立比对"),
             "results" => ("比对结果", "查看修改事实 · 原始文件保持不变"),
             "about" => ("关于 Final Check", $".NET 10 + Avalonia 12 · {AppVersionLabel}"),
-            "templates" => ("模板中心", "模板管理功能尚未进入本轮实现范围。"),
+            "templates" => ("模板中心", "维护标准模板及历史版本 · 原始 DOCX 保持不变"),
             _ => ("Final Check", "选择两份 DOCX，查看文字、格式、修订与批注变化。"),
         };
+        if (IsTemplates) Templates.RefreshCommand.Execute(null);
     }
     private async Task ShowResultAsync(ComparisonWorkflowResult result)
     {
@@ -89,7 +92,8 @@ public partial class MainViewModel : ViewModelBase
         var destination = pendingPage ?? "home"; pendingPage = null;
         SelectedPage = destination;
         (CurrentPageTitle, CurrentPageDescription) = destination switch
-        { "about" => ("关于 Final Check", $".NET 10 + Avalonia 12 · {AppVersionLabel}"), "templates" => ("模板中心", "模板管理功能尚未进入本轮实现范围。"), _ => ("Final Check", "比对已请求取消。") };
+        { "about" => ("关于 Final Check", $".NET 10 + Avalonia 12 · {AppVersionLabel}"), "templates" => ("模板中心", "维护标准模板及历史版本 · 原始 DOCX 保持不变"), _ => ("Final Check", "比对已请求取消。") };
+        if (IsTemplates) Templates.RefreshCommand.Execute(null);
     }
 
     private static string GetAppVersion()

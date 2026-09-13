@@ -56,6 +56,7 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
                 originals.Add(Path.GetFullPath(record.BaselineFile.Path)); originals.Add(Path.GetFullPath(record.CurrentFile.Path));
             }
             OriginalPaths = originals;
+            foreach (var row in await context.TemplateVersions.AsNoTracking().ToArrayAsync(token)) originals.Add(Path.GetFullPath(row.FilePath));
         }
         public async Task BackupAsync(string stagingRoot, Guid operationId, CancellationToken cancellationToken = default)
         {
@@ -110,6 +111,14 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
         private async Task<Dictionary<string, string>> FactsAsync(FinalCheckDbContext context, string logicalRoot, CancellationToken token)
         {
             var facts = new Dictionary<string, string>();
+            foreach (var row in await context.Templates.AsNoTracking().ToArrayAsync(token)) facts.Add("template:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
+            foreach (var row in await context.TemplateVersions.AsNoTracking().ToArrayAsync(token))
+            {
+                var snapshot = await new DocumentSnapshotStore(context, snapshots).LoadAsync(row.SnapshotId, token);
+                if (snapshot is null || snapshot.Metadata.Sha256 != row.Sha256 || !Path.IsPathFullyQualified(row.FilePath) || !Enum.IsDefined((Core.Documents.DocumentParseStatus)row.ParseStatus))
+                    throw new InvalidDataException("Invalid template source/Snapshot identity.");
+                facts.Add("template-version:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
+            }
             foreach (var row in await context.DocumentSnapshots.AsNoTracking().ToArrayAsync(token))
             {
                 var snapshot = snapshots.Deserialize(row.Payload);

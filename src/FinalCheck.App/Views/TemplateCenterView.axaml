@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:m="using:FinalCheck.Core.Management"
+             xmlns:views="using:FinalCheck.App.Views"
+             x:Class="FinalCheck.App.Views.TemplateCenterView" x:DataType="vm:TemplateCenterViewModel">
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10">
+    <WrapPanel IsEnabled="{Binding CanEdit}">
+      <Button Content="新增模板" Command="{Binding NewTemplateCommand}" Margin="0,0,8,0" />
+      <Button Content="刷新" Command="{Binding RefreshCommand}" />
+    </WrapPanel>
+    <TextBlock Grid.Row="1" Text="{Binding Message}" TextWrapping="Wrap" />
+    <Grid Grid.Row="2" ColumnDefinitions="2*,3*" ColumnSpacing="12">
+      <ListBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" SelectionChanged="SelectTemplate" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="模板列表">
+        <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+        <ListBox.ItemTemplate><DataTemplate x:DataType="m:Template"><StackPanel Margin="4" Spacing="4"><TextBlock Text="{Binding Name}" FontWeight="SemiBold" /><TextBlock Text="{Binding ContractType}" /><CheckBox Content="启用" IsChecked="{Binding IsEnabled, Mode=OneWay}" IsEnabled="False" /></StackPanel></DataTemplate></ListBox.ItemTemplate>
+      </ListBox>
+      <ScrollViewer Grid.Column="1">
+        <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+          <TextBlock Text="模板信息 / 新版本导入" FontSize="18" />
+          <TextBox Text="{Binding Name}" PlaceholderText="模板名称" AutomationProperties.Name="模板名称" />
+          <TextBox Text="{Binding ContractType}" PlaceholderText="合同类型" AutomationProperties.Name="模板合同类型" />
+          <TextBox Text="{Binding Notes}" PlaceholderText="备注" />
+          <CheckBox Content="启用模板" IsChecked="{Binding Enabled}" />
+          <Button Content="保存名称 / 类型 / 启用状态" Command="{Binding SaveCommand}" />
+          <Border x:Name="DropZone" Background="#EDF3FA" Padding="14" CornerRadius="8"><StackPanel Spacing="8"><TextBlock Text="拖入一个模板 DOCX，或点击选择" TextWrapping="Wrap" /><Button Content="选择模板 DOCX" Click="PickFile" /><TextBox Text="{Binding SourcePath}" PlaceholderText="待导入或重新关联的 DOCX 路径" AutomationProperties.Name="模板源路径" /></StackPanel></Border>
+          <TextBox Text="{Binding Version}" PlaceholderText="版本，例如 1.0.0" AutomationProperties.Name="模板版本号" />
+          <Button Content="导入模板 / 新版本" Command="{Binding ImportCommand}" />
+          <TextBlock Text="历史版本（勾选表示当前版本）" FontWeight="SemiBold" />
+          <ListBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" MaxHeight="180" AutomationProperties.Name="模板历史版本">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+            <ListBox.ItemTemplate><DataTemplate x:DataType="m:TemplateVersion"><StackPanel Spacing="3"><CheckBox IsChecked="{Binding IsCurrent, Mode=OneWay}" Content="{Binding Version}" IsEnabled="False" /><TextBlock Text="{Binding Source.Name}" /><TextBlock Text="{Binding Source.Path}" FontSize="11" TextWrapping="Wrap" /><TextBlock Text="{Binding ParseStatus}" FontSize="11" /></StackPanel></DataTemplate></ListBox.ItemTemplate>
+          </ListBox>
+          <WrapPanel><Button Content="设为当前版本" Command="{Binding SetCurrentCommand}" Margin="0,0,8,8" /><Button Content="查找附近源文件" Command="{Binding FindSourceCommand}" Margin="0,0,8,8" /><Button Content="重新关联选定版本" Command="{Binding RelinkCommand}" Margin="0,0,8,8" /></WrapPanel>
+          <TextBlock Text="快照供历史查看，不保证可重新生成原始 DOCX。重新关联必须内容 hash 一致。" TextWrapping="Wrap" FontSize="12" />
+          <Button Content="查看选定版本历史快照" Command="{Binding PreviewCommand}" />
+          <ListBox ItemsSource="{Binding PreviewBlocks}" Height="220" AutomationProperties.Name="模板历史快照预览">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+            <ListBox.ItemTemplate><DataTemplate x:DataType="vm:PreviewBlock"><views:SnapshotPreviewBlock Block="{Binding}" /></DataTemplate></ListBox.ItemTemplate>
+          </ListBox>
+          <Button Content="删除模板…" Command="{Binding RequestDeleteCommand}" />
+          <StackPanel IsVisible="{Binding DeletePrompt}" Spacing="8"><TextBlock Text="确认移出模板中心？引用和保留范围见上方提示。" TextWrapping="Wrap" /><Button Content="确认删除模板（保留历史）" Command="{Binding ConfirmDeleteCommand}" /><Button Content="取消删除" Command="{Binding CancelDeleteCommand}" /></StackPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

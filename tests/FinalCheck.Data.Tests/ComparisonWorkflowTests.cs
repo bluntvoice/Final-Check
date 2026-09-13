@@ -109,7 +109,7 @@ public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
         await using var context = fixture.OpenDatabase(database); var old = await context.DocumentSnapshots.AsNoTracking().SingleAsync();
         await context.Database.MigrateAsync(); var retained = await context.DocumentSnapshots.AsNoTracking().SingleAsync();
         Assert.Equal(old.Payload, retained.Payload); Assert.Equal(old.Id, retained.Id);
-        Assert.Equal(4, (await context.Database.GetAppliedMigrationsAsync()).Count()); await new SqliteDataRootDatabaseInspector().ValidateAsync(database);
+        Assert.Equal(FinalCheckDbContext.DatabaseSchemaVersion, (await context.Database.GetAppliedMigrationsAsync()).Count()); await new SqliteDataRootDatabaseInspector().ValidateAsync(database);
     }
     [Fact] public async Task StorageMigrationPreservesRecordsAndExcludesTheirOriginalsEvenInsideOldRoot()
     {

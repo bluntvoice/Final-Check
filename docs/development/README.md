@@ -129,6 +129,8 @@ tests/
 
 ## 数据库与 Migration
 
+Project / Template / Version Management 的当前范围及 Phase 状态见 [task](../tasks/project-template-version-management-v0.md)、[architecture](../architecture/project-template-version-management.md)。Phase 1 数据库 schema 5 增量新增模板/版本，旧 Snapshot / Comparison / review payload 不变；模板导入/重关联、schema 升级和 Storage 原文排除使用 GUID 隔离夹具验证。每阶段 commit + push 后再继续；最终 HEAD 安装验收必须实际完成 Template / Contract Version Drag & Drop，不能仅用 VM 输入测试替代。
+
 运行时先验证 bootstrap，再由 `IDataRootProvider` / `DataRootDbContextFactory` 定位 SQLite；`IAppDataPathProvider` 仅作兼容 adapter。Windows 新用户路径为：
 
 ```text

@@ -28,9 +28,9 @@ public sealed class ComparisonReviewTests
     {
         var result = Grouped(); var workflow = new Workflow(result); var vm = new ComparisonResultsViewModel(result, workflow);
         Assert.Equal("未处理", vm.Entries[0].ReviewLabel);
-        await vm.ReviewSelectedCommand.ExecuteAsync("Confirmed"); Assert.Equal("部分已确认", vm.Entries[0].ReviewLabel);
-        vm.Grouped = false; Assert.Equal("已确认", vm.Entries[0].ReviewLabel); vm.Grouped = true;
-        await vm.ReviewGroupCommand.ExecuteAsync("Confirmed"); Assert.Equal("已确认", vm.Entries[0].ReviewLabel);
+        await vm.ReviewSelectedCommand.ExecuteAsync("Confirmed"); Assert.Equal("部分已审阅", vm.Entries[0].ReviewLabel);
+        vm.Grouped = false; Assert.Equal("已审阅", vm.Entries[0].ReviewLabel); vm.Grouped = true;
+        await vm.ReviewGroupCommand.ExecuteAsync("Confirmed"); Assert.Equal("已审阅", vm.Entries[0].ReviewLabel);
         var reloaded = new ComparisonResultsViewModel((await workflow.LoadAsync(result.Record.RecordId))!, workflow);
         Assert.All(reloaded.Changes, c => Assert.Equal(ComparisonReviewState.Confirmed, c.ReviewState));
     }
@@ -69,7 +69,7 @@ public sealed class ComparisonReviewTests
     {
         var result = Grouped(); var vm = new ComparisonResultsViewModel(result, new Workflow(result));
         await vm.ReviewSelectedCommand.ExecuteAsync("Confirmed"); vm.StatusFilter = "未处理";
-        Assert.Single(vm.Entries[0].Members); Assert.Equal("部分已确认", vm.Entries[0].ReviewLabel);
+        Assert.Single(vm.Entries[0].Members); Assert.Equal("部分已审阅", vm.Entries[0].ReviewLabel);
         await vm.ReviewGroupCommand.ExecuteAsync("Ignored"); Assert.Empty(vm.Entries);
         Assert.Equal(ComparisonReviewState.Confirmed, vm.Changes[0].ReviewState); Assert.Equal(ComparisonReviewState.Ignored, vm.Changes[1].ReviewState);
     }

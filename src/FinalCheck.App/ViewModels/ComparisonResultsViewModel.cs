@@ -42,7 +42,7 @@ public sealed partial class ChangeItemViewModel : ViewModelBase
     public IRelayCommand SelectCommand { get; }
     public string ChangeId => Item.ChangeId;
     [ObservableProperty] private ComparisonReviewState reviewState;
-    public string ReviewLabel => ReviewState switch { ComparisonReviewState.Confirmed => "已确认", ComparisonReviewState.Ignored => "忽略", _ => "未处理" };
+    public string ReviewLabel => ReviewState switch { ComparisonReviewState.Confirmed => "已审阅", ComparisonReviewState.Ignored => "忽略", _ => "未处理" };
     partial void OnReviewStateChanged(ComparisonReviewState value) => OnPropertyChanged(nameof(ReviewLabel));
     public string TypeLabel => TypeName(Item.Kind);
     public string Location { get; }
@@ -115,8 +115,8 @@ public sealed record ChangeListEntry(string Id, string TypeLabel, string Summary
         get
         {
             var states = (AllMembers ?? Members).Select(m => m.ReviewState).Distinct().ToArray();
-            return states.Length == 1 ? states[0] switch { ComparisonReviewState.Confirmed => "已确认", ComparisonReviewState.Ignored => "忽略", _ => "未处理" } :
-                states.Contains(ComparisonReviewState.Confirmed) ? "部分已确认" : "部分已处理";
+            return states.Length == 1 ? states[0] switch { ComparisonReviewState.Confirmed => "已审阅", ComparisonReviewState.Ignored => "忽略", _ => "未处理" } :
+                states.Contains(ComparisonReviewState.Confirmed) ? "部分已审阅" : "部分已处理";
         }
     }
 }
@@ -138,7 +138,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     [ObservableProperty] private string searchText = "";
     [ObservableProperty] private bool isSaving;
     [ObservableProperty] private string reviewMessage = "";
-    public IReadOnlyList<string> StatusOptions { get; } = ["全部", "未处理", "已确认", "已忽略"];
+    public IReadOnlyList<string> StatusOptions { get; } = ["全部", "未处理", "已审阅", "已忽略"];
     public IReadOnlyList<string> TypeOptions { get; } = ["全部类型", "文字", "格式", "新增", "删除", "移动", "表格", "批注", "修订"];
     public bool CanReview => workflow is not null && SelectedChange is not null && !IsSaving;
     public int VisibleCount { get; private set; }
@@ -208,7 +208,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     }
     private bool Matches(ChangeItemViewModel item)
     {
-        if (!(StatusFilter switch { "未处理" => item.ReviewState == ComparisonReviewState.Unresolved, "已确认" => item.ReviewState == ComparisonReviewState.Confirmed,
+        if (!(StatusFilter switch { "未处理" => item.ReviewState == ComparisonReviewState.Unresolved, "已审阅" => item.ReviewState == ComparisonReviewState.Confirmed,
             "已忽略" => item.ReviewState == ComparisonReviewState.Ignored, _ => item.ReviewState != ComparisonReviewState.Ignored })) return false;
         var kind = item.Item.Kind;
         if (!(TypeFilter switch

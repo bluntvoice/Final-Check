@@ -103,7 +103,7 @@ public sealed class FormatRestoreWorkflowTests(ITestOutputHelper output)
         await migrator.MigrateAsync();
         Assert.Equal(new byte[] { 1, 2, 3 }, (await env.Context.DocumentSnapshots.SingleAsync()).Payload);
         Assert.Equal(new byte[] { 4, 5, 6 }, (await env.Context.ComparisonResults.SingleAsync()).Payload);
-        Assert.Equal(4, (await env.Context.Database.GetAppliedMigrationsAsync()).Count());
+        Assert.Equal(FinalCheckDbContext.DatabaseSchemaVersion, (await env.Context.Database.GetAppliedMigrationsAsync()).Count());
     }
 
     [Fact]

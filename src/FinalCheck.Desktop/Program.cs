@@ -4,6 +4,7 @@ using FinalCheck.Comparison;
 using FinalCheck.Core.Abstractions;
 using FinalCheck.Core.Storage;
 using FinalCheck.Core.Comparisons;
+using FinalCheck.Core.Management;
 using FinalCheck.Data;
 using FinalCheck.Documents;
 using FinalCheck.Infrastructure;
@@ -93,9 +94,12 @@ internal static class Program
         services.AddSingleton<IComparisonFileInspector, ComparisonFileInspector>();
         services.AddSingleton<IComparisonWorkflowService, ComparisonWorkflowService>();
         services.AddSingleton<ComparisonSetupViewModel>();
+        services.AddSingleton<ITemplateService, TemplateService>();
+        services.AddSingleton<TemplateCenterViewModel>();
         services.AddSingleton<MainViewModel>();
 
         services.AddScoped<DocumentSnapshotStore>();
+        services.AddScoped<ITemplateStore, TemplateStore>();
         services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
         services.AddScoped<IComparisonRecordStore, ComparisonRecordStore>();
         services.AddScoped<IFormatRestoreStore, FormatRestoreStore>();

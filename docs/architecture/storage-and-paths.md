@@ -37,6 +37,8 @@ Storage Foundation 已引入 bootstrap 和 provider，保持旧用户原位置�
 
 ## DataRoot 布局与统计
 
+Project / Template / Version Management Phase 1 的数据库 schema 5 增量新增 Templates / TemplateVersions，保留旧表与 payload。模板 Snapshot 仍在 DocumentSnapshots，原 DOCX 路径加入 migration / usage 排除；新表行身份/digest、Snapshot/hash 与 FK 一起验证，迁移不改模板源路径。后续 Phase 扩展见 [管理架构](project-template-version-management.md)。
+
 后续布局保留 `finalcheck.db` 与 `WorkingCopies` 名称，避免无必要同时改名：
 
 ```text

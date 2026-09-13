@@ -55,6 +55,7 @@
           </StackPanel>
           <ScrollViewer IsVisible="{Binding IsSetup}"><views:ComparisonSetupView DataContext="{Binding Comparison}" /></ScrollViewer>
           <Grid IsVisible="{Binding IsResults}"><views:ComparisonResultsView DataContext="{Binding Results}" /></Grid>
+          <Grid IsVisible="{Binding IsTemplates}"><views:TemplateCenterView DataContext="{Binding Templates}" /></Grid>
           <TextBlock IsVisible="{Binding IsOther}" Text="{Binding CurrentPageDescription}" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center" />
         </Grid>
       </Border>

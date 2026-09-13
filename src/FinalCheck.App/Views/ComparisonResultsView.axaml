@@ -33,16 +33,16 @@
       </ListBox>
       <TabControl Grid.Column="2">
         <TabItem Header="文档对照"><views:ComparisonPreviewView DataContext="{Binding Preview}" /></TabItem>
-        <TabItem Header="修改详情 / 确认">
+        <TabItem Header="修改详情 / 审阅">
       <ScrollViewer>
         <StackPanel Spacing="16">
           <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding ReviewMessage}" TextWrapping="Wrap" />
           <WrapPanel>
-            <Button Content="确认当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" />
+            <Button Content="审阅当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="已审阅仅表示人工查看，不表示接受、同意或采纳合同修改" />
             <Button Content="忽略当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Ignored" Margin="0,0,8,8" />
             <Button Content="恢复未处理" Command="{Binding ReviewSelectedCommand}" CommandParameter="Unresolved" Margin="0,0,8,8" />
-            <Button Content="确认当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="仅确认组内当前符合筛选的修改" />
+            <Button Content="审阅当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="仅标记当前显示修改为已审阅，不表示接受合同修改" />
             <Button Content="忽略当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Ignored" Margin="0,0,8,8" />
           </WrapPanel>
           <ListBox ItemsSource="{Binding SelectedEntry.Members}" SelectedItem="{Binding SelectedChange}" MaxHeight="140" AutomationProperties.Name="归并组内修改位置">

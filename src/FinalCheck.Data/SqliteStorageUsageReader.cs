@@ -34,6 +34,12 @@ public sealed class SqliteStorageUsageReader : IStorageDatabaseUsageReader
                 originals.Add(Path.GetFullPath(record.BaselineFile.Path)); originals.Add(Path.GetFullPath(record.CurrentFile.Path));
             }
         }
+        {
+            using var command = connection.CreateCommand(); command.Transaction = transaction;
+            command.CommandText = "SELECT FilePath FROM TemplateVersions";
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) originals.Add(Path.GetFullPath(reader.GetString(0)));
+        }
         foreach (var table in new[] { "RestoredWorkingCopies", "FormatRestoreOperations" })
         {
             using var command = connection.CreateCommand();

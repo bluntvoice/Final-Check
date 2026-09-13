@@ -27,7 +27,9 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
     {
         try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
     }
-    public const int DatabaseSchemaVersion = 4;
+    public const int DatabaseSchemaVersion = 5;
+    public DbSet<StoredTemplate> Templates => Set<StoredTemplate>();
+    public DbSet<StoredTemplateVersion> TemplateVersions => Set<StoredTemplateVersion>();
     public DbSet<StoredComparisonRecord> ComparisonRecords => Set<StoredComparisonRecord>();
 
     public DbSet<StoredDocumentSnapshot> DocumentSnapshots => Set<StoredDocumentSnapshot>();
@@ -45,6 +47,24 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             value => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime(),
             value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
+        modelBuilder.Entity<StoredTemplate>(entity =>
+        {
+            entity.ToTable("Templates"); entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).IsRequired(); entity.Property(x => x.ContractType).IsRequired(); entity.Property(x => x.Notes).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).HasConversion(utcDateTimeConverter);
+            entity.Property(x => x.UpdatedAtUtc).HasConversion(utcDateTimeConverter);
+            entity.HasIndex(x => new { x.IsDeleted, x.UpdatedAtUtc });
+        });
+        modelBuilder.Entity<StoredTemplateVersion>(entity =>
+        {
+            entity.ToTable("TemplateVersions"); entity.HasKey(x => x.Id);
+            entity.Property(x => x.Version).IsRequired(); entity.Property(x => x.FilePath).IsRequired(); entity.Property(x => x.FileName).IsRequired(); entity.Property(x => x.Sha256).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).HasConversion(utcDateTimeConverter); entity.Property(x => x.ModifiedAtUtc).HasConversion(utcDateTimeConverter);
+            entity.HasIndex(x => new { x.TemplateId, x.Version }).IsUnique();
+            entity.HasIndex(x => x.TemplateId).IsUnique().HasFilter("IsCurrent = 1");
+            entity.HasOne<StoredTemplate>().WithMany().HasForeignKey(x => x.TemplateId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(x => x.SnapshotId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<StoredComparisonRecord>(entity =>
         {
             entity.ToTable("ComparisonRecords"); entity.HasKey(record => record.Id);
