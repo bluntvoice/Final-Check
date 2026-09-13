@@ -126,7 +126,10 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     private readonly IComparisonWorkflowService? workflow;
     public ComparisonWorkflowResult Outcome { get; private set; }
     public IReadOnlyList<ChangeItemViewModel> Changes { get; }
-    public ObservableCollection<ChangeListEntry> Entries { get; } = [];
+    public ObservableCollection<ChangeListEntry> Entries { get; private set; } = [];
+    public ComparisonPreviewViewModel Preview { get; }
+    public static Task<ComparisonResultsViewModel> CreateAsync(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null) =>
+        Task.Run(() => new ComparisonResultsViewModel(outcome, workflow));
     [ObservableProperty] private bool grouped = true;
     [ObservableProperty] private ChangeListEntry? selectedEntry;
     [ObservableProperty] private ChangeItemViewModel? selectedChange;
@@ -143,7 +146,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public bool NoVisibleEntries => Entries.Count == 0;
     public ComparisonResultsViewModel(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null)
     {
-        Outcome = outcome; this.workflow = workflow;
+        Outcome = outcome; this.workflow = workflow; Preview = new(outcome);
         var baselineLocations = ChangeItemViewModel.Locations(outcome.Baseline); var currentLocations = ChangeItemViewModel.Locations(outcome.Current);
         Changes = outcome.Result.Changes.Select(item => new ChangeItemViewModel(item, outcome.Current, Select, baselineLocations, currentLocations)
             { ReviewState = outcome.Record.ReviewStates.GetValueOrDefault(item.ChangeId) }).ToArray(); RefreshEntries();
@@ -158,7 +161,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public string EmptyMessage => !HasChanges ? "两份文档没有检测到修改。" : NoVisibleEntries ? "当前筛选没有结果，请调整搜索或筛选条件。" : "请选择左侧修改，查看原文、现文与证据。";
     partial void OnGroupedChanged(bool value) => RefreshEntries();
     partial void OnSelectedEntryChanged(ChangeListEntry? value) => SelectedChange = value?.Members.FirstOrDefault();
-    partial void OnSelectedChangeChanged(ChangeItemViewModel? value) => RefreshReviewCommands();
+    partial void OnSelectedChangeChanged(ChangeItemViewModel? value) { RefreshReviewCommands(); Preview.Locate(value?.Item); }
     partial void OnStatusFilterChanged(string value) => RefreshEntries();
     partial void OnTypeFilterChanged(string value) => RefreshEntries();
     partial void OnSearchTextChanged(string value) => RefreshEntries();
@@ -185,7 +188,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     private void Select(ChangeItemViewModel item) => SelectedChange = item;
     private void RefreshEntries()
     {
-        var previousId = SelectedEntry?.Id; Entries.Clear();
+        var previousId = SelectedEntry?.Id; var entries = new List<ChangeListEntry>();
         var visible = Changes.Where(Matches).ToArray(); VisibleCount = visible.Length;
         var byId = visible.ToDictionary(c => c.ChangeId, StringComparer.Ordinal); var all = Changes.ToDictionary(c => c.ChangeId, StringComparer.Ordinal);
         var included = new HashSet<string>(StringComparer.Ordinal);
@@ -195,10 +198,11 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
             {
                 var members = group.ChangeIds.Where(byId.ContainsKey).Select(id => byId[id]).ToArray(); if (members.Length == 0) continue;
                 foreach (var member in members) included.Add(member.ChangeId);
-                Entries.Add(new(group.GroupId, ChangeItemViewModel.TypeName(group.Kind), $"{group.BaselineText} → {group.CurrentText}", members, group.ChangeIds.Where(all.ContainsKey).Select(id => all[id]).ToArray()));
+                entries.Add(new(group.GroupId, ChangeItemViewModel.TypeName(group.Kind), $"{group.BaselineText} → {group.CurrentText}", members, group.ChangeIds.Where(all.ContainsKey).Select(id => all[id]).ToArray()));
             }
         }
-        foreach (var item in visible.Where(item => !included.Contains(item.ChangeId))) Entries.Add(new(item.ChangeId, item.TypeLabel, item.Summary, [item]));
+        foreach (var item in visible.Where(item => !included.Contains(item.ChangeId))) entries.Add(new(item.ChangeId, item.TypeLabel, item.Summary, [item]));
+        Entries = new(entries); OnPropertyChanged(nameof(Entries));
         SelectedEntry = Entries.FirstOrDefault(entry => entry.Id == previousId) ?? Entries.FirstOrDefault();
         OnPropertyChanged(nameof(CountLabel)); OnPropertyChanged(nameof(NoVisibleEntries)); OnPropertyChanged(nameof(EmptyMessage));
     }

@@ -17,8 +17,10 @@
         <TextBlock Text="{Binding CountLabel}" VerticalAlignment="Center" />
       </WrapPanel>
     </StackPanel>
-    <Grid Grid.Row="2" ColumnDefinitions="250,16,*">
+    <Grid Grid.Row="2" ColumnDefinitions="2*,12,5*">
       <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" AutomationProperties.Name="修改清单">
+        <ListBox.Styles><Style Selector="ListBoxItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="#E8F1FF" /></Style></ListBox.Styles>
+        <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
         <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeListEntry">
           <StackPanel Spacing="6" Margin="4">
             <TextBlock Text="{Binding TypeLabel}" FontWeight="SemiBold" />
@@ -29,7 +31,10 @@
           </StackPanel>
         </DataTemplate></ListBox.ItemTemplate>
       </ListBox>
-      <ScrollViewer Grid.Column="2">
+      <TabControl Grid.Column="2">
+        <TabItem Header="文档对照"><views:ComparisonPreviewView DataContext="{Binding Preview}" /></TabItem>
+        <TabItem Header="修改详情 / 确认">
+      <ScrollViewer>
         <StackPanel Spacing="16">
           <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding ReviewMessage}" TextWrapping="Wrap" />
@@ -40,11 +45,10 @@
             <Button Content="确认当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="仅确认组内当前符合筛选的修改" />
             <Button Content="忽略当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Ignored" Margin="0,0,8,8" />
           </WrapPanel>
-          <ItemsControl ItemsSource="{Binding SelectedEntry.Members}">
-            <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:ChangeItemViewModel">
-              <Button Content="{Binding Location}" Command="{Binding SelectCommand}" Margin="0,4" HorizontalAlignment="Stretch" />
-            </DataTemplate></ItemsControl.ItemTemplate>
-          </ItemsControl>
+          <ListBox ItemsSource="{Binding SelectedEntry.Members}" SelectedItem="{Binding SelectedChange}" MaxHeight="140" AutomationProperties.Name="归并组内修改位置">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+            <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeItemViewModel"><TextBlock Text="{Binding Location}" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
+          </ListBox>
           <StackPanel DataContext="{Binding SelectedChange}" x:DataType="vm:ChangeItemViewModel" Spacing="12">
             <TextBlock Text="{Binding TypeLabel}" FontSize="18" FontWeight="SemiBold" />
             <TextBlock Text="{Binding ReviewLabel}" />
@@ -61,6 +65,8 @@
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
+        </TabItem>
+      </TabControl>
     </Grid>
   </Grid>
 </UserControl>

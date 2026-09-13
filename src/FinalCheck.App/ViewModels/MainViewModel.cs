@@ -12,20 +12,21 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel(ComparisonSetupViewModel comparison, IComparisonWorkflowService? workflow = null)
     {
         Comparison = comparison; this.workflow = workflow;
-        Comparison.Completed += result => { if (IsSetup) ShowResult(result); };
+        Comparison.Completed += async result => { if (IsSetup) await ShowResultAsync(result); };
     }
     public ComparisonSetupViewModel Comparison { get; }
     [ObservableProperty] private ComparisonResultsViewModel? results;
     public bool HasResults => Results is not null;
     partial void OnResultsChanged(ComparisonResultsViewModel? value) => OnPropertyChanged(nameof(HasResults));
     private string? pendingPage;
+    private int navigationRevision;
     [ObservableProperty] private bool leavePrompt;
     public bool IsHome => SelectedPage == "home";
     public bool IsSetup => SelectedPage == "compare";
     public bool IsResults => SelectedPage == "results";
     public bool IsOther => !IsHome && !IsSetup && !IsResults;
     partial void OnSelectedPageChanged(string value)
-    { OnPropertyChanged(nameof(IsHome)); OnPropertyChanged(nameof(IsSetup)); OnPropertyChanged(nameof(IsOther)); OnPropertyChanged(nameof(IsResults)); }
+    { navigationRevision++; OnPropertyChanged(nameof(IsHome)); OnPropertyChanged(nameof(IsSetup)); OnPropertyChanged(nameof(IsOther)); OnPropertyChanged(nameof(IsResults)); }
     public string AppVersion { get; } = GetAppVersion();
 
     public string AppVersionLabel => $"v{AppVersion}";
@@ -53,14 +54,23 @@ public partial class MainViewModel : ViewModelBase
             _ => ("Final Check", "选择两份 DOCX，查看文字、格式、修订与批注变化。"),
         };
     }
-    private void ShowResult(ComparisonWorkflowResult result)
+    private async Task ShowResultAsync(ComparisonWorkflowResult result)
     {
-        Results = new ComparisonResultsViewModel(result, workflow); SelectedPage = "results";
-        CurrentPageTitle = "比对结果"; CurrentPageDescription = "查看修改事实 · 原始文件保持不变";
+        var sourceRevision = navigationRevision;
+        try
+        {
+            CurrentPageDescription = "正在准备文档预览…";
+            var prepared = await ComparisonResultsViewModel.CreateAsync(result, workflow);
+            if (navigationRevision != sourceRevision) return;
+            Results = prepared; SelectedPage = "results";
+            CurrentPageTitle = "比对结果"; CurrentPageDescription = "查看修改事实 · 原始文件保持不变";
+        }
+        catch (Exception) { CurrentPageDescription = "预览加载失败，已保存比对仍可从首页重试查看。"; }
     }
     [RelayCommand] private async Task LoadRecentAsync()
     {
         if (workflow is null || Comparison.IsExecuting) return;
+        var sourceRevision = navigationRevision;
         try
         {
             CurrentPageDescription = "正在读取最近比对…";
@@ -68,7 +78,7 @@ public partial class MainViewModel : ViewModelBase
             var recent = records.Count > 0 ? records[0] : null;
             if (recent is null) { CurrentPageDescription = "暂无比对记录，请新建比对。"; return; }
             var result = await workflow.LoadAsync(recent.RecordId);
-            if (result is not null) ShowResult(result);
+            if (result is not null && navigationRevision == sourceRevision) await ShowResultAsync(result);
         }
         catch (Exception) { CurrentPageDescription = "无法读取历史，请重试。原数据未被修改。"; }
     }

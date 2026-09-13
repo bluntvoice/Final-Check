@@ -1,6 +1,6 @@
 # Final Check — Comparison UI v0
 
-> Status: IN PROGRESS  
+> Status: Phase 1–5 DONE (implementation / phase verification)  
 > Version: v0.1.0 development  
 > Scope: First usable comparison workflow  
 > Depends on: Document Engine v0, Comparison Engine v0, Format Restore Engine v0, Storage Foundation v0  
@@ -1181,7 +1181,10 @@ Cancel 后：
 - Phase 4 — Filter / Review：DONE
   - 实际完成：状态/类型交集筛选、两侧全文/位置/批注即时搜索、原变化计数；默认隐藏忽略并保留确认，忽略可显示/恢复、仅看未处理；归并/逐项共享原 ChangeId 状态，组摘要包含全部成员而批量操作只影响当前显示成员。后台短 scope 保存，数据库 compare-and-swap 合并竞争写入，成功后更新 UI，失败不伪装成功；原 Snapshot / Comparison payload 不变。
   - 验证：新增 6 项 review VM 测试、2 项真实 SQLite 集成测试（新 scope 恢复、冻结 payload 不变、并发不同 ChangeId 合并、非法/取消保护）；Release 232/232 通过，Desktop build 零警告/零错误。重启窗口的实际状态恢复试用纳入最终安装包验收。
-- Phase 5 — Preview / Navigation：TODO
+- Phase 5 — Preview / Navigation：DONE
+  - 实际完成：后台生成准确 Snapshot 原生双栏预览，SourceIndex 正文/表格交错、基础 effective 字体/字号/颜色/粗斜体/下划线/删除线/高亮，Engine span 高亮、段落/Run/Table/Cell 点击定位并突出目标；原 Mapping 逻辑滚动、解除/重开按附近可靠节点对齐，无低可信猜测。清单/预览/组成员虚拟化，筛选集合批量发布，预览/详情页签、弹性布局与 sidebar 对比度、导航期间异步加载不强制跳回。
+  - 验证：新增 6 项 preview VM 测试与 20/400 段真实工作流性能测试；Release 240/240 通过，Desktop build 零警告/零错误。生成式非敏感 20/400 段（41/801 项）Debug 实际窗口选择/执行/预览/表格定位/滚动联动/解除/重开及最大化/还原观察通过。20 段完整工作流 333.8 ms，400 段 953.2 ms；4000 段模型后台投影测试通过。
+  - 最终外部验收门禁：本提交记录的是已观察源码阶段状态；最终 HEAD 的 Windows/macOS CI 和 Test Build 下载/实际安装/搜索/筛选/确认/重启状态恢复/Portable/卸载尚需待最终 HEAD 推送后执行，不预写 PASS。以该 HEAD 对应 Actions 及当次最终报告记录 Artifact version、SHA、Run ID；不在 dispatch 后为 Run ID 再提交导致包落后。失败必须如实报告或修正后重新验证最终 HEAD，不将阶段 DONE 等同于已安装验收。
 
 ---
 

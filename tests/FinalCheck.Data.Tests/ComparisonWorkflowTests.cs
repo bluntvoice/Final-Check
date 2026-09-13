@@ -13,10 +13,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
+using Xunit.Abstractions;
 
 namespace FinalCheck.Data.Tests;
 
-public sealed class ComparisonWorkflowTests
+public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
 {
     internal static ServiceProvider Services(MigrationEnvironment env)
     {
@@ -158,6 +160,18 @@ public sealed class ComparisonWorkflowTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => workflow.UpdateReviewAsync(result.Record.RecordId, [first], ComparisonReviewState.Ignored, cancellation.Token));
         var loaded = await workflow.LoadAsync(result.Record.RecordId);
         Assert.Equal(ComparisonReviewState.Confirmed, loaded!.Record.ReviewStates[first]); Assert.Equal(ComparisonReviewState.Ignored, loaded.Record.ReviewStates[second]);
+    }
+    [Theory] [InlineData(20)] [InlineData(400)]
+    public async Task RealSmallAndMediumWorkflowPerformanceAndCancellationRemainBounded(int paragraphs)
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
+        var left = Path.Combine(env.Fixture.DirectoryPath, "performance-left.docx"); var right = Path.Combine(env.Fixture.DirectoryPath, "performance-right.docx");
+        WriteDocument(left, "30", count: paragraphs); WriteDocument(right, "60", count: paragraphs);
+        var watch = Stopwatch.StartNew(); var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
+        var result = await workflow.ExecuteAsync(await workflow.ValidateAsync(await inspector.InspectAsync(left), await inspector.InspectAsync(right)));
+        watch.Stop(); Assert.Equal(paragraphs, result.Baseline.Paragraphs.Count); Assert.True(result.Result.Changes.Count >= paragraphs);
+        Assert.Equal(result.Current.Metadata.Sha256, (await inspector.InspectAsync(right)).Sha256);
+        output.WriteLine($"Real {paragraphs}-paragraph hash/parse/compare/persist: {watch.Elapsed.TotalMilliseconds:F1} ms; {result.Result.Changes.Count} changes.");
     }
     private sealed class StageCapture : IProgress<string> { public List<string> Values { get; } = []; public void Report(string value) => Values.Add(value); }
     private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<string>

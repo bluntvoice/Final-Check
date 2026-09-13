@@ -66,7 +66,9 @@ OutputDirectory 必须为空；本地 Test 包只覆盖构建参数，不改源�
 
 ## Document Engine 开发与测试
 
-Comparison UI v0 正在按 [task](../tasks/comparison-ui-v0.md) 推进；入口/文件会话、后台执行、独立历史、结果清单及搜索/筛选/持久处理状态已接入，双栏预览与最终包试用在 Phase 5 验证后才可宣称完整流程可用。架构见 [comparison-ui.md](../architecture/comparison-ui.md)。App.Tests 包含无 GUI 初始化的 VM 状态与导航检查；Data.Tests 直接 link 同一 Desktop 工作流，使用 GUID 隔离 DOCX / SQLite 检查真实引擎、取消、Partial、冻结历史、review 并发保存及记录迁移。Database schema 4 只新增 ComparisonRecords，不改旧领域 payload schema。
+Comparison UI v0 已按 [task](../tasks/comparison-ui-v0.md) 接入入口/文件会话、后台执行、独立历史、结果清单、搜索/筛选/持久处理状态及原生双栏预览。架构见 [comparison-ui.md](../architecture/comparison-ui.md)。App.Tests 包含 VM 状态/导航、精确高亮、映射联动与 4000 段后台预览投影；Data.Tests 直接 link 同一 Desktop 工作流，使用 GUID 隔离 DOCX / SQLite 检查真实引擎、取消、Partial、冻结历史、review 并发保存、记录迁移及 20/400 段完整工作流。Database schema 4 只新增 ComparisonRecords，不改旧领域 payload schema。
+
+完成本阶段后，从最终 commit dispatch 现有 Windows Test Build，核对 Actions head_sha / Artifact version / Run ID，下载验证 ZIP digest 与逐文件 SHA，再实际安装并走新建/选择两份生成式非敏感 DOCX/执行/结果/搜索/筛选/确认/正常关闭重启/恢复最近比对/确认状态仍在/卸载，以及完整 Portable layout 启动。安装前只读检查并一致性备份现有库，不重定向 Release 主入口到实验数据、不清空用户库；卸载保留 DataRoot 与原 DOCX。最终 HEAD dispatch 后不为了记录 Run ID 再制造滞后的文档 commit，外部验收以该 HEAD 的 Actions 和交付报告为证据；若代码需修正，则修正测试提交后重新构建最终 HEAD。
 
 Document Engine 架构与已知限制见 [`document-engine.md`](../architecture/document-engine.md)。解析测试使用 `DocumentFixtureFactory` 在内存中生成小型 DOCX，不使用真实合同。夹具目录说明见 [`tests/fixtures/README.md`](../../tests/fixtures/README.md)。
 

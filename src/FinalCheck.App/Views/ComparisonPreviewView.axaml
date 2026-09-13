@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:views="using:FinalCheck.App.Views"
+ x:Class="FinalCheck.App.Views.ComparisonPreviewView" x:DataType="vm:ComparisonPreviewViewModel">
+  <Grid RowDefinitions="Auto,Auto,8,*">
+    <CheckBox Content="逻辑联动滚动（取消勾选解除联动）" IsChecked="{Binding Linked}" ToolTip.Tip="依据已匹配段落或条款定位，不按像素比例同步" />
+    <TextBlock Grid.Row="1" Text="{Binding Notice}" TextWrapping="Wrap" FontSize="12" Foreground="#64748B" />
+    <Grid Grid.Row="3" ColumnDefinitions="*,8,*">
+      <Grid RowDefinitions="Auto,4,*">
+        <TextBlock Text="基准版本" FontWeight="SemiBold" />
+        <ListBox x:Name="BaselineList" Grid.Row="2" ItemsSource="{Binding Baseline}" SelectedItem="{Binding LocatedBaseline}" AutomationProperties.Name="基准文档预览">
+          <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+          <ListBox.ItemTemplate><DataTemplate x:DataType="vm:PreviewBlock"><views:SnapshotPreviewBlock Block="{Binding}" Baseline="True" TargetNodeId="{ReflectionBinding $parent[ListBox].DataContext.BaselineTarget}" HorizontalContentAlignment="Stretch" /></DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+      <Grid Grid.Column="2" RowDefinitions="Auto,4,*">
+        <TextBlock Text="当前版本" FontWeight="SemiBold" />
+        <ListBox x:Name="CurrentList" Grid.Row="2" ItemsSource="{Binding Current}" SelectedItem="{Binding LocatedCurrent}" AutomationProperties.Name="当前文档预览">
+          <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+          <ListBox.ItemTemplate><DataTemplate x:DataType="vm:PreviewBlock"><views:SnapshotPreviewBlock Block="{Binding}" TargetNodeId="{ReflectionBinding $parent[ListBox].DataContext.CurrentTarget}" HorizontalContentAlignment="Stretch" /></DataTemplate></ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

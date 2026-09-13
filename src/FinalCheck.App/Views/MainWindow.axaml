@@ -20,16 +20,17 @@
     <vm:MainViewModel />
   </Design.DataContext>
 
-  <Grid ColumnDefinitions="220,*" Background="#F5F6F8">
-    <Border Grid.Column="0" Background="#17202A" Padding="20">
+  <Grid ColumnDefinitions="160,*" Background="#F5F6F8">
+    <Border Grid.Column="0" Background="#17202A" Padding="14">
       <Grid RowDefinitions="Auto,*,Auto">
         <StackPanel Spacing="4">
-          <TextBlock Text="FINAL CHECK" FontSize="20" FontWeight="SemiBold" Foreground="White" />
+          <TextBlock Text="FINAL CHECK" FontSize="17" FontWeight="SemiBold" Foreground="White" />
           <TextBlock Text="合同版本与比对工具" FontSize="12" Foreground="#B8C2CC" />
         </StackPanel>
 
         <StackPanel Grid.Row="1" Margin="0,36,0,0" Spacing="10">
-          <Button Content="项目" Command="{Binding NavigateCommand}" CommandParameter="home" />
+          <StackPanel.Styles><Style Selector="Button"><Setter Property="Foreground" Value="White" /><Setter Property="Background" Value="#293A4C" /><Setter Property="HorizontalAlignment" Value="Stretch" /></Style></StackPanel.Styles>
+          <Button Content="首页" Command="{Binding NavigateCommand}" CommandParameter="home" ToolTip.Tip="新建比对或继续最近记录" />
           <Button Content="模板中心" Command="{Binding NavigateCommand}" CommandParameter="templates" />
           <Button Content="比对结果" Command="{Binding NavigateCommand}" CommandParameter="results" IsVisible="{Binding HasResults}" />
           <Button Content="关于" Command="{Binding NavigateCommand}" CommandParameter="about" />
@@ -39,13 +40,13 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Column="1" Margin="40" RowDefinitions="Auto,24,*">
+    <Grid Grid.Column="1" Margin="16" RowDefinitions="Auto,12,*">
       <StackPanel>
         <TextBlock Text="{Binding CurrentPageTitle}" FontSize="30" FontWeight="SemiBold" Foreground="#17202A" />
         <TextBlock Text="{Binding CurrentPageDescription}" Margin="0,8,0,0" FontSize="14" Foreground="#5C6773" />
       </StackPanel>
 
-      <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="24">
+      <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="16">
         <Grid>
           <StackPanel IsVisible="{Binding IsHome}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
             <TextBlock Text="两份合同，一次清晰比对" FontSize="24" />

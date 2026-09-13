@@ -153,3 +153,9 @@ Debug-only 显式隔离 AppData 启动：窗口 `Final Check`、Responding true�
 | 本轮实际安装目录大小 | — | 未重新安装；不以 publish 推算 |
 
 本轮只触发一次实际 Test Build，不创建 Tag/Release、不重新安装到正常用户环境。测试 Artifact 不是正式发行包，也不是最终 hash 加固后的最新二进制；最终源码另行完成 Release build/test 与 Windows/macOS CI。保留之前 dev.3.1 的实际安装证据，不把旧安装结果冒充本轮新安装验收。
+
+## Comparison UI v0（2026-09-13）
+
+Windows / .NET 10.0.401，Release，程序化中文 DOCX，真实 inspector + parser + Comparison Engine + SQLite persistence。20 段完整工作流 333.8 ms；400 段 953.2 ms（分别 20/400 个文字变化）。这包含源 hash、两侧解析、比对和持久化，不包含 fixture/数据库初始化；合成压缩文本不代表真实复杂合同 SLA。App 测试另验证 4000 段不可变 preview 在后台生成、节点定位与导航可用，不在模型阶段创建 UI containers。
+
+开发窗口另实际选入 20/400 段带表格和字体变化的 DOCX，结果分别 41/801 项；双栏仅实现可见行，长文滚动后复用少量 realized containers，文字/表格定位、逻辑联动/解除/重新开启、最大化/还原观察通过。最终包体积/内存和安装/重启状态恢复以最终 HEAD 的 Test Build 实测报告为准，不以源码运行或上次包指标冒充。
