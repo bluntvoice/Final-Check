@@ -32,6 +32,8 @@
           <StackPanel.Styles><Style Selector="Button"><Setter Property="Foreground" Value="White" /><Setter Property="Background" Value="#293A4C" /><Setter Property="HorizontalAlignment" Value="Stretch" /></Style></StackPanel.Styles>
           <Button Content="首页" Command="{Binding NavigateCommand}" CommandParameter="home" ToolTip.Tip="新建比对或继续最近记录" />
           <Button Content="模板中心" Command="{Binding NavigateCommand}" CommandParameter="templates" />
+          <Button Content="快速比对" Command="{Binding NavigateCommand}" CommandParameter="compare" />
+          <Button Content="合同项目" Command="{Binding NavigateCommand}" CommandParameter="projects" />
           <Button Content="比对结果" Command="{Binding NavigateCommand}" CommandParameter="results" IsVisible="{Binding HasResults}" />
           <Button Content="关于" Command="{Binding NavigateCommand}" CommandParameter="about" />
         </StackPanel>
@@ -56,6 +58,7 @@
           <ScrollViewer IsVisible="{Binding IsSetup}"><views:ComparisonSetupView DataContext="{Binding Comparison}" /></ScrollViewer>
           <Grid IsVisible="{Binding IsResults}"><views:ComparisonResultsView DataContext="{Binding Results}" /></Grid>
           <Grid IsVisible="{Binding IsTemplates}"><views:TemplateCenterView DataContext="{Binding Templates}" /></Grid>
+          <Grid IsVisible="{Binding IsProjects}"><views:ProjectsView DataContext="{Binding Projects}" /></Grid>
           <TextBlock IsVisible="{Binding IsOther}" Text="{Binding CurrentPageDescription}" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center" />
         </Grid>
       </Border>

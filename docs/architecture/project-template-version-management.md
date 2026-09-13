@@ -2,7 +2,7 @@
 
 ## Scope and implementation status
 
-This architecture extends independent Quick Compare without replacing its Engine, frozen Snapshot / Comparison payloads or result / review UI. Implementation progresses in the [task](../tasks/project-template-version-management-v0.md) Phase order. Phase 1 is Template Center; Project / Version / Round / project comparisons / lifecycle follow in Phases 2–5, not claimed implemented here.
+This architecture extends independent Quick Compare without replacing its Engine, frozen Snapshot / Comparison payloads or result / review UI. Implementation progresses in the [task](../tasks/project-template-version-management-v0.md) Phase order. Phases 1–2 implement Template Center and Contract Projects; Version / Round / project comparisons / lifecycle remain designs for Phases 3–5, not claimed implemented yet.
 
 ## Template model and persistence
 
@@ -21,6 +21,8 @@ Original DOCX is never copied into DataRoot. A bounded worker scan checks the or
 Relink only updates path/name/size/mtime after exact-hash validation; hash and Snapshot identity remain unchanged. Changed content at the same path is rejected for relink and must be imported as a new version. Historical Comparison source identities are never rewritten when a source path is updated.
 
 ## Project / version / round design (Phases 2–5)
+
+Phase 2 implements Projects / ProjectFolders in incremental schema 6. Project tags are a validated list of name + #RRGGBB color, persisted as metadata JSON (not document payload); folders are flat labels without hierarchy or physical file moves. Lists query status/name/template/type/update/folder/exact-tag filters on metadata, sorted UpdatedAt descending, with 20-row pages / 100-row maximum and virtualized UI. Full Snapshot JSON is not selected; invalid Snapshot payloads do not prevent metadata listing. Project creation/edit validates template/version membership, inherits type only when input is blank, never guesses counterparty and never changes baseline. Disabled/deleted templates reject new bindings but permit preserving an existing binding. The editor keeps a stable project identity and template version across list filtering/refresh to prevent accidental new projects or silent unbinding. Template delete warnings now include project names, including preserved lifecycle states.
 
 ContractProject binds a logical Template and a version identity, carries explicit user-entered counterparty/type, one-level Folder / tags, lifecycle status and CurrentBaselineVersionId. Type edits do not switch Template. A ContractVersion references a frozen Snapshot and original metadata, explicit Own / Counterparty role, round and import order/time; rounds allow multiple versions on either side. Role must be confirmed by the user, never inferred from filename, author or path.
 

@@ -7,7 +7,7 @@ namespace FinalCheck.App.Tests;
 
 public sealed class TemplateCenterTests
 {
-    private sealed class Service : ITemplateService
+    internal sealed class Service : ITemplateService
     {
         private readonly Template template = new(Guid.NewGuid(), "代理协议", "代理", true, false, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, "");
         public TemplateDetails Detail { get; }

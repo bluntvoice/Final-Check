@@ -27,7 +27,9 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
     {
         try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
     }
-    public const int DatabaseSchemaVersion = 5;
+    public const int DatabaseSchemaVersion = 6;
+    public DbSet<StoredProject> Projects => Set<StoredProject>();
+    public DbSet<StoredProjectFolder> ProjectFolders => Set<StoredProjectFolder>();
     public DbSet<StoredTemplate> Templates => Set<StoredTemplate>();
     public DbSet<StoredTemplateVersion> TemplateVersions => Set<StoredTemplateVersion>();
     public DbSet<StoredComparisonRecord> ComparisonRecords => Set<StoredComparisonRecord>();
@@ -47,6 +49,21 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             value => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime(),
             value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
+        modelBuilder.Entity<StoredProjectFolder>(entity =>
+        {
+            entity.ToTable("ProjectFolders"); entity.HasKey(x => x.Id); entity.Property(x => x.Name).IsRequired(); entity.HasIndex(x => x.Name).IsUnique();
+        });
+        modelBuilder.Entity<StoredProject>(entity =>
+        {
+            entity.ToTable("Projects"); entity.HasKey(x => x.Id);
+            entity.Property(x => x.ProjectName).IsRequired(); entity.Property(x => x.Counterparty).IsRequired(); entity.Property(x => x.ContractType).IsRequired();
+            entity.Property(x => x.TagsJson).IsRequired(); entity.Property(x => x.Notes).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).HasConversion(utcDateTimeConverter); entity.Property(x => x.UpdatedAtUtc).HasConversion(utcDateTimeConverter);
+            entity.HasIndex(x => new { x.Status, x.UpdatedAtUtc });
+            entity.HasOne<StoredTemplate>().WithMany().HasForeignKey(x => x.BoundTemplateId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredTemplateVersion>().WithMany().HasForeignKey(x => x.BoundTemplateVersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredProjectFolder>().WithMany().HasForeignKey(x => x.FolderId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<StoredTemplate>(entity =>
         {
             entity.ToTable("Templates"); entity.HasKey(x => x.Id);

@@ -111,6 +111,14 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
         private async Task<Dictionary<string, string>> FactsAsync(FinalCheckDbContext context, string logicalRoot, CancellationToken token)
         {
             var facts = new Dictionary<string, string>();
+            foreach (var row in await context.ProjectFolders.AsNoTracking().ToArrayAsync(token)) facts.Add("folder:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
+            foreach (var row in await context.Projects.AsNoTracking().ToArrayAsync(token))
+            {
+                _ = ProjectStore.Map(row);
+                if ((row.BoundTemplateId is null) != (row.BoundTemplateVersionId is null) || row.BoundTemplateId is { } id &&
+                    !await context.TemplateVersions.AnyAsync(v => v.Id == row.BoundTemplateVersionId && v.TemplateId == id, token)) throw new InvalidDataException("Invalid project template binding.");
+                facts.Add("project:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
+            }
             foreach (var row in await context.Templates.AsNoTracking().ToArrayAsync(token)) facts.Add("template:" + row.Id, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
             foreach (var row in await context.TemplateVersions.AsNoTracking().ToArrayAsync(token))
             {

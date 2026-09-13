@@ -24,6 +24,7 @@
     <Compile Include="..\..\src\FinalCheck.Desktop\DesktopStorageServices.cs" Link="DesktopStorageServices.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\ComparisonWorkflowService.cs" Link="ComparisonWorkflowService.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\TemplateService.cs" Link="TemplateService.cs" />
+    <Compile Include="..\..\src\FinalCheck.Desktop\ProjectService.cs" Link="ProjectService.cs" />
   </ItemGroup>
 
   <ItemGroup>

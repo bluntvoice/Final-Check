@@ -1258,7 +1258,10 @@ Template v1
   * 数据兼容：schema 5 增量 Templates / TemplateVersions、Restrict FK 与唯一索引，旧 Snapshot / Comparison / review payload 保留；readonly bootstrap inspector、Storage migration digest / identity 校验及原文排除同步纳入模板。
   * 已审阅语义：UI 状态/筛选/组汇总/动作/Tooltip 与 PRD 改为已审阅；仅表示人工查看，保留稳定 Confirmed 和原 payload schema，不为文案迁移数据库。
   * 验证：新增 6 项真实模板/旧 schema 升级/Storage migration 测试、4 项 VM/已有 Confirmed 展示兼容测试；Release 全量 250/250、Desktop build 0 warning / 0 error。项目引用检查将在 Phase 2/4 随实际项目/比对关联扩展；最终安装包实际 Template/Version Drag & Drop 与版本链验收仍待 Phase 5 完成后从最终 HEAD 执行，不以 adapter/VM 测试冒充实际拖拽验收。
-* Phase 2 — Contract Project：TODO
+* Phase 2 — Contract Project：DONE
+  * 实际完成（2026-09-13）：项目创建/编辑、明确填写对方、模板绑定/切换/解绑、空类型继承与手动覆盖、一层逻辑 Folder、自定义/预设颜色 Tag；项目元数据列表按更新时间倒序，支持名称/模板/类型/时间/Folder/Tag 筛选、20 行分页和虚拟化。过滤或刷新后保留编辑项目和模板版本身份，避免误创建或静默解绑。
+  * 数据兼容：schema 6 增量 Projects / ProjectFolders，模板版本归属校验，停用模板保留既有绑定但拒绝新绑定；Storage inspector / migration facts 同步项目及标签，旧快照/历史 payload 不变；模板删除提示纳入项目引用。
+  * 验证：新增 5 项 Data 和 4 项 App 测试，Release 全量 259/259、Desktop build 0 warning / 0 error；100 项目首个 20 行元数据页冷查询 534.4 ms（包含 EF 冷启动，后台执行），损坏 Snapshot JSON 不影响元数据列表。Phase 3–5 尚未开始，最终安装及实际拖拽仍待最终 HEAD 验收。
 * Phase 3 — Version / Round：TODO
 * Phase 4 — Baseline / Comparison：TODO
 * Phase 5 — Project Detail / History / Archive：TODO

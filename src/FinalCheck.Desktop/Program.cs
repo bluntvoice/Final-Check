@@ -96,10 +96,13 @@ internal static class Program
         services.AddSingleton<ComparisonSetupViewModel>();
         services.AddSingleton<ITemplateService, TemplateService>();
         services.AddSingleton<TemplateCenterViewModel>();
+        services.AddSingleton<IProjectService, ProjectService>();
+        services.AddSingleton<ProjectsViewModel>();
         services.AddSingleton<MainViewModel>();
 
         services.AddScoped<DocumentSnapshotStore>();
         services.AddScoped<ITemplateStore, TemplateStore>();
+        services.AddScoped<IProjectStore, ProjectStore>();
         services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
         services.AddScoped<IComparisonRecordStore, ComparisonRecordStore>();
         services.AddScoped<IFormatRestoreStore, FormatRestoreStore>();

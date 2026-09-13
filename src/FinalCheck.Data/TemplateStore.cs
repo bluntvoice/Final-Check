@@ -79,7 +79,8 @@ public sealed class TemplateStore(FinalCheckDbContext db, DocumentSnapshotStore 
     public async Task<TemplateReferences> ReferencesAsync(Guid id, CancellationToken token = default)
     {
         var snapshotIds = await db.TemplateVersions.Where(x => x.TemplateId == id).Select(x => x.SnapshotId).ToArrayAsync(token);
-        return new([], await db.ComparisonRecords.CountAsync(x => snapshotIds.Contains(x.BaselineSnapshotId), token));
+        return new(await db.Projects.AsNoTracking().Where(x => x.BoundTemplateId == id).Select(x => x.ProjectName).ToArrayAsync(token),
+            await db.ComparisonRecords.CountAsync(x => snapshotIds.Contains(x.BaselineSnapshotId), token));
     }
     public async Task DeleteAsync(Guid id, bool confirmed, CancellationToken token = default)
     {

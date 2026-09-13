@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:m="using:FinalCheck.Core.Management"
+ x:Class="FinalCheck.App.Views.ProjectsView" x:DataType="vm:ProjectsViewModel">
+ <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
+  <WrapPanel IsEnabled="{Binding CanEdit}">
+   <Button Content="新建项目" Command="{Binding NewProjectCommand}" Margin="0,0,8,8" /><Button Content="刷新" Command="{Binding RefreshCommand}" Margin="0,0,8,8" />
+   <TextBox Text="{Binding SearchText}" PlaceholderText="项目名称搜索" Width="150" Margin="0,0,8,8" AutomationProperties.Name="项目搜索" />
+   <TextBox Text="{Binding FilterType}" PlaceholderText="筛选合同类型" Width="130" Margin="0,0,8,8" />
+   <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding FilterTemplate}" PlaceholderText="全部模板" Width="130" Margin="0,0,8,8"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:Template"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+   <ComboBox ItemsSource="{Binding TimeOptions}" SelectedItem="{Binding TimeFilter}" Width="120" Margin="0,0,8,8" />
+   <ComboBox ItemsSource="{Binding Folders}" SelectedItem="{Binding FilterFolder}" PlaceholderText="全部文件夹" Width="130" Margin="0,0,8,8"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ProjectFolder"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+   <TextBox Text="{Binding FilterTag}" PlaceholderText="标签名称" Width="100" Margin="0,0,8,8" />
+   <Button Content="搜索 / 筛选" Command="{Binding SearchCommand}" Margin="0,0,8,8" /><Button Content="清除筛选" Command="{Binding ClearFiltersCommand}" Margin="0,0,8,8" />
+  </WrapPanel>
+  <TextBlock Grid.Row="1" Text="{Binding Message}" TextWrapping="Wrap" />
+  <Grid Grid.Row="2" ColumnDefinitions="2*,3*" ColumnSpacing="12">
+   <Grid RowDefinitions="*,Auto">
+    <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}" SelectionChanged="SelectProject" AutomationProperties.Name="合同项目列表" IsEnabled="{Binding CanEdit}">
+     <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+     <ListBox.ItemTemplate><DataTemplate x:DataType="m:ProjectListItem"><StackPanel Spacing="4" Margin="4"><TextBlock Text="{Binding Project.ProjectName}" FontWeight="SemiBold" /><TextBlock Text="{Binding Project.Counterparty}" /><TextBlock Text="{Binding Project.ContractType}" /><TextBlock Text="{Binding TemplateName}" /><TextBlock Text="{Binding TemplateVersion}" FontSize="12" /><TextBlock Text="{Binding CurrentBaselineName}" FontSize="12" /><TextBlock Text="{Binding Project.UpdatedAt}" FontSize="11" /></StackPanel></DataTemplate></ListBox.ItemTemplate>
+    </ListBox>
+    <Button Grid.Row="1" Content="加载更多项目" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" />
+   </Grid>
+   <ScrollViewer Grid.Column="1">
+    <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+     <TextBlock Text="项目基本信息" FontSize="18" />
+     <TextBox Text="{Binding ProjectName}" PlaceholderText="项目名称（必填）" AutomationProperties.Name="项目名称" />
+     <TextBox Text="{Binding Counterparty}" PlaceholderText="对方名称（由用户明确填写）" AutomationProperties.Name="项目对方" />
+     <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding BoundTemplate}" PlaceholderText="选择绑定模板（可不绑定）" AutomationProperties.Name="项目绑定模板"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:Template"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Text="{Binding Name}" /><CheckBox Content="启用" IsChecked="{Binding IsEnabled, Mode=OneWay}" IsEnabled="False" /></StackPanel></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+     <Button Content="解绑模板" Command="{Binding UnbindTemplateCommand}" />
+     <TextBox Text="{Binding ContractType}" PlaceholderText="合同类型（可继承模板，可手动修改）" />
+     <Button Content="建议项目名称（请核对）" Command="{Binding SuggestNameCommand}" />
+     <TextBox Text="{Binding FolderName}" PlaceholderText="一级文件夹名称（可留空）" />
+     <TextBox Text="{Binding Notes}" PlaceholderText="项目备注" />
+     <TextBlock Text="标签 / 颜色" FontWeight="SemiBold" />
+     <TextBox Text="{Binding TagName}" PlaceholderText="新增标签名称" />
+     <ComboBox ItemsSource="{Binding TagColors}" SelectedItem="{Binding TagColor}" />
+     <TextBox Text="{Binding TagColor}" PlaceholderText="自定义颜色 #RRGGBB" />
+     <Button Content="添加标签" Command="{Binding AddTagCommand}" />
+     <ItemsControl ItemsSource="{Binding Tags}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="m:ProjectTag"><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="{Binding Name}" Foreground="{Binding Color}" /><Button Content="移除标签" Command="{ReflectionBinding $parent[UserControl].DataContext.RemoveTagCommand}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     <Button Content="保存项目" Command="{Binding SaveCommand}" />
+     <TextBlock Text="版本与谈判轮次将在后续阶段接入；快速比对继续独立可用。" TextWrapping="Wrap" FontSize="12" />
+    </StackPanel>
+   </ScrollViewer>
+  </Grid>
+ </Grid>
+</UserControl>
