@@ -1,5 +1,7 @@
 # Final Check Development
 
+Project comparison Phase 4 uses schema 8 immutable context links and the existing Engine/result/review UI. New Own imports default to keeping the current baseline; user selection and execution are explicit. Project comparisons use frozen imported Snapshots; changed originals require new versions. Bounded history reads existing review metadata, not Snapshot/result payloads, and keeps 已审阅 independent of acceptance.
+
 Project management Phase 3 adds schema 7 incremental versions/rounds. The multi-file import queue requires explicit roles and rounds, defaults duplicate content to skip, and never compares or changes baseline automatically. Sources remain external; rollback, legacy upgrade and full Storage migration are tested. Real native drag/drop remains a final-package acceptance gate.
 
 ## 项目状态

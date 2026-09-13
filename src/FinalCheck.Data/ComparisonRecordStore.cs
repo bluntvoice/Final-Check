@@ -32,7 +32,8 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
             resultId, DateTimeOffset.UtcNow, result.Changes.ToDictionary(c => c.ChangeId, _ => ComparisonReviewState.Unresolved, StringComparer.Ordinal));
         if (baseline.Metadata.Sha256 != baselineFile.Sha256 || current.Metadata.Sha256 != currentFile.Sha256)
             throw new InvalidDataException("Input identity changed before persistence.");
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        // Project comparisons own a wider transaction including immutable context linkage.
+        await using var transaction = context.Database.CurrentTransaction is null ? await context.Database.BeginTransactionAsync(cancellationToken) : null;
         context.DocumentSnapshots.AddRange(new StoredDocumentSnapshot { Id = baselineId, SnapshotSchemaVersion = baseline.SnapshotSchemaVersion,
             Payload = snapshots.Serialize(baseline), CreatedAtUtc = record.CreatedAt.UtcDateTime },
             new StoredDocumentSnapshot { Id = currentId, SnapshotSchemaVersion = current.SnapshotSchemaVersion,
@@ -45,7 +46,7 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
         await context.SaveChangesAsync(cancellationToken);
         // Once the commit boundary is reached, cancellation must not report an already saved result as cancelled.
         cancellationToken.ThrowIfCancellationRequested();
-        await transaction.CommitAsync(CancellationToken.None);
+        if (transaction is not null) await transaction.CommitAsync(CancellationToken.None);
         return new(record, baseline, current, result);
     }
     public async Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default)

@@ -1,5 +1,7 @@
 # Storage and Paths
 
+Schema 8 adds immutable ProjectComparisons context alongside existing frozen ComparisonRecord/result schemas. Storage migration validates same-project version/Own-baseline membership, source Snapshot identities, current Own baseline and context row digests; template history references remain valid after project binding changes. Original DOCX exclusions and independent DataRoot remain unchanged.
+
 Project management schema 7 adds ContractVersions / NegotiationRounds incrementally. Storage migration verifies version Snapshot/hash, original-source and duplicate identities plus row digests; both relinked paths and immutable original source paths are excluded from managed-data copying/usage. Original DOCX is never moved, copied or deleted by DataRoot migration.
 
 - 日期：2026-09-13

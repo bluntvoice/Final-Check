@@ -98,6 +98,7 @@ internal static class Program
         services.AddSingleton<TemplateCenterViewModel>();
         services.AddSingleton<IProjectService, ProjectService>();
         services.AddSingleton<IContractVersionService, ContractVersionService>();
+        services.AddSingleton<IProjectComparisonService, ProjectComparisonService>();
         services.AddSingleton<VersionManagementViewModel>();
         services.AddSingleton<ProjectsViewModel>();
         services.AddSingleton<MainViewModel>();
@@ -106,6 +107,7 @@ internal static class Program
         services.AddScoped<ITemplateStore, TemplateStore>();
         services.AddScoped<IProjectStore, ProjectStore>();
         services.AddScoped<IContractVersionStore, ContractVersionStore>();
+        services.AddScoped<IProjectComparisonStore, ProjectComparisonStore>();
         services.AddScoped<IComparisonResultStore, ComparisonResultStore>();
         services.AddScoped<IComparisonRecordStore, ComparisonRecordStore>();
         services.AddScoped<IFormatRestoreStore, FormatRestoreStore>();

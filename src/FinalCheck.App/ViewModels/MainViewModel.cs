@@ -13,6 +13,7 @@ public partial class MainViewModel : ViewModelBase
     {
         Comparison = comparison; this.workflow = workflow; Templates = templates ?? new(); Projects = projects ?? new();
         Comparison.Completed += async result => { if (IsSetup) await ShowResultAsync(result); };
+        Projects.Versions.Completed += async result => { if (IsProjects) await ShowResultAsync(result); };
     }
     public ComparisonSetupViewModel Comparison { get; }
     public TemplateCenterViewModel Templates { get; }
@@ -47,7 +48,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void Navigate(string? page)
     {
-        if (Comparison.IsExecuting) { pendingPage = page ?? "home"; LeavePrompt = true; return; }
+        if (Comparison.IsExecuting || Projects.Versions.IsComparing) { pendingPage = page ?? "home"; LeavePrompt = true; return; }
         SelectedPage = page ?? "home";
         (CurrentPageTitle, CurrentPageDescription) = SelectedPage switch
         {
@@ -92,7 +93,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand] private void Stay() { LeavePrompt = false; pendingPage = null; }
     [RelayCommand] private void ConfirmLeave()
     {
-        Comparison.CancelCommand.Execute(null); LeavePrompt = false;
+        Comparison.CancelCommand.Execute(null); Projects.Versions.CancelComparisonCommand.Execute(null); LeavePrompt = false;
         var destination = pendingPage ?? "home"; pendingPage = null;
         SelectedPage = destination;
         (CurrentPageTitle, CurrentPageDescription) = destination switch

@@ -24,8 +24,18 @@ public sealed record VersionTimelineItem(ContractVersion Version)
     public string Heading => $"第 {Version.RoundNumber} 轮 · {(Version.Role == ContractVersionRole.Own ? "我方" : "对方")} · {Version.Source.Name}";
     public string State => $"{Version.ParseStatus}{(Version.IsCurrentBaseline ? " · 当前我方基准" : "")}{(Version.DuplicateReference is null ? "" : " · 内容相同")}";
 }
-public partial class VersionManagementViewModel(IContractVersionService? service = null) : ViewModelBase
+public partial class VersionManagementViewModel(IContractVersionService? service = null, IProjectComparisonService? comparisons = null, IComparisonWorkflowService? workflow = null) : ViewModelBase
 {
+    public event Func<ComparisonWorkflowResult, Task>? Completed;
+    public ObservableCollection<ProjectBaselineOption> Baselines { get; } = [];
+    public ObservableCollection<ContractVersion> NewOwnVersions { get; } = [];
+    public ObservableCollection<ProjectComparisonHistory> History { get; } = [];
+    [ObservableProperty] private ProjectBaselineOption? selectedBaseline;
+    [ObservableProperty] private ContractVersion? newOwnBaseline;
+    [ObservableProperty] private bool baselinePrompt;
+    [ObservableProperty] private bool isComparing;
+    [ObservableProperty] private string baselineRecommendation = "";
+    private CancellationTokenSource? comparisonCancellation;
     public ObservableCollection<VersionImportRow> ImportQueue { get; } = [];
     public ObservableCollection<VersionTimelineItem> Versions { get; } = [];
     public ObservableCollection<int> RoundNumbers { get; } = [];
@@ -46,7 +56,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     partial void OnProjectIdChanged(Guid? value) => OnPropertyChanged(nameof(CanEdit));
     public async Task OpenProjectAsync(Guid? id)
     {
-        if (IsBusy) return; ProjectId = id; ImportQueue.Clear(); Versions.Clear(); RoundNumbers.Clear(); SelectedVersion = null; PreviewBlocks.Clear(); Detail = ""; SourcePath = "";
+        if (IsBusy) return; ProjectId = id; ImportQueue.Clear(); Versions.Clear(); RoundNumbers.Clear(); SelectedVersion = null; PreviewBlocks.Clear(); Detail = ""; SourcePath = ""; Baselines.Clear(); History.Clear(); NewOwnVersions.Clear(); BaselinePrompt = false; SelectedBaseline = null;
         if (id is not null) await RefreshAsync();
     }
     public Task AcceptFilesAsync(IEnumerable<string> paths) => PerformAsync(async () =>
@@ -77,6 +87,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
         if (selected.Length == 0) { Message = "重复内容已跳过，没有新增版本。"; ImportQueue.Clear(); return; }
         var result = await service.ImportAsync(id, selected.Select(x => new VersionImport(x.Source.Path, x.Role == "我方版本" ? ContractVersionRole.Own : ContractVersionRole.Counterparty, x.RoundNumber, x.Notes, x.AllowDuplicate, x.Source.Sha256)).ToArray());
         ImportQueue.Clear(); await LoadCoreAsync(false); Message = $"已导入 {result.Count} 份版本；未自动比对或改变基准。";
+        NewOwnVersions.Clear(); foreach (var own in result.Where(x => x.Role == ContractVersionRole.Own)) NewOwnVersions.Add(own); NewOwnBaseline = null; BaselinePrompt = comparisons is not null && NewOwnVersions.Count > 0;
     });
     [RelayCommand] private Task RefreshAsync() => PerformAsync(() => LoadCoreAsync(false));
     [RelayCommand] private Task LoadMoreAsync() => PerformAsync(() => LoadCoreAsync(true));
@@ -84,7 +95,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     {
         if (service is null || ProjectId is not { } id) return;
         if (!append) loadedChronological = Order == "按时间顺序";
-        var versions = await service.ListAsync(id, loadedChronological, append ? Versions.Count : 0); if (!append) { SelectedVersion = null; Detail = ""; SourcePath = ""; PreviewBlocks.Clear(); Versions.Clear(); }
+        var versions = await service.ListAsync(id, loadedChronological, append ? Versions.Count : 0); if (!append) { SelectedVersion = null; SelectedBaseline = null; Baselines.Clear(); History.Clear(); Detail = ""; SourcePath = ""; PreviewBlocks.Clear(); Versions.Clear(); }
         foreach (var version in versions) Versions.Add(new(version)); HasMore = versions.Count == 20;
         RoundNumbers.Clear(); foreach (var round in await service.RoundsAsync(id)) RoundNumbers.Add(round.Number);
         ImportRound = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max();
@@ -94,7 +105,41 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     {
         if (service is null) return; var version = await service.GetAsync(item.Version.ContractVersionId); SelectedVersion = item; SourcePath = version.Source.Path; PreviewBlocks.Clear();
         Detail = $"{new VersionTimelineItem(version).Heading}\nSHA-256: {version.Source.Sha256}\n导入: {version.ImportedAt:u}\nSnapshot: {version.SnapshotId} · {version.ParseStatus}\n{version.Notes}";
+        if (comparisons is not null && ProjectId is { } id)
+        {
+            var choices = await comparisons.ChoicesAsync(id, version.ContractVersionId); Baselines.Clear(); foreach (var option in choices.Options) Baselines.Add(option);
+            SelectedBaseline = Baselines.FirstOrDefault(x => x.Type == choices.LastType && x.IsCurrent) ?? Baselines.FirstOrDefault(x => x.IsCurrent);
+            BaselineRecommendation = choices.Recommendation + "记忆仅预选类型，仍需点击执行；比对已导入的冻结版本，不重新读取变化后的源文件。";
+            History.Clear(); foreach (var history in await comparisons.HistoryAsync(id, version.ContractVersionId)) History.Add(history);
+        }
     });
+    [RelayCommand] private void KeepBaseline() { if (!IsBusy) { BaselinePrompt = false; NewOwnBaseline = null; Message = "保留原基准，新我方版本未设为基准。"; } }
+    [RelayCommand] private Task ConfirmNewBaselineAsync() => PerformAsync(async () =>
+    {
+        if (comparisons is null || ProjectId is not { } id || NewOwnBaseline is not { } own || !NewOwnVersions.Any(x => x.ContractVersionId == own.ContractVersionId)) throw new ArgumentException("先明确选择本次导入的我方版本，默认不设置。");
+        await comparisons.SetBaselineAsync(id, own.ContractVersionId); BaselinePrompt = false; await LoadCoreAsync(false); Message = "当前我方基准已明确更新，历史比对保持不变。";
+    });
+    [RelayCommand] private Task SetBaselineAsync() => PerformAsync(async () =>
+    {
+        if (comparisons is null || ProjectId is not { } id || SelectedVersion is not { } item) return;
+        await comparisons.SetBaselineAsync(id, item.Version.ContractVersionId); await LoadCoreAsync(false); Message = "已设置当前我方基准，历史比对保持不变。";
+    });
+    [RelayCommand] private Task CompareAsync() => PerformAsync(async () =>
+    {
+        if (comparisons is null || ProjectId is not { } id || SelectedVersion is not { } item || SelectedBaseline is not { } baseline) throw new ArgumentException("请选择版本和明确基准后执行。");
+        using var cancellation = new CancellationTokenSource(); comparisonCancellation = cancellation; IsComparing = true;
+        try
+        {
+            var result = await comparisons.CompareAsync(new(id, item.Version.ContractVersionId, baseline.Type, baseline.VersionId), new Progress<string>(stage => Message = stage), cancellation.Token);
+            Message = result.IsPartial ? "独立历史已保存；Partial / 低可信差异请人工审阅。" : "独立比对已保存；正在打开共用结果页。";
+            if (Completed is { } handler) await handler(result);
+        }
+        catch (OperationCanceledException) { Message = "已取消未完成比对，既有历史保留。"; }
+        finally { comparisonCancellation = null; IsComparing = false; }
+    });
+    [RelayCommand] private void CancelComparison() => comparisonCancellation?.Cancel();
+    [RelayCommand] private Task OpenHistoryAsync(ProjectComparisonHistory? history) => PerformAsync(async () =>
+    { if (workflow is null || history is null || history.ProjectId != ProjectId) return; var result = await workflow.LoadAsync(history.RecordId) ?? throw new InvalidDataException("历史记录缺失。"); if (Completed is { } handler) await handler(result); });
     [RelayCommand] private Task PreviewAsync() => PerformAsync(async () =>
     {
         if (service is null || SelectedVersion is not { } item) return; var snapshot = await service.LoadSnapshotAsync(item.Version.ContractVersionId);

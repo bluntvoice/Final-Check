@@ -40,10 +40,12 @@ public sealed class ProjectStore(FinalCheckDbContext db) : IProjectStore
             from version in versions.DefaultIfEmpty()
             join folder in db.ProjectFolders.AsNoTracking() on row.FolderId equals folder.Id into folders
             from folder in folders.DefaultIfEmpty()
+            join baseline in db.ContractVersions.AsNoTracking() on row.CurrentBaselineVersionId equals baseline.Id into baselines
+            from baseline in baselines.DefaultIfEmpty()
             orderby row.UpdatedAtUtc descending, row.Id
-            select new { Row = row, Template = template == null ? "未绑定模板" : template.Name, Version = version == null ? "" : version.Version, Folder = folder == null ? "" : folder.Name })
+            select new { Row = row, Template = template == null ? "未绑定模板" : template.Name, Version = version == null ? "" : version.Version, Folder = folder == null ? "" : folder.Name, Baseline = baseline == null ? "尚未设置当前我方基准" : baseline.FileName })
             .Skip(query.Offset).Take(query.Limit).ToArrayAsync(token);
-        return page.Select(x => new ProjectListItem(Map(x.Row), x.Template, x.Version, x.Folder)).ToArray();
+        return page.Select(x => new ProjectListItem(Map(x.Row), x.Template, x.Version, x.Folder, x.Baseline)).ToArray();
     }
     public async Task<ContractProject> GetAsync(Guid id, CancellationToken token = default) => Map(await db.Projects.AsNoTracking().SingleAsync(x => x.Id == id, token));
     public async Task<ContractProject> SaveAsync(Guid? id, ProjectEdit edit, CancellationToken token = default)

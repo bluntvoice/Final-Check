@@ -1,8 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:views="using:FinalCheck.App.Views" x:Class="FinalCheck.App.Views.VersionManagementView" x:DataType="vm:VersionManagementViewModel">
+ xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:m="using:FinalCheck.Core.Management" xmlns:views="using:FinalCheck.App.Views" x:Class="FinalCheck.App.Views.VersionManagementView" x:DataType="vm:VersionManagementViewModel">
  <StackPanel Spacing="8">
   <TextBlock Text="合同版本 / 谈判轮次" FontSize="18" />
   <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+  <Button Content="取消项目比对" Command="{Binding CancelComparisonCommand}" IsVisible="{Binding IsComparing}" />
   <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
    <Border x:Name="DropZone" Background="#182B4055" BorderBrush="#58738B" BorderThickness="1" Padding="12" AutomationProperties.Name="合同版本拖入区域"><TextBlock Text="拖入一份或多份 DOCX（随后逐份确认角色和轮次）" TextWrapping="Wrap" /></Border>
    <Button Content="选择合同 DOCX（可多选）" Click="PickFiles" />
@@ -15,10 +16,17 @@
     </StackPanel></DataTemplate></ListBox.ItemTemplate>
    </ListBox>
    <Button Content="确认角色与轮次并导入（不自动比对）" Command="{Binding ImportCommand}" />
+   <Border IsVisible="{Binding BaselinePrompt}" BorderBrush="#D68910" BorderThickness="1" Padding="8"><StackPanel Spacing="6"><TextBlock Text="是否将新我方版本设为当前基准？默认：否。" TextWrapping="Wrap" /><ComboBox ItemsSource="{Binding NewOwnVersions}" SelectedItem="{Binding NewOwnBaseline}" PlaceholderText="如需设置，明确选择一个新我方版本"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ContractVersion"><TextBlock Text="{Binding Source.Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox><Button Content="否，保留现有基准（默认）" Command="{Binding KeepBaselineCommand}" /><Button Content="明确设为当前我方基准" Command="{Binding ConfirmNewBaselineCommand}" /></StackPanel></Border>
    <WrapPanel><ComboBox ItemsSource="{Binding OrderOptions}" SelectedItem="{Binding Order}" Width="140" /><Button Content="刷新版本列表" Command="{Binding RefreshCommand}" /></WrapPanel>
    <ListBox ItemsSource="{Binding Versions}" SelectedItem="{Binding SelectedVersion}" SelectionChanged="SelectVersion" Height="240" AutomationProperties.Name="谈判轮次版本列表"><ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel><ListBox.ItemTemplate><DataTemplate x:DataType="vm:VersionTimelineItem"><StackPanel Spacing="4"><TextBlock Text="{Binding Heading}" TextWrapping="Wrap" /><TextBlock Text="{Binding State}" FontSize="11" /><TextBlock Text="{Binding Version.ImportedAt}" FontSize="11" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
    <Button Content="加载更多版本" Command="{Binding LoadMoreCommand}" IsVisible="{Binding HasMore}" />
    <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" FontSize="12" />
+   <Button Content="将所选我方版本设为当前基准" Command="{Binding SetBaselineCommand}" />
+   <TextBlock Text="{Binding BaselineRecommendation}" TextWrapping="Wrap" FontSize="12" />
+   <ComboBox ItemsSource="{Binding Baselines}" SelectedItem="{Binding SelectedBaseline}" PlaceholderText="选择当前我方基准或模板当前/历史版本"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ProjectBaselineOption"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+   <Button Content="按所选基准执行独立 Comparison" Command="{Binding CompareCommand}" />
+   <TextBlock Text="所选版本相关比对（独立历史 / 已审阅不表示接受）" FontWeight="SemiBold" />
+   <ListBox ItemsSource="{Binding History}" Height="200"><ListBox.ItemTemplate><DataTemplate x:DataType="m:ProjectComparisonHistory"><StackPanel Spacing="4"><TextBlock Text="{Binding CreatedAt}" /><TextBlock Text="{Binding CurrentName}" /><TextBlock Text="{Binding BaselineName}" /><TextBlock Text="{Binding Total, StringFormat='总变化：{0}'}" /><TextBlock Text="{Binding Unresolved, StringFormat='未处理：{0}'}" /><TextBlock Text="{Binding Reviewed, StringFormat='已审阅：{0}'}" /><TextBlock Text="{Binding Ignored, StringFormat='忽略：{0}'}" /><Button Content="打开历史比对" Command="{ReflectionBinding $parent[UserControl].DataContext.OpenHistoryCommand}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
    <TextBox Text="{Binding SourcePath}" PlaceholderText="所选版本原文件路径 / 手动重关联路径" />
    <WrapPanel><Button Content="预览版本 Snapshot" Command="{Binding PreviewCommand}" /><Button Content="查找附近源文件" Command="{Binding FindSourceCommand}" /><Button Content="重新关联（同 hash）" Command="{Binding RelinkCommand}" /></WrapPanel>
    <ListBox ItemsSource="{Binding PreviewBlocks}" Height="220"><ListBox.ItemTemplate><DataTemplate x:DataType="vm:PreviewBlock"><views:SnapshotPreviewBlock Block="{Binding}" /></DataTemplate></ListBox.ItemTemplate></ListBox>

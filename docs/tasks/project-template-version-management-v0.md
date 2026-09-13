@@ -1266,7 +1266,10 @@ Template v1
   * 实际完成（2026-09-13）：后台批量只读导入、逐文件明确角色/轮次的多选 picker/drop 队列、排序/移除、相同 hash 默认跳过与显式重复引用；轮次与版本增量 schema 7、元数据分页/按轮次或时间排序、共享原生冻结快照预览、同 hash 源路径重关联与原始来源保留。当前轮/下一轮/已有轮次可选择，不跳过轮次；导入既不自动比对，也不改变基准。
   * 安全与兼容：一个事务追加完整批次，部分失败/取消回滚；加入队列后 hash 改变要求重新加入确认；旧 schema 6 payload 增量升级保留。Storage facts / original exclusions 纳入轮次、版本及原始来源；源 DOCX 位于旧 DataRoot 内时也不迁移或删除。
   * 验证：新增 5 项 Data / 3 项 VM 测试，Release 全量 267/267、Desktop build 0 warning / 0 error，版本选择修正后 App 41/41 复测。50 版本/20 模板元数据页 26.4 ms，不读取 Snapshot JSON。实际 Template/Version 系统 Drag & Drop 待最终 HEAD 安装包验收；左右角色拖拽区域非硬要求未实现，角色逐行明确确认。
-* Phase 4 — Baseline / Comparison：TODO
+* Phase 4 — Baseline / Comparison：DONE
+  * 实际完成（2026-09-13）：本项目 Own-only 基准校验、新我方导入独立默认否提示、模板当前/历史或当前我方基准选择、项目 baseline type 记忆与对方版本当前我方建议；只预选、不自动执行，也不使用上一版对方作基准。冻结 Snapshot 调用现有 Engine，共享结果/审阅页与历史打开，支持后台执行及取消/离开提示。
+  * 历史安全：schema 8 原子追加项目 Comparison context 与既有独立冻结 Record/result，保存前再次校验归属与输入身份；模板/基准切换不重算旧记录。模板删除引用包含历史 context，即使项目已切换模板；元数据分页从稳定 review payload 读取实际计数，不维护第二套审阅状态。
+  * 验证：新增 5 项 Data / 3 项 VM 测试，Release 全量 275/275、Desktop build 0 warning / 0 error；包含同版本多 Comparison、Own-only、模板切换、Confirmed 保留、原文失效、取消、schema 7 增量升级和 Storage 完整迁移。30 历史/20 行元数据页 71.0 ms，不读取 Snapshot/result JSON。
 * Phase 5 — Project Detail / History / Archive：TODO
 
 ---

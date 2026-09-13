@@ -27,7 +27,8 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
     {
         try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
     }
-    public const int DatabaseSchemaVersion = 7;
+    public const int DatabaseSchemaVersion = 8;
+    public DbSet<StoredProjectComparison> ProjectComparisons => Set<StoredProjectComparison>();
     public DbSet<StoredContractVersion> ContractVersions => Set<StoredContractVersion>();
     public DbSet<StoredNegotiationRound> NegotiationRounds => Set<StoredNegotiationRound>();
     public DbSet<StoredProject> Projects => Set<StoredProject>();
@@ -51,6 +52,19 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             value => value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime(),
             value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
+        modelBuilder.Entity<StoredProjectComparison>(entity =>
+        {
+            entity.ToTable("ProjectComparisons"); entity.HasKey(x => x.RecordId);
+            entity.Property(x => x.BaselineName).IsRequired(); entity.Property(x => x.CurrentName).IsRequired(); entity.Property(x => x.CreatedAtUtc).HasConversion(utcDateTimeConverter);
+            entity.HasIndex(x => new { x.ProjectId, x.CreatedAtUtc });
+            entity.HasOne<StoredComparisonRecord>().WithMany().HasForeignKey(x => x.RecordId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredProject>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredContractVersion>().WithMany().HasForeignKey(x => x.CurrentVersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredContractVersion>().WithMany().HasForeignKey(x => x.OwnBaselineVersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredTemplateVersion>().WithMany().HasForeignKey(x => x.TemplateBaselineVersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(x => x.BaselineSourceSnapshotId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(x => x.CurrentSourceSnapshotId).OnDelete(DeleteBehavior.Restrict);
+        });
         modelBuilder.Entity<StoredNegotiationRound>(entity =>
         {
             entity.ToTable("NegotiationRounds"); entity.HasKey(x => x.Id); entity.HasAlternateKey(x => new { x.ProjectId, x.Number });
