@@ -82,7 +82,9 @@ Velopack 更新替换实际安装根目录中的 `current`，卸载处理该实�
 
 安装包当前未签名，Windows 可能显示 SmartScreen/发行者提示；仅信任来源明确且 checksum 通过的产物，不关闭系统安全保护。可使用官方 `Setup --silent` 禁止安装后自动启动，再从安装目录显式启动验证。
 
-## 可选安装目录：待实施门禁
+## 安装目录选择：Beta 前必须通过的门禁
+
+[校准 PRD](../PRD/PRD-v0.1.0.md) 将 Installer Wizard 定为 v0.1.0 Beta 前发布阻断项，Stage B 必须先完成 Spike 和正式目录 UI/维护链路验收；不能将其作为 Stable 之后优化。当前原生 one-click Setup 仅为临时开发/内部回归产物，不满足正式用户安装体验。此要求尚未自动接入 workflow，发布前必须人工核对，不得凭 workflow 绿灯跳过；本次校准不重写既有发布体系，也不触发构建安装包或 Release。
 
 正式 Setup 必须显示完整目录和“浏览”修改入口，推荐默认值不能无交互直接采用；支持 D/E 盘等当前用户可写的本机固定磁盘目录。Test / Prerelease / Stable 复用同一机制。已有实例显示并沿用实际位置进行维护/升级，不重新落到 C 盘，不提供多目录 side-by-side；更新后 shortcut、Registry registration、卸载项持续正确。
 

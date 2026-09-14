@@ -6,6 +6,8 @@
 
 ## 正式产品契约与当前差距
 
+根据 [校准 PRD](../PRD/PRD-v0.1.0.md) 第 58.1、63.13、64 章，交互 Installer Wizard 是 **v0.1.0 Beta 前发布阻断项**，安排 Stage B；不能延到 Stable 之后。现有一键默认目录 Setup 仅为开发/内部回归临时方案，不满足 Beta 用户验收。继续采用下述既有 Spike 验证推荐包装层，文档校准不修改现有 workflow、Velopack 版本或 package ID。
+
 首次安装必须显示完整安装目录，提供“浏览”和修改入口，用户确认后才写入。推荐目录可以继续是 `%LocalAppData%\FinalCheck.App`，但不得无交互直接采用；允许本机可写目录，例如 `D:\Applications\Final Check`、`E:\Programs\Final Check`。安装路径与 DataRoot 分开选择，禁止任一业务数据根目录与安装根目录重叠。
 
 Test / Prerelease / Stable 使用同一目录选择、现有实例检测和验证代码，仅版本/channel 不同。同一用户的同一 `FinalCheck.App` 不提供多目录 side-by-side 安装。已有实例的覆盖安装/升级显示并沿用实际安装位置，不重新采用默认 C 盘路径；更换已安装程序目录不是本阶段功能。卸载只处理经确认的实际安装根目录、该实例快捷方式和注册信息，保留独立 DataRoot 与 bootstrap。

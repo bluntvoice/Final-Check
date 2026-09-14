@@ -16,6 +16,10 @@ Windows 打包、单一版本源、安装/数据目录分离与发布 channel �
 
 Format Restore Engine v0 的保守映射、最小属性写回与安全验证见 [`format-restore-engine.md`](format-restore-engine.md)；固定 Working Copy、journal、Undo 与持久化决策见 [`ADR-0005-format-restore-working-copy-and-undo.md`](ADR-0005-format-restore-working-copy-and-undo.md)。
 
+## 校准后的开发目标
+
+[PRD-v0.1.0.md](../PRD/PRD-v0.1.0.md)（2026-09-14 校准）是后续产品需求唯一基准，Stage A→F 顺序见其第 64 章。已完成底层和 task 证据保留，不代表自动项目化、模板自动推荐、一体工作台、Ignore Rules、正式 Restore/Storage UI、Three-way 或 updater 已实现。规划与当前实现边界见 [comparison-ui.md](comparison-ui.md) 和 [project-template-version-management.md](project-template-version-management.md)。Installer Wizard 是 Beta 前阻断项，必须先通过既有 Spike，不在文档校准中改 Velopack 流水线。
+
 ## Solution 分层
 
 模板、项目、版本与轮次管理见 [project-template-version-management.md](project-template-version-management.md)；逐 Phase 实施与验收见 [task](../tasks/project-template-version-management-v0.md)。Quick Compare 与项目比对复用同一结果 UI；已审阅仅表示人工查看，不表示接受合同修改。

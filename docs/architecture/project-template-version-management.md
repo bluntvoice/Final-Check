@@ -4,6 +4,14 @@
 
 This architecture extends independent Quick Compare without replacing its Engine, frozen Snapshot / Comparison payloads or result / review UI. Phases 1–5 implement Template Center, Contract Projects, Version / Round management, project comparisons and lifecycle. Implementation and final-package acceptance state are recorded separately in the [task](../tasks/project-template-version-management-v0.md); native drag/drop is not inferred from adapter tests.
 
+## 校准后的产品边界（2026-09-14）
+
+后续产品行为以 [PRD](../PRD/PRD-v0.1.0.md) 为准，下面各 Phase/schema 描述保留已实现事实，不是强制维持原交互的要求。Stage A 将改为成功比对后自动项目化、项目内自动 V1/V2 标签、默认时间顺序、轮次高级可选、普通比较可暂未指定角色；既有明确 Own/Counterparty、ContractRound、Own-only baseline 和冻结历史不废弃。
+
+有绑定模板时直接预选逻辑模板的当前启用版本，当前实现的绑定历史版本/Own 推荐/上次类型记忆不得视为已满足该新默认；用户主动选择可切换 Own 或历史模板，开始前显示实际基准，历史记录冻结实际模板版本。Template Current 变化不重写旧 project binding evidence 或 Comparison。
+
+角色未知、自动序号、自动关联与旧 Quick Compare 的迁移/事务方案须在实现任务中测试兼容，不能用默认 Counterparty 猜角色、重建数据库或回写旧事实。自动创建项目名称稍后可编辑，不作为首次必填表单；已完成任务的 DONE/验收证据保留。工作台目标详见 [comparison-ui.md](comparison-ui.md)。
+
 ## Template model and persistence
 
 Logical `Template` owns name, contract type, enabled/deleted flags, notes and UTC timestamps. `TemplateVersion` owns a separate Guid, user-editable version label, original `ComparisonFile` metadata/hash, persisted Snapshot Guid, parse status and current marker. Database schema 5 adds Templates and TemplateVersions with Restrict foreign keys and unique (TemplateId, Version), and a filtered unique TemplateId index for IsCurrent=1.

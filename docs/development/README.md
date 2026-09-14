@@ -6,6 +6,14 @@ Final Check v0.1.0 的基础工程、Document / Comparison / Format Restore Engi
 
 可选安装目录已完成架构落档，Installer Wizard 尚未实现。Storage Foundation v0 Phase 1–5 基础实现完成：bootstrap / 旧库识别、路径政策、非破坏迁移 / session rebind、启动 recovery 和 usage；验收证据以 [storage task](../tasks/storage-foundation-v0.md) 为准。正式 Storage Settings UI 未实现，Velopack workflow 未改变。
 
+## 后续开发顺序与验收边界
+
+[当前 PRD](../PRD/PRD-v0.1.0.md) 已按 2026-09-14 试用反馈校准，第 64 章是后续顺序：Stage A 易用性/自动项目化/版本轮次简化/模板推荐及绑定默认/一体工作台/Undo/逻辑滚动/Ignore Rules → Stage B Installer Wizard + Storage Settings → Stage C Format Restore UI → Stage D 导出/全局搜索/备份恢复 → Stage E 三文件比对评估 → Stage F updater 与经授权的 Beta/Prerelease/Stable。
+
+已完成 task 保存原阶段实现和验收证据，旧强制角色/轮次、独立 Quick Compare、页签布局或 Own 优先推荐不是后续产品约束，也不证明新需求完成。角色暂未指定、自动编号和自动项目保存的兼容方案需在新实现任务中验证，现有模型/迁移保留。Three-way 在 Beta 前评估 Spike，过大可明确延后 v0.1.x；PDF/OCR 仅未来规划。
+
+Installer Wizard 是 Beta 前阻断项；当前开发 Setup 安装成功不能替代目录浏览/原地升级/卸载/数据保留验收。真实滚轮/触控板联动体验也不能只用 unit tests 代替。仅校准 Markdown 文档时检查范围、格式/相对链接、diff 后正常 commit/push，不触发安装包、Tag 或 Release，不修改业务代码、schema 或 workflow。
+
 ## 开发前阅读
 
 1. [`AGENTS.md`](../../AGENTS.md)

@@ -2,7 +2,19 @@
 
 ## 边界与入口
 
-Quick Compare 是不要求项目、模板或版本链的独立入口：首页 → 新建比对 → 基准版本 / 当前版本。后续项目模式可复用该工作流，不提前建立完整项目 UI。
+当前已实现的 Quick Compare 是不要求预建项目、模板或版本链的入口：首页 → 新建比对 → 基准版本 / 当前版本；项目模式已复用同一 Engine / 结果 / 审阅 UI。以下实现描述保留 v0 阶段事实，不代表已满足全部校准后产品目标。
+
+## PRD 校准后的目标（待 Stage A 实现）
+
+以 [当前 PRD](../PRD/PRD-v0.1.0.md) 第 5、9–12、23–30、64 章为准：直接提供文件，正式成功后自动项目化；版本自动编号，轮次按需展开，普通比较可暂未指定角色；有绑定模板时默认其当前启用版本，无绑定时区分唯一高可信推荐 / Top 3 / 手动选择。自动匹配只预选，仍须点击开始。
+
+Application workflow 负责可恢复/事务性保存项目、参与版本、Snapshot、独立 Comparison 与上下文，不由 View 拼装数据库写入；复用现有 frozen record 与 history，失败/取消不能生成空项目或假成功。现有只支持 Own/Counterparty 的模型不能靠 UI 隐藏必填或把未知角色映射成 Counterparty 解决，须另行设计增量兼容方案。
+
+Comparison Workspace 使用统一 selected ChangeId / group member，将清单、双栏文档、详情、批注、状态和前后项导航同时更新；当前两个页签是已实现的临时形态，不是最终目标。Review 只是阅读进度，操作增加可撤销反馈，永久删除仍二次确认。
+
+联动滚动继续复用可靠 NodeMappings，新增基于视口主要 Anchor 的 Leader/Follower 与反馈抑制；需实际滚轮/触控板验收响应、换侧和长文，不将已有定位/模型测试等同新体验验收。Comparison Ignore Rules 使用独立的每次比对 policy，不复用 Ignored 状态；保留完整结果与原始 spans，再评估规范化/过滤/展示策略，转换后位置仍须可追溯，不能丢弃原事实。
+
+Three-way Compare 是 Stage E 规划：复用三个 pairwise Comparison，通过共用模板/版本节点建立 Change Matrix 和三栏 Anchor，保留每个结果身份/可信度/未匹配诊断，不另造单一三文本 diff 或破坏双文件入口。Beta 前 Spike 评估，可明确延后 v0.1.x；本轮无模型/代码改动。Format Restore 正式 UI 属于 Stage C，优先在同一 Workspace 消费已有 Plan / Working Copy / Undo 服务。
 
 ## Session 与输入适配
 

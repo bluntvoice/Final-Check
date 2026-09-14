@@ -169,4 +169,6 @@ Storage Foundation Phase 3 已实现 `IDataRootValidator`：由 Infrastructure �
 
 ## 后续 Storage Settings 验收（未执行）
 
+[校准 PRD](../PRD/PRD-v0.1.0.md) 第 45、64 章将正式“设置 → 存储”安排在 Stage B：显示当前 DataRoot/占用分类、打开文件夹、更改位置并立即刷新。下述基础服务和兼容规则继续沿用；Foundation DONE 不等于 UI 或用户数据备份/恢复（Stage D）完成。Installer Wizard 同属 Stage B 且为 Beta 前阻断项，安装位置与数据位置仍彻底解耦。
+
 必须覆盖新用户 bootstrap / 旧布局兼容、有数据迁移 D/E 盘、路径风险/权限/空间、配置损坏/丢库不建空库、SQLite WAL 一致性、managed path/history/Undo/recovery、原始与导出路径不变、跨进程/外部编辑、取消、每步 I/O/数据库故障与提交前后 crash、旧数据保留，以及新路径立即生效/统计无重复计数。接口纯契约与已有核心测试仍保持 macOS 编译；Windows folder UI/磁盘/锁/原子替换实测独立记录。本轮文档测试和旧引擎回归不能冒充这些新功能验收。

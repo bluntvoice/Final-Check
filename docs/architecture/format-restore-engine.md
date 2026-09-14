@@ -1,5 +1,9 @@
 # Format Restore Engine v0
 
+## 产品 UI 与阶段边界
+
+本页记录已完成恢复引擎，正式 UI 尚未实现。根据 [校准 PRD](../PRD/PRD-v0.1.0.md) 第 31–40、64 章，Stage C 优先在 Comparison Workspace 接入当前/目标格式、All/Category/SelectedItems、Plan 确认、已恢复标记、Working Copy、Undo Last Restore、导出 DOCX 与外部编辑选择；复用现有服务，不将 Developer 工具视为产品 UI。映射不足宁可跳过，所有写入仍须保留当前文字/Insert/Delete/批注、禁止 Accept All Revisions、正式重解析验证，不修改原 DOCX。
+
 ## Pipeline 与分层
 
 Analyze Snapshot + existing Comparison → deterministic Restore Plan → review/validate → execute on a separate copy → official Document Engine reparse → validate → publish working copy and history.
@@ -46,7 +50,7 @@ Table/Cell 沿用 Comparison 的结构位置 mapping，不额外识别同尺寸�
 
 `IFormatRestoreWorkingCopyService` 接受调用方稳定的 ContractVersion Guid；v0 不提前建立项目管理实体。每个版本只维护 `AppData/WorkingCopies/<version-guid>/restored.docx`。原文件仅以路径/hash 标识，打开只读，不设置 readonly、不替换原文件。后续恢复使用当前 working file；原文件和其他版本文件不参与覆盖。
 
-这是当前旧 AppData 实现。正式路径契约改为独立 `DataRoot/WorkingCopies/<version-guid>/restored.docx`，详见 [storage-and-paths.md](storage-and-paths.md)；尚未接入可变 provider。迁移必须同时处理 working metadata / operation 的受校验绝对路径、backup/journal 与 Undo 引用，保留原文路径、文件 SHA 和历史身份；仅改根目录字符串不能视为安全实现。
+上段 AppData 名称是恢复引擎初始阶段的描述；Storage Foundation 已将 adapter 接入独立 `DataRoot/WorkingCopies/<version-guid>/restored.docx` 和 generation session，详见 [storage-and-paths.md](storage-and-paths.md)。迁移同时处理 working metadata / operation 的受校验绝对路径、backup/journal 与 Undo 引用，保留原文路径、文件 SHA 和历史身份；基础服务已接入不代表正式 Storage Settings / Restore UI 已完成。
 
 私有 Renderer 验证 → 唯一 candidate 文件（CreateNew、flush）→ 再正式 parse/hash 验证 → 保存 Prepared journal → 再查旧 working hash → File.Replace（含旧文件 backup）/首次 safe move → 数据库 transaction Completed + working metadata。发布临界区不响应取消，避免“已发布但被标记取消”；取消发生在临界区前则旧文件保持完整。跨进程 operation.lock 仅协调本应用，同样拒绝 symlink/reparse-point 路径。文件系统与 SQLite 不是共同事务，详细决策见 ADR-0005。
 

@@ -10,6 +10,8 @@
 
 ## 1. 任务目标
 
+> 历史阶段规范说明（2026-09-14）：本文保留已完成 v0 Phase 和验收证据，不作为后续沿用独立临时记录/页签布局的产品限制。后续以 [校准 PRD](../PRD/PRD-v0.1.0.md) 为唯一需求基准：Stage A 正式成功比对自动项目化、一体 Comparison Workspace、Review Undo、Leader/Follower 实际滚动验收、独立 Comparison Ignore Rules。本文原“已确认”用户语义已由项目管理阶段统一为“已审阅”，内部 Confirmed 保留兼容；只表示人工查看。新增目标不由旧 DONE 或旧测试推断完成，本次仅校准文档，不重新执行旧打包任务。
+
 建立 Final Check 第一版正式、面向用户的 **Comparison UI**。
 
 本阶段需要形成第一条完整可使用流程：
