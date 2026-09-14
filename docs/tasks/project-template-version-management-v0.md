@@ -1,10 +1,10 @@
 # Final Check — Project / Template / Version Management v0
 
-> Status: IN PROGRESS
+> Status: DONE
 > Version: v0.1.0 development
 > Scope: Template Center / Contract Project / Version & Round Management / Comparison History
 > Depends on: Document Engine v0, Comparison Engine v0, Format Restore Engine v0, Storage Foundation v0, Comparison UI v0
-> Last updated: 2026-09-13
+> Last updated: 2026-09-14
 
 ---
 
@@ -1285,6 +1285,17 @@ Template v1
 - 实际归档→恢复、正常退出→重启恢复 PASS。经用户动作前确认，实际回收站→立即恢复 PASS，同一 ProjectId 恢复 Active、四份版本/两轮/当前我方基准及两条项目历史保留；未永久删除。六份脱敏源 DOCX SHA-256 不变，DataRoot 中无原始 DOCX 副本。
 - 继续验收发现已有轮次列表取消选择导致 null→Int32 绑定异常。已分离 nullable 列表选择与 nullable decimal 数字输入；仅有效整数进入原模型，空白/小数/越界轮次不得用残留值导入。新增列表刷新/短暂失选和无效输入 2 项回归测试，相关 VersionManagement 5/5 PASS；Release restore/build PASS、0 warning / 0 error，全量 288/288（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 50），0 failed / skipped。
 - 此轮修正提交后，`dev.8.1` 不再代表最终 HEAD；须重跑最终 HEAD CI/Test Build、实际升级及轮次/导航/历史复验。实际 Template + Contract Version 跨窗口 Drag/drop 仍待用户操作（自动化接口拒绝跨窗口终点），卸载数据保留待拖拽验收后执行。总体继续 IN PROGRESS，不能把旧包或 VM 测试冒充最终验收完成。
+
+## 验收完成记录（2026-09-14）
+
+- 上述 IN PROGRESS / 待执行描述为当时的历史状态；Phase 1–5 实现和本阶段验收现已完成。最终业务实现 SHA 为 `8c61789bf9fd370f97f4062d2901193766285724`，Release restore/build 0 warning / 0 error，288/288 tests PASS，0 failed / skipped。
+- 该 SHA 的 CI [34756317476](https://github.com/bluntvoice/Final-Check/actions/runs/34756317476) Windows build/test 与 macOS core compatibility 均 PASS；Windows Test Build [34756327171](https://github.com/bluntvoice/Final-Check/actions/runs/34756327171) PASS，版本 `0.1.0-dev.9.1`，Artifact 10317048455。实际下载 ZIP 的 SHA-256 `6c271a20c656709087f1c4f27dc59a50cb7ea9c41e7f85c42e6d05d29dd7c1bc` 与 Actions digest 一致，全部文件 checksum / package metadata / 版本校验 PASS；官方 Setup 实际升级 exit 0，实际应用 UI 版本一致。
+- 新包实际刷新版本列表保持第 2 轮；下一轮为 3、已有轮次失选不出现 null→Int32 异常。空白数值显示明确整数校验，点击当前轮恢复 2 并清除提示；模板中心往返导航保持正常。实际打开既有项目历史，双栏显示冻结的 45→90 差异，两条历史分别保留 11 未处理 / 1 已审阅和 12 未处理 / 0 已审阅。
+- 用户实际执行 Template 与 Contract Version 的 Explorer→应用跨窗口 Drag/drop，并回复完成；Agent 随后复核模板源路径 `00-template-v1.docx`，以及项目待导入队列的 `04-counterparty-v2.docx`。角色未自动选择，轮次为 2，重复内容显示默认跳过且未勾选强制导入；未点击导入，既有四份版本 / 两轮 / 当前我方基准不变。此证据为用户实际拖拽 + Agent 界面复核，不是自动化跨窗口拖拽或 picker/VM 替代。
+- 实际正常关闭应用后，先从只读 SQLite connection 完成一致性备份，再执行实际安装根目录中的官方 `Update.exe uninstall --silent`，exit 0；安装目录 / launch stub / current executable / 用户卸载项已移除。卸载前数据目录全部 8 个文件逐文件 SHA-256 和 bootstrap SHA-256 在卸载后全部一致；旧 Quick Compare 与两条项目历史 payload SHA-256、冻结身份、审阅状态未变。用户自行新增的模板也完整保留，未将用户内容或数据库提交到 Git。
+- 六份外部脱敏 DOCX 保持原 hash；DataRoot 未复制原始 DOCX。实际模板升级 / 明确切 Current / 历史绑定、版本链、独立历史、归档恢复、正常重启与经用户动作前确认的回收站立即恢复，详见上方逐次验收记录；永久删除只执行隔离自动测试，不在真实用户数据库进行破坏性手试。
+- 本次收尾仅更新本任务状态和验收事实，不修改业务代码、schema、依赖、版本源或 packaging workflow。收尾 commit 会改变 HEAD，因此正常 push 后再从该最终 HEAD 执行 CI / Test Build 和实际安装启动 / 历史读取 / 正常卸载保留复验；该补充包的 SHA、Run 和版本在最终报告列明。已完成的实际 Drag/drop 针对相同业务实现，不要求用户为纯文档提交重复拖拽。
+- 下一阶段限制保持不变：左右角色专用拖拽区域、Quick Compare→Project、自动模板匹配及正式 Format Restore / Storage Settings / Installer Wizard / AI / Stable Release 不属于本任务。无可靠归属的旧 unlinked restore-generated payload 保守保留，性能数字为后台元数据查询而非完整 UI benchmark。
 
 # 28. 每 Phase 纪律
 
