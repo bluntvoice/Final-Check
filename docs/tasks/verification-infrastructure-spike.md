@@ -931,6 +931,6 @@ Estimate：
 
 - Avalonia Headless：`Avalonia.Headless` 12.1.2 + 现有 xUnit 2 的手动 session；真实 MainWindow/ComparisonResultsView XAML、布局、控件树、键盘/输入/命令测试 2/2 通过。完整列表选择链存在一个待后续定位的 `SelectedEntry` 已更新但 `SelectedChange` 变为 null 的现象；没有为了 Spike 修改业务逻辑。
 - Windows UI Automation：`FlaUI.UIA3` 5.0.0 驱动**真实 Debug GUI 隔离进程**，找到 `MainQuickCompare`，Invoke 后找到 `ComparisonStart` 并读取 disabled 状态，正常退出和清理；最近一次 5,787 ms。未实测已安装 Test Build、Installer Wizard、FlaUI.Cli 或 Appium/WinAppDriver。
-- Verification Harness：在 GUID 临时 DataRoot 中实测 schema 9 / SQLite integrity、两份生成式 DOCX 解析、30→60 比对（10 项）、Snapshot/Comparison 重开、Project + 明确角色版本重开、原件 SHA-256 不变与 DataRoot 无原件。成功 JSON/exit 0、参数错误 JSON/exit 2；最近成功运行 4,155 ms，默认清理。
+- Verification Harness：在 GUID 临时 DataRoot 中实测 schema 9 / SQLite integrity、两份生成式 DOCX 解析、30→60 比对（10 项）、Snapshot/Comparison 重开、Project + 明确角色版本重开、原件 SHA-256 不变与 DataRoot 无原件。成功 JSON/exit 0、参数错误 JSON/exit 2；单独运行 4,155 ms，统一入口内运行 3,303 ms，成功后默认清理。
 - 统一入口：`pwsh -NoProfile -File scripts/verify.ps1` 实测 restore、Release build（0 警告/0 错误）、6 个测试工程 290/290 通过、Harness 8/8 检查通过并返回 `Overall PASS`。
 - 架构结论、FlaUI/Appium 取舍、CI 分层及人工边界见 [verification-strategy.md](../development/verification-strategy.md)。本 Spike 不改现有 `.github/workflows/`、业务逻辑、Release 或用户数据库。
