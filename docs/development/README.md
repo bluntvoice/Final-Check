@@ -36,6 +36,8 @@ Installer Wizard 是 Beta 前阻断项；当前开发 Setup 安装成功不能�
 
 在仓库根目录执行：
 
+验证基础设施分层、自动化边界与人工验收清单见 [Verification strategy](verification-strategy.md)。统一 Release build/test、Headless 与隔离 Harness 入口：`./scripts/verify.ps1`；真实 Windows UI 自动化需交互式桌面单独运行，不能视为安装包验收。
+
 ```powershell
 dotnet tool restore
 dotnet restore FinalCheck.sln
@@ -131,6 +133,10 @@ tests/
   FinalCheck.Documents.Tests/
   FinalCheck.Comparison.Tests/
   FinalCheck.Data.Tests/
+  FinalCheck.Ui.Headless.Tests/ Avalonia 真实 XAML 无窗口交互测试
+tools/
+  FinalCheck.Verification/     隔离 DataRoot 的结构化集成验证
+  FinalCheck.WindowsUi.Smoke/  Windows FlaUI 真实桌面原型
 ```
 
 依赖方向和硬性边界见 [`docs/architecture/README.md`](../architecture/README.md)。

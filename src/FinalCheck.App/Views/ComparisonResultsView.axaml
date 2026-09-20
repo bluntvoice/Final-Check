@@ -10,7 +10,7 @@
       <Expander Header="解析与匹配提示"><ScrollViewer MaxHeight="140"><TextBlock Text="{Binding DiagnosticDetails}" TextWrapping="Wrap" /></ScrollViewer></Expander>
       <CheckBox Content="归并视图（取消勾选查看逐项）" IsChecked="{Binding Grouped}" />
       <WrapPanel>
-        <TextBox PlaceholderText="搜索原文、现文或批注" Text="{Binding SearchText}" Width="190" Margin="0,0,8,8" AutomationProperties.Name="搜索修改" />
+        <TextBox PlaceholderText="搜索原文、现文或批注" Text="{Binding SearchText}" Width="190" Margin="0,0,8,8" AutomationProperties.Name="搜索修改" AutomationProperties.AutomationId="ComparisonSearch" />
         <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" Width="110" Margin="0,0,8,8" AutomationProperties.Name="状态筛选" />
         <ComboBox ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding TypeFilter}" Width="110" Margin="0,0,8,8" AutomationProperties.Name="类型筛选" />
         <Button Content="仅看未处理" Command="{Binding OnlyUnresolvedCommand}" Margin="0,0,8,8" />
@@ -18,7 +18,7 @@
       </WrapPanel>
     </StackPanel>
     <Grid Grid.Row="2" ColumnDefinitions="2*,12,5*">
-      <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" AutomationProperties.Name="修改清单">
+      <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" AutomationProperties.Name="修改清单" AutomationProperties.AutomationId="ComparisonChangeList">
         <ListBox.Styles><Style Selector="ListBoxItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="#E8F1FF" /></Style></ListBox.Styles>
         <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
         <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeListEntry">
@@ -39,7 +39,7 @@
           <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding ReviewMessage}" TextWrapping="Wrap" />
           <WrapPanel>
-            <Button Content="审阅当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="已审阅仅表示人工查看，不表示接受、同意或采纳合同修改" />
+            <Button Content="审阅当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="已审阅仅表示人工查看，不表示接受、同意或采纳合同修改" AutomationProperties.AutomationId="ComparisonReview" />
             <Button Content="忽略当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Ignored" Margin="0,0,8,8" />
             <Button Content="恢复未处理" Command="{Binding ReviewSelectedCommand}" CommandParameter="Unresolved" Margin="0,0,8,8" />
             <Button Content="审阅当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="仅标记当前显示修改为已审阅，不表示接受合同修改" />

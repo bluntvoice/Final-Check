@@ -27,7 +27,7 @@
     <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
     <ProgressBar IsVisible="{Binding IsExecuting}" IsIndeterminate="True" />
     <WrapPanel>
-      <Button Content="开始比对" Command="{Binding StartCommand}" IsDefault="True" AutomationProperties.Name="开始比对" />
+      <Button Content="开始比对" Command="{Binding StartCommand}" IsDefault="True" AutomationProperties.Name="开始比对" AutomationProperties.AutomationId="ComparisonStart" />
       <Button Content="取消" Command="{Binding CancelCommand}" IsVisible="{Binding IsExecuting}" Margin="8,0" IsCancel="True" />
     </WrapPanel>
     <StackPanel IsVisible="{Binding IdenticalPrompt}" Spacing="8">

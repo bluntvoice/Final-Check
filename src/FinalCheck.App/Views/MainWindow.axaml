@@ -32,7 +32,7 @@
           <StackPanel.Styles><Style Selector="Button"><Setter Property="Foreground" Value="White" /><Setter Property="Background" Value="#293A4C" /><Setter Property="HorizontalAlignment" Value="Stretch" /></Style></StackPanel.Styles>
           <Button Content="首页" Command="{Binding NavigateCommand}" CommandParameter="home" ToolTip.Tip="新建比对或继续最近记录" />
           <Button Content="模板中心" Command="{Binding NavigateCommand}" CommandParameter="templates" />
-          <Button Content="快速比对" Command="{Binding NavigateCommand}" CommandParameter="compare" />
+          <Button Content="快速比对" Command="{Binding NavigateCommand}" CommandParameter="compare" AutomationProperties.AutomationId="MainQuickCompare" />
           <Button Content="合同项目" Command="{Binding NavigateCommand}" CommandParameter="projects" />
           <Button Content="归档" Command="{Binding NavigateCommand}" CommandParameter="archive" />
           <Button Content="回收站" Command="{Binding NavigateCommand}" CommandParameter="recycle" />
@@ -46,7 +46,7 @@
 
     <Grid Grid.Column="1" Margin="16" RowDefinitions="Auto,12,*">
       <StackPanel>
-        <TextBlock Text="{Binding CurrentPageTitle}" FontSize="30" FontWeight="SemiBold" Foreground="#17202A" />
+        <TextBlock Text="{Binding CurrentPageTitle}" FontSize="30" FontWeight="SemiBold" Foreground="#17202A" AutomationProperties.AutomationId="MainPageTitle" />
         <TextBlock Text="{Binding CurrentPageDescription}" Margin="0,8,0,0" FontSize="14" Foreground="#5C6773" />
       </StackPanel>
 
