@@ -62,6 +62,55 @@ public sealed class ProjectComparisonTests(ITestOutputHelper output)
         var history = await service.HistoryAsync(chain.Project, current.ContractVersionId); Assert.Equal(2, history.Count); Assert.Equal(1, history.Single(x => x.RecordId == own.Record.RecordId).Reviewed);
         Assert.Equal(ProjectBaselineType.Template, (await service.ChoicesAsync(chain.Project, current.ContractVersionId)).LastType);
     }
+    [Fact] public async Task BoundTemplateDefaultsToLatestCurrentWithoutChangingFrozenHistory()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); using var provider = Services(env);
+        var chain = await ChainAsync(env, provider); var service = Service(provider); var current = chain.Versions[1];
+        await service.SetBaselineAsync(chain.Project, chain.Versions[0].ContractVersionId);
+        var oldVersion = chain.Template.Current!;
+        var oldHistory = await service.CompareAsync(new(chain.Project, current.ContractVersionId, ProjectBaselineType.Template, oldVersion.TemplateVersionId));
+        var newerPath = Path.Combine(env.Fixture.DirectoryPath, "template-next.docx"); ComparisonWorkflowTests.WriteDocument(newerPath, "45");
+        Guid nextId;
+        await using (var db = env.Factory.CreateDbContext())
+        {
+            var file = await new ComparisonFileInspector().InspectAsync(newerPath);
+            var snapshot = await new OpenXmlDocumentParser().ParseFileAsync(newerPath);
+            var templates = new TemplateStore(db, new DocumentSnapshotStore(db, new JsonDocumentSnapshotSerializer()));
+            var newer = await templates.AddVersionAsync(chain.Template.Template.TemplateId, "模板", "代理", "1.1.0", file, snapshot);
+            nextId = Assert.Single(newer.Versions, x => x.Version == "1.1.0").TemplateVersionId;
+            await templates.SetCurrentAsync(chain.Template.Template.TemplateId, nextId);
+        }
+        var choices = await service.ChoicesAsync(chain.Project, current.ContractVersionId);
+        Assert.True(choices.HasBoundTemplate); Assert.Null(choices.BoundTemplateWarning);
+        Assert.Equal(nextId, Assert.Single(choices.Options, x => x.Type == ProjectBaselineType.Template && x.IsCurrent).VersionId);
+        Assert.Equal(oldVersion.TemplateVersionId, (await service.HistoryAsync(chain.Project)).Single().BaselineVersionId);
+        File.Delete(oldVersion.Source.Path);
+        var nextHistory = await service.CompareAsync(new(chain.Project, current.ContractVersionId, ProjectBaselineType.Template, nextId));
+        Assert.Equal(2, (await service.HistoryAsync(chain.Project)).Count);
+        await using var check = env.Factory.CreateDbContext();
+        var frozen = await new ComparisonRecordStore(check, new JsonDocumentSnapshotSerializer(), new JsonComparisonResultSerializer()).LoadAsync(oldHistory.Record.RecordId);
+        Assert.Equal(oldHistory.Record.BaselineFile.Sha256, frozen!.Record.BaselineFile.Sha256);
+        Assert.NotEqual(oldHistory.Record.RecordId, nextHistory.Record.RecordId);
+        await new TemplateStore(check, new DocumentSnapshotStore(check, new JsonDocumentSnapshotSerializer()))
+            .UpdateAsync(chain.Template.Template.TemplateId, "模板", "代理", "", false);
+        var disabled = await service.ChoicesAsync(chain.Project, current.ContractVersionId);
+        Assert.NotNull(disabled.BoundTemplateWarning);
+        Assert.DoesNotContain(disabled.Options, x => x.Type == ProjectBaselineType.Template && x.IsCurrent);
+        var alternate = await ProjectTests.TemplateAsync(check, "另一个可用模板");
+        var explicitComparison = await service.CompareAsync(new(chain.Project, current.ContractVersionId,
+            ProjectBaselineType.Template, alternate.Current!.TemplateVersionId));
+        Assert.Equal(alternate.Current.TemplateVersionId,
+            Assert.Single(await service.HistoryAsync(chain.Project), x => x.RecordId == explicitComparison.Record.RecordId).BaselineVersionId);
+        await new TemplateStore(check, new DocumentSnapshotStore(check, new JsonDocumentSnapshotSerializer()))
+            .UpdateAsync(chain.Template.Template.TemplateId, "模板", "代理", "", true);
+        var currentSnapshotId = await check.TemplateVersions.Where(x => x.Id == nextId).Select(x => x.SnapshotId).SingleAsync();
+        await check.DocumentSnapshots.Where(x => x.Id == currentSnapshotId).ExecuteUpdateAsync(s => s.SetProperty(x => x.Payload, new byte[] { 0 }));
+        var damaged = await service.ChoicesAsync(chain.Project, current.ContractVersionId);
+        Assert.NotNull(damaged.BoundTemplateWarning);
+        Assert.DoesNotContain(damaged.Options, x => x.Type == ProjectBaselineType.Template && x.IsCurrent);
+        Assert.NotNull(await new ComparisonRecordStore(check, new JsonDocumentSnapshotSerializer(), new JsonComparisonResultSerializer())
+            .LoadAsync(nextHistory.Record.RecordId));
+    }
     [Fact] public async Task FrozenSnapshotComparisonSurvivesMissingSourcesAndCancelledSaveDoesNotLeaveOrphans()
     {
         await using var env = await MigrationEnvironment.CreateAsync(); using var provider = Services(env); var chain = await ChainAsync(env, provider); var service = Service(provider);

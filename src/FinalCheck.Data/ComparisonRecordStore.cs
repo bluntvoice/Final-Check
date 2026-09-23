@@ -51,18 +51,27 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
         return new(record, baseline, current, result);
     }
     public async Task<ComparisonWorkflowResult> SaveAutomaticProjectAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
-        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default)
+        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result,
+        AutomaticTemplateBaseline? templateBaseline = null, CancellationToken cancellationToken = default)
     {
         if (context.Database.CurrentTransaction is not null) throw new InvalidOperationException("Automatic project save owns its transaction.");
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        if (templateBaseline is not null)
+        {
+            var valid = await context.TemplateVersions.AsNoTracking().AnyAsync(x => x.Id == templateBaseline.TemplateVersionId &&
+                x.TemplateId == templateBaseline.TemplateId && x.SnapshotId == templateBaseline.SnapshotId && x.Sha256 == baselineFile.Sha256, cancellationToken);
+            if (!valid || !await context.Templates.AsNoTracking().AnyAsync(x => x.Id == templateBaseline.TemplateId && x.IsEnabled && !x.IsDeleted, cancellationToken))
+                throw new InvalidDataException("所选模板版本已变化或不可用，请重新匹配。 ");
+        }
         var saved = await SaveAsync(baselineFile, currentFile, baseline, current, result, cancellationToken);
         var projectId = Guid.NewGuid(); var now = saved.Record.CreatedAt.UtcDateTime;
-        var suggested = Path.GetFileNameWithoutExtension(baselineFile.Name).Trim();
+        var suggested = (templateBaseline?.TemplateName ?? Path.GetFileNameWithoutExtension(baselineFile.Name)).Trim();
         if (string.IsNullOrWhiteSpace(suggested)) suggested = "未命名合同";
         if (suggested.Length > 100) suggested = suggested[..100];
         var sameContent = baselineFile.Sha256.Equals(currentFile.Sha256, StringComparison.OrdinalIgnoreCase);
         context.Projects.Add(new StoredProject { Id = projectId, ProjectName = suggested, Status = (int)ProjectStatus.Active,
-            CreatedAtUtc = now, UpdatedAtUtc = now, NextVersionNumber = sameContent ? 2 : 3 });
+            CreatedAtUtc = now, UpdatedAtUtc = now, NextVersionNumber = sameContent ? 2 : 3,
+            BoundTemplateId = templateBaseline?.TemplateId, BoundTemplateVersionId = templateBaseline?.TemplateVersionId });
         context.NegotiationRounds.Add(new StoredNegotiationRound { Id = Guid.NewGuid(), ProjectId = projectId, Number = 1 });
         StoredContractVersion NewVersion(ComparisonFile file, Guid snapshotId, DocumentSnapshot snapshot, int number) => new()
         {
@@ -76,8 +85,9 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
         context.ContractVersions.Add(baselineVersion);
         if (!sameContent) context.ContractVersions.Add(currentVersion);
         context.ProjectComparisons.Add(new StoredProjectComparison { RecordId = saved.Record.RecordId, ProjectId = projectId,
-            CurrentVersionId = currentVersion.Id, BaselineType = (int)ProjectBaselineType.Version,
-            BaselineContractVersionId = baselineVersion.Id, BaselineSourceSnapshotId = baselineVersion.SnapshotId,
+            CurrentVersionId = currentVersion.Id, BaselineType = (int)(templateBaseline is null ? ProjectBaselineType.Version : ProjectBaselineType.Template),
+            BaselineContractVersionId = templateBaseline is null ? baselineVersion.Id : null,
+            TemplateBaselineVersionId = templateBaseline?.TemplateVersionId, BaselineSourceSnapshotId = templateBaseline?.SnapshotId ?? baselineVersion.SnapshotId,
             CurrentSourceSnapshotId = currentVersion.SnapshotId, BaselineName = baselineFile.Name, CurrentName = currentFile.Name,
             TotalChanges = result.Changes.Count, CreatedAtUtc = now });
         await context.SaveChangesAsync(cancellationToken);

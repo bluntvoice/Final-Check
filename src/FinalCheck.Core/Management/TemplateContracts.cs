@@ -20,6 +20,7 @@ public interface ITemplateStore
 {
     Task<IReadOnlyList<Template>> ListAsync(int offset = 0, int limit = 100, CancellationToken token = default);
     Task<TemplateDetails> GetAsync(Guid id, CancellationToken token = default);
+    Task<(Template Template, TemplateVersion Version)> ResolveVersionAsync(Guid versionId, CancellationToken token = default);
     Task<DocumentSnapshot> LoadSnapshotAsync(Guid versionId, CancellationToken token = default);
     Task<TemplateDetails> AddVersionAsync(Guid? templateId, string name, string contractType, string version,
         ComparisonFile source, DocumentSnapshot snapshot, CancellationToken token = default);

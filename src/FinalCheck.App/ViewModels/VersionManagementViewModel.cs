@@ -33,7 +33,8 @@ public sealed record VersionTimelineItem(ContractVersion Version)
     public string Heading => $"{Version.VersionLabel} · {Version.Role switch { ContractVersionRole.Own => "我方", ContractVersionRole.Counterparty => "对方", _ => "暂未指定" }} · {Version.Source.Name}";
     public string State => $"{Version.ParseStatus}{(Version.IsCurrentBaseline ? " · 当前我方基准" : "")}{(Version.DuplicateReference is null ? "" : " · 内容相同")}";
 }
-public partial class VersionManagementViewModel(IContractVersionService? service = null, IProjectComparisonService? comparisons = null, IComparisonWorkflowService? workflow = null, IProjectLifecycleService? lifecycle = null) : ViewModelBase
+public partial class VersionManagementViewModel(IContractVersionService? service = null, IProjectComparisonService? comparisons = null, IComparisonWorkflowService? workflow = null,
+    IProjectLifecycleService? lifecycle = null, ITemplateRecommendationService? recommendations = null) : ViewModelBase
 {
     public ObservableCollection<ProjectComparisonHistory> ProjectHistory { get; } = [];
     [ObservableProperty] private bool hasMoreHistory;
@@ -47,6 +48,24 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     public ObservableCollection<ContractVersion> NewOwnVersions { get; } = [];
     public ObservableCollection<ProjectComparisonHistory> History { get; } = [];
     [ObservableProperty] private ProjectBaselineOption? selectedBaseline;
+    [ObservableProperty] private bool showBaselineChoices = true;
+    public string BaselineSummary => SelectedBaseline is { } selected ? $"比对基准：{selected.Name}" : "尚未选定可用基准";
+    partial void OnSelectedBaselineChanged(ProjectBaselineOption? value) => OnPropertyChanged(nameof(BaselineSummary));
+    [RelayCommand] private void ChangeBaseline() => ShowBaselineChoices = true;
+    [RelayCommand] private Task RematchTemplatesAsync() => PerformAsync(async () =>
+    {
+        if (recommendations is null || service is null || SelectedVersion is not { } selected) return;
+        var snapshot = await service.LoadSnapshotAsync(selected.Version.ContractVersionId);
+        var result = await recommendations.RecommendSnapshotAsync(snapshot, selected.Version.Source.Name);
+        ShowBaselineChoices = true; BaselineRecommendation = result.Diagnostic + "模板匹配只预选；仍需点击开始比对。";
+        foreach (var candidate in result.Candidates.Reverse())
+        {
+            if (Baselines.Any(x => x.Type == ProjectBaselineType.Template && x.VersionId == candidate.TemplateVersionId)) continue;
+            Baselines.Insert(0, new(ProjectBaselineType.Template, candidate.TemplateVersionId, candidate.DisplayName, candidate.IsCurrent));
+        }
+        if (result.Kind is TemplateRecommendationKind.Unique or TemplateRecommendationKind.Multiple)
+            SelectedBaseline = Baselines.First(x => x.Type == ProjectBaselineType.Template && x.VersionId == result.Candidates[0].TemplateVersionId);
+    });
     [ObservableProperty] private ContractVersion? newOwnBaseline;
     [ObservableProperty] private bool baselinePrompt;
     [ObservableProperty] private bool isComparing;
@@ -93,7 +112,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     partial void OnProjectIdChanged(Guid? value) { OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanImport)); }
     public async Task OpenProjectAsync(Guid? id)
     {
-        if (IsBusy) return; ProjectId = id; Summary = null; ProjectHistory.Clear(); HasMoreHistory = false; ImportQueue.Clear(); Versions.Clear(); RoundNumbers.Clear(); SelectedVersion = null; PreviewBlocks.Clear(); Detail = ""; SourcePath = ""; Baselines.Clear(); History.Clear(); NewOwnVersions.Clear(); BaselinePrompt = false; SelectedBaseline = null;
+        if (IsBusy) return; ProjectId = id; Summary = null; ProjectHistory.Clear(); HasMoreHistory = false; ImportQueue.Clear(); Versions.Clear(); RoundNumbers.Clear(); SelectedVersion = null; PreviewBlocks.Clear(); Detail = ""; SourcePath = ""; Baselines.Clear(); History.Clear(); NewOwnVersions.Clear(); BaselinePrompt = false; SelectedBaseline = null; ShowBaselineChoices = true;
         if (id is not null) await RefreshAsync();
     }
     public Task AcceptFilesAsync(IEnumerable<string> paths) => PerformAsync(async () =>
@@ -156,9 +175,12 @@ public partial class VersionManagementViewModel(IContractVersionService? service
         if (comparisons is not null && ProjectId is { } id)
         {
             var choices = await comparisons.ChoicesAsync(id, version.ContractVersionId); Baselines.Clear(); foreach (var option in choices.Options) Baselines.Add(option);
-            SelectedBaseline = Baselines.FirstOrDefault(x => x.Type == choices.LastType && x.IsCurrent) ?? Baselines.FirstOrDefault(x => x.IsCurrent)
-                ?? Baselines.FirstOrDefault(x => x.Type == ProjectBaselineType.Version);
-            BaselineRecommendation = choices.Recommendation + "记忆仅预选类型，仍需点击执行；比对已导入的冻结版本，不重新读取变化后的源文件。";
+            SelectedBaseline = choices.HasBoundTemplate
+                ? Baselines.FirstOrDefault(x => x.Type == ProjectBaselineType.Template && x.IsCurrent)
+                : Baselines.FirstOrDefault(x => x.Type == choices.LastType && x.IsCurrent) ?? Baselines.FirstOrDefault(x => x.IsCurrent)
+                    ?? Baselines.FirstOrDefault(x => x.Type == ProjectBaselineType.Version);
+            ShowBaselineChoices = SelectedBaseline is null;
+            BaselineRecommendation = (choices.BoundTemplateWarning ?? choices.Recommendation) + "仍需手动点击开始比对；使用已导入的冻结 Snapshot，不重新读取变化后的源文件。";
             History.Clear(); foreach (var history in await comparisons.HistoryAsync(id, version.ContractVersionId)) History.Add(history);
         }
     }

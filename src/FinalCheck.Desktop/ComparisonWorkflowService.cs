@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using FinalCheck.Core.Abstractions;
 using FinalCheck.Core.Comparisons;
+using FinalCheck.Core.Management;
 using FinalCheck.Comparison;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -35,8 +36,38 @@ public sealed class ComparisonWorkflowService(IComparisonFileInspector files, ID
             await VerifyAsync(left, input.Baseline.Sha256, cancellationToken); await VerifyAsync(right, input.Current.Sha256, cancellationToken);
             progress?.Report("正在保存比对结果…");
             await using var scope = scopes.CreateAsyncScope();
-            return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAutomaticProjectAsync(input.Baseline, input.Current, baseline, current, result, cancellationToken);
+            return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAutomaticProjectAsync(input.Baseline, input.Current, baseline, current, result, cancellationToken: cancellationToken);
         }, cancellationToken);
+    public Task<ComparisonWorkflowResult> ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId,
+        IProgress<string>? progress = null, CancellationToken cancellationToken = default) => Task.Run(async () =>
+    {
+        progress?.Report("正在读取模板快照…");
+        Template template; TemplateVersion version; Core.Documents.DocumentSnapshot baseline;
+        await using (var scope = scopes.CreateAsyncScope())
+        {
+            var templates = scope.ServiceProvider.GetRequiredService<ITemplateStore>();
+            // The version must still belong to an enabled logical template; source DOCX may no longer exist.
+            (template, version) = await templates.ResolveVersionAsync(templateVersionId, cancellationToken);
+            if (!template.IsEnabled || template.IsDeleted) throw new InvalidOperationException("模板已停用，请重新选择基准。 ");
+            baseline = await templates.LoadSnapshotAsync(templateVersionId, cancellationToken);
+        }
+        if (baseline.ParseStatus != Core.Documents.DocumentParseStatus.Complete)
+            throw new InvalidOperationException("模板快照解析不完整，请手动选择可靠基准。 ");
+        var currentSource = await files.InspectAsync(current.Path, cancellationToken);
+        if (currentSource.Sha256 != current.Sha256) throw new IOException("当前文件已变化，请重新选择。 ");
+        await using var stream = Open(currentSource.Path);
+        await VerifyAsync(stream, currentSource.Sha256, cancellationToken);
+        progress?.Report("正在读取当前文档…");
+        var currentSnapshot = await parser.ParseAsync(stream, cancellationToken: cancellationToken);
+        if (currentSnapshot.Metadata.Sha256 != currentSource.Sha256) throw new IOException("当前文件在读取期间发生变化。 ");
+        var result = engine.Compare(baseline, currentSnapshot, new StageProgress(progress), cancellationToken);
+        await VerifyAsync(stream, currentSource.Sha256, cancellationToken);
+        progress?.Report("正在保存比对结果…");
+        await using var saveScope = scopes.CreateAsyncScope();
+        return await saveScope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAutomaticProjectAsync(
+            version.Source, currentSource, baseline, currentSnapshot, result,
+            new(template.TemplateId, version.TemplateVersionId, version.SnapshotId, template.Name), cancellationToken);
+    }, cancellationToken);
     private static FileStream Open(string path) => new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
     private static async Task VerifyAsync(Stream stream, string expected, CancellationToken token)
     {

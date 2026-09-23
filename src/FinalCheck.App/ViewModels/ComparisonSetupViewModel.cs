@@ -1,21 +1,33 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
+using FinalCheck.Core.Management;
 
 namespace FinalCheck.App.ViewModels;
 
-public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? inspector = null, IComparisonWorkflowService? workflow = null) : ViewModelBase, IDisposable
+public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? inspector = null, IComparisonWorkflowService? workflow = null,
+    ITemplateRecommendationService? recommendations = null) : ViewModelBase, IDisposable
 {
     private readonly IComparisonFileInspector? inspector = inspector;
     private readonly IComparisonWorkflowService? workflow = workflow;
+    private readonly ITemplateRecommendationService? recommendations = recommendations;
     private CancellationTokenSource? cancellation;
+    private CancellationTokenSource? recommendationCancellation;
     private ComparisonInputValidation? pendingInput;
+    private Guid? pendingTemplateVersionId;
     private bool disposed;
     public event Action<ComparisonWorkflowResult>? Completed;
     public ComparisonSession Session { get; private set; } = new();
     [ObservableProperty] private ComparisonFile? baselineFile;
     [ObservableProperty] private ComparisonFile? currentFile;
+    public ObservableCollection<TemplateRecommendationCandidate> TemplateCandidates { get; } = [];
+    [ObservableProperty] private TemplateRecommendationCandidate? selectedTemplate;
+    [ObservableProperty] private bool isMatching;
+    [ObservableProperty] private bool showTemplateChoices;
+    [ObservableProperty] private string matchMessage = "选择当前 DOCX 后可检查模板中心；自动匹配不会开始比对。";
+    public bool HasTemplateCandidates => TemplateCandidates.Count > 0;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private string message = "请选择基准版本和当前版本，原始文件不会被修改。";
     [ObservableProperty] private bool identicalPrompt;
@@ -24,11 +36,17 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
     [ObservableProperty] private ComparisonWorkflowResult? outcome;
     public bool ShowPartial => Outcome?.IsPartial == true;
     partial void OnOutcomeChanged(ComparisonWorkflowResult? value) => OnPropertyChanged(nameof(ShowPartial));
-    public bool CanStart => !disposed && BaselineFile is not null && CurrentFile is not null && !IsBusy && !IdenticalPrompt;
-    public string BaselineInfo => FileInfoText(BaselineFile);
+    public bool CanStart => !disposed && (BaselineFile is not null || SelectedTemplate is not null) && CurrentFile is not null && !IsBusy && !IdenticalPrompt;
+    public string BaselineInfo => SelectedTemplate is { } template ? $"模板 · {template.DisplayName}\n冻结 Snapshot；原始模板 DOCX 即使已移动也无需重新读取。" : FileInfoText(BaselineFile);
     public string CurrentInfo => FileInfoText(CurrentFile);
     partial void OnBaselineFileChanged(ComparisonFile? value) { Session.BaselineFile = value; Refresh(); }
-    partial void OnCurrentFileChanged(ComparisonFile? value) { Session.CurrentFile = value; Refresh(); }
+    partial void OnSelectedTemplateChanged(TemplateRecommendationCandidate? value)
+    { Session.BaselineFile = value?.Source ?? BaselineFile; Refresh(); }
+    partial void OnCurrentFileChanged(ComparisonFile? value)
+    {
+        recommendationCancellation?.Cancel(); TemplateCandidates.Clear(); OnPropertyChanged(nameof(HasTemplateCandidates));
+        SelectedTemplate = null; Session.CurrentFile = value; Refresh();
+    }
     partial void OnIsBusyChanged(bool value) => Refresh();
     partial void OnIdenticalPromptChanged(bool value) => Refresh();
     private void Refresh()
@@ -49,26 +67,80 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
         try
         {
             var file = await inspector.InspectAsync(selected[0]);
-            if (baseline) BaselineFile = file; else CurrentFile = file;
-            Message = "文件已就绪。选择两份文件后可开始比对。";
+            if (baseline)
+            {
+                recommendationCancellation?.Cancel(); SelectedTemplate = null; BaselineFile = file;
+                MatchMessage = "已手动选择基准文件；不会被模板推荐覆盖。";
+            }
+            else CurrentFile = file;
+            Message = baseline ? "已选择基准文件；提供当前文件后可开始比对。" : "当前文件已就绪；正在后台检查模板推荐。";
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException)
         { Message = error is UnauthorizedAccessException ? "没有权限读取文件。" : error is FileNotFoundException ? "文件已移动或删除。" : error is ArgumentException ? "只支持 DOCX 文件。" : "无法读取文件，请关闭编辑器后重试。"; }
         finally { IsBusy = false; }
+        if (!baseline && CurrentFile is { } current && recommendations is not null) _ = RefreshRecommendationAsync(current);
     }
-    [RelayCommand] private void RemoveBaseline() { if (!IsBusy && !IdenticalPrompt) BaselineFile = null; }
-    [RelayCommand] private void RemoveCurrent() { if (!IsBusy && !IdenticalPrompt) CurrentFile = null; }
+    private async Task RefreshRecommendationAsync(ComparisonFile current)
+    {
+        recommendationCancellation?.Cancel(); recommendationCancellation?.Dispose();
+        using var source = new CancellationTokenSource(); recommendationCancellation = source; IsMatching = true;
+        try
+        {
+            var result = await recommendations!.RecommendAsync(current, source.Token);
+            if (source.IsCancellationRequested || CurrentFile?.Sha256 != current.Sha256 || CurrentFile.Path != current.Path) return;
+            TemplateCandidates.Clear(); foreach (var candidate in result.Candidates) TemplateCandidates.Add(candidate);
+            OnPropertyChanged(nameof(HasTemplateCandidates)); MatchMessage = result.Diagnostic;
+            if (BaselineFile is null && result.Kind is TemplateRecommendationKind.Unique or TemplateRecommendationKind.Multiple)
+            {
+                SelectedTemplate = TemplateCandidates.FirstOrDefault();
+                ShowTemplateChoices = result.Kind == TemplateRecommendationKind.Multiple;
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception error)
+        { MatchMessage = "模板推荐未完成；可手动选择基准文件。"; TechnicalDetails = error.GetType().Name; }
+        finally { if (ReferenceEquals(recommendationCancellation, source)) { IsMatching = false; recommendationCancellation = null; } }
+    }
+    [RelayCommand] private void ChangeBaseline() => ShowTemplateChoices = true;
+    [RelayCommand] private Task RematchTemplatesAsync()
+    {
+        if (CurrentFile is not { } current || recommendations is null || IsBusy) return Task.CompletedTask;
+        BaselineFile = null; SelectedTemplate = null; TemplateCandidates.Clear(); OnPropertyChanged(nameof(HasTemplateCandidates));
+        MatchMessage = "正在重新匹配模板…";
+        return RefreshRecommendationAsync(current);
+    }
+    [RelayCommand] private void RemoveBaseline() { if (!IsBusy && !IdenticalPrompt) { SelectedTemplate = null; BaselineFile = null; ShowTemplateChoices = true; } }
+    [RelayCommand] private void RemoveCurrent()
+    {
+        if (IsBusy || IdenticalPrompt) return;
+        recommendationCancellation?.Cancel(); CurrentFile = null; TemplateCandidates.Clear(); OnPropertyChanged(nameof(HasTemplateCandidates));
+        SelectedTemplate = null; MatchMessage = "请选择当前 DOCX。";
+    }
 
     [RelayCommand(CanExecute = nameof(CanStart))]
     private async Task StartAsync()
     {
         if (!CanStart || workflow is null) return;
-        pendingInput = null; Outcome = null; TechnicalDetails = "";
-        Session = new() { BaselineFile = BaselineFile, CurrentFile = CurrentFile };
+        recommendationCancellation?.Cancel(); pendingInput = null; pendingTemplateVersionId = null; Outcome = null; TechnicalDetails = "";
+        var chosenTemplate = SelectedTemplate;
+        Session = new() { BaselineFile = chosenTemplate?.Source ?? BaselineFile, CurrentFile = CurrentFile };
         Session.Status = ComparisonSessionStatus.Validating; Session.StartedAt = DateTimeOffset.UtcNow;
         cancellation = new(); IsBusy = true; IsExecuting = true; Message = "正在校验文件…";
         try
         {
+            if (chosenTemplate is not null)
+            {
+                var current = await inspector!.InspectAsync(CurrentFile!.Path, cancellation.Token);
+                if (current.Sha256 != CurrentFile.Sha256) throw new IOException("当前文件已变化，请重新选择。 ");
+                if (current.Sha256 == chosenTemplate.Source.Sha256)
+                {
+                    pendingTemplateVersionId = chosenTemplate.TemplateVersionId; IdenticalPrompt = true;
+                    Message = "当前文件与模板内容完全一致；仍然比对将得到 0 项实际差异。";
+                    return;
+                }
+                await ExecuteTemplateAsync(current, chosenTemplate.TemplateVersionId);
+                return;
+            }
             var input = await workflow.ValidateAsync(BaselineFile!, CurrentFile!, cancellation.Token);
             BaselineFile = input.Baseline; CurrentFile = input.Current;
             if (input.SameHash)
@@ -84,10 +156,15 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
     }
     [RelayCommand] private async Task ContinueIdenticalAsync()
     {
-        if (!IdenticalPrompt || pendingInput is null || IsBusy || workflow is null) return;
-        var input = pendingInput; pendingInput = null; IdenticalPrompt = false;
+        if (!IdenticalPrompt || pendingInput is null && pendingTemplateVersionId is null || IsBusy || workflow is null) return;
+        var input = pendingInput; var templateVersionId = pendingTemplateVersionId;
+        pendingInput = null; pendingTemplateVersionId = null; IdenticalPrompt = false;
         cancellation = new(); IsBusy = true; IsExecuting = true;
-        try { await ExecuteAsync(input); }
+        try
+        {
+            if (templateVersionId is { } selected) await ExecuteTemplateAsync(CurrentFile!, selected);
+            else await ExecuteAsync(input!);
+        }
         catch (Exception error) { HandleError(error); }
         finally { IsBusy = false; IsExecuting = false; cancellation.Dispose(); cancellation = null; }
     }
@@ -97,6 +174,18 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
         var progress = new Progress<string>(value => { if (IsExecuting && Session.Status == ComparisonSessionStatus.Comparing && !token.IsCancellationRequested) Message = value; });
         Session.Status = ComparisonSessionStatus.Comparing;
         var result = await workflow!.ExecuteAsync(input, progress, token);
+        PublishResult(result);
+    }
+    private async Task ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId)
+    {
+        var token = cancellation!.Token;
+        var progress = new Progress<string>(value => { if (IsExecuting && Session.Status == ComparisonSessionStatus.Comparing && !token.IsCancellationRequested) Message = value; });
+        Session.Status = ComparisonSessionStatus.Comparing;
+        var result = await workflow!.ExecuteTemplateAsync(current, templateVersionId, progress, token);
+        PublishResult(result);
+    }
+    private void PublishResult(ComparisonWorkflowResult result)
+    {
         Outcome = result; Session.Status = ComparisonSessionStatus.Completed; Session.CompletedAt = DateTimeOffset.UtcNow;
         Session.ResultId = result.Record.ResultId; Session.ParseStatus = result.IsPartial ? "部分解析" : "完整解析";
         Session.Diagnostics = result.Baseline.ParseDiagnostics.Concat(result.Current.ParseDiagnostics).Select(d => $"{d.Code} · {d.NodeId ?? d.SourcePart}").ToArray();
@@ -107,7 +196,7 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
     [RelayCommand] private void ViewPartial() { if (Outcome is not null) Completed?.Invoke(Outcome); }
     [RelayCommand] private void Cancel()
     {
-        cancellation?.Cancel(); pendingInput = null; IdenticalPrompt = false;
+        cancellation?.Cancel(); pendingInput = null; pendingTemplateVersionId = null; IdenticalPrompt = false;
         if (!IsExecuting) { Session.Status = ComparisonSessionStatus.Cancelled; Message = "已取消，可以重新开始。"; }
     }
     private void HandleError(Exception error)
@@ -129,7 +218,7 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
     public void Dispose()
     {
         if (disposed) return; disposed = true;
-        cancellation?.Cancel();
+        cancellation?.Cancel(); recommendationCancellation?.Cancel();
         if (!IsExecuting) { cancellation?.Dispose(); cancellation = null; }
         Refresh();
     }

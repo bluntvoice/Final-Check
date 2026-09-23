@@ -1,5 +1,7 @@
 using FinalCheck.App.ViewModels;
 using FinalCheck.Core.Comparisons;
+using FinalCheck.Core.Documents;
+using FinalCheck.Core.Management;
 
 namespace FinalCheck.App.Tests;
 
@@ -10,6 +12,55 @@ public sealed class ComparisonSetupTests
         public Task<ComparisonFile> InspectAsync(string path, CancellationToken cancellationToken = default) =>
             Path.GetExtension(path) == ".docx" ? Task.FromResult(new ComparisonFile(path, Path.GetFileName(path), 123, DateTimeOffset.UnixEpoch, "abc")) :
             throw new ArgumentException("DOCX only");
+    }
+    private sealed class Recommendations(TemplateRecommendationKind kind) : ITemplateRecommendationService
+    {
+        public Task<TemplateRecommendation> RecommendAsync(ComparisonFile current, CancellationToken token = default)
+        {
+            var candidate = new TemplateRecommendationCandidate(Guid.NewGuid(), Guid.NewGuid(), "运输协议", "1.2", true,
+                0.93, new("/template.docx", "template.docx", 123, DateTimeOffset.UnixEpoch, "other"));
+            return Task.FromResult(new TemplateRecommendation(kind, kind == TemplateRecommendationKind.None ? [] : [candidate], "推荐完成；仍需点击开始比对。"));
+        }
+        public Task<TemplateRecommendation> RecommendSnapshotAsync(DocumentSnapshot snapshot, string fileName,
+            CancellationToken token = default) => RecommendAsync(new(fileName, fileName, 0, DateTimeOffset.UnixEpoch, ""), token);
+    }
+    private sealed class TemplateWorkflow : IComparisonWorkflowService
+    {
+        public int Executions { get; private set; }
+        public Task<ComparisonWorkflowResult> ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId,
+            IProgress<string>? progress = null, CancellationToken cancellationToken = default)
+        { Executions++; return Task.FromResult(ComparisonExecutionTests.Result()); }
+        public Task<ComparisonInputValidation> ValidateAsync(ComparisonFile baseline, ComparisonFile current, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ComparisonInputValidation(baseline, current, false, false, false));
+        public Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null,
+            CancellationToken cancellationToken = default) { Executions++; return Task.FromResult(ComparisonExecutionTests.Result()); }
+        public Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ComparisonRecord>>([]);
+        public Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default) => Task.FromResult<ComparisonWorkflowResult?>(null);
+        public Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ComparisonRecord> EditReviewAsync(Guid recordId, ComparisonReviewEdit edit,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    }
+    [Fact] public async Task RecommendedTemplatePreselectsButOnlyExplicitStartRunsComparisonAndManualFileOverrides()
+    {
+        var workflow = new TemplateWorkflow(); using var vm = new ComparisonSetupViewModel(new Inspector(), workflow,
+            new Recommendations(TemplateRecommendationKind.Unique));
+        await vm.SelectFilesAsync(false, ["/current.docx"]);
+        Assert.NotNull(vm.SelectedTemplate); Assert.True(vm.CanStart); Assert.Equal(0, workflow.Executions);
+        Assert.Contains("运输协议", vm.BaselineInfo); Assert.False(vm.ShowTemplateChoices);
+        vm.ChangeBaselineCommand.Execute(null); Assert.True(vm.ShowTemplateChoices);
+        await vm.StartCommand.ExecuteAsync(null); Assert.Equal(1, workflow.Executions);
+        await vm.SelectFilesAsync(true, ["/manual.docx"]);
+        Assert.Null(vm.SelectedTemplate); Assert.Equal("manual.docx", vm.BaselineFile?.Name);
+    }
+    [Fact] public async Task NoReliableTemplateLeavesManualBaselineRequired()
+    {
+        var workflow = new TemplateWorkflow(); using var vm = new ComparisonSetupViewModel(new Inspector(), workflow,
+            new Recommendations(TemplateRecommendationKind.None));
+        await vm.SelectFilesAsync(false, ["/unrelated.docx"]);
+        Assert.Null(vm.SelectedTemplate); Assert.False(vm.CanStart); Assert.Equal(0, workflow.Executions);
+        await vm.SelectFilesAsync(true, ["/manual.docx"]);
+        Assert.True(vm.CanStart); Assert.Null(vm.SelectedTemplate);
     }
     [Fact] public void HomeEntryNavigatesToSetupAndPreservesAbout()
     {

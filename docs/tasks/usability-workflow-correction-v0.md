@@ -16,7 +16,8 @@
 
 - Phase A1：DONE；统一工作台、持久化状态撤销与逻辑滚动协调已实现并完成阶段验收。
 - Phase A2：DONE；无项目上下文的正式比对自动形成项目、稳定 Vn 和独立历史；角色/轮次默认交互简化且旧模型保留。
-- Phase A3 / A4：NOT STARTED；仅在前一阶段测试、文档、commit / push 全部完成后开始。
+- Phase A3：DONE；已绑定模板默认 current、无项目模板推荐与快照比对、显式重新匹配/更换基准均已实现并通过阶段测试；独立 commit/push 见本节验收记录。
+- Phase A4：NOT STARTED；仅在 A3 测试、文档、commit / push 全部完成后开始。
 - 起始基线：`b8986e2`，main 与 origin/main 一致，工作区原本干净；数据库 schema 9。
 - 起始 Release 测试：288/288 PASS（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 50）。
 - 尚未完成：A3–A4 及 Stage A 最终 HEAD CI / Test Build / 实际安装验收；A1/A2 的 Debug 隔离数据试用不得替代最终安装包验收。
@@ -957,6 +958,15 @@ Historical：
 ---
 
 # 10. Phase A3 验收
+
+### 实际完成与验证（2026-09-23）
+
+- 已绑定项目优先显示逻辑模板当前启用且完整、快照可解码并且 hash 一致的版本，不被历史绑定版本、Own 推荐或上次选择覆盖；停用/损坏或无可靠 current 时不静默切换，显示原因并展开手动基准选择。更换模板 current 只影响后续默认，本次选择与历史 TemplateVersionId / Snapshot 均冻结。已有项目可对冻结版本重新匹配模板，并显式选择其他启用模板作本次基准；不暗改项目长期绑定。
+- 无项目选择/拖入当前 DOCX 后后台运行确定性本地匹配；使用已存模板 Snapshot 的文件名、标题、条款、正文、表格结构与段落特征，不重新解析历史 DOCX。设置有界特征/缓存、100 条元数据分页、取消与 SHA-256 复核。高可信唯一预选、多可信显示 Top 3（含 current/historical/score）、无可靠匹配要求手动选择；任何预选都不自动开始比对。
+- 选择模板后按明确点击执行，模板侧使用冻结 Snapshot（源 DOCX 丢失仍可比），结果/项目/V1/V2/模板绑定/历史链接单事务保存；模板 current 后续变化不重算历史。项目内已存在版本继续走原比较 Engine，不在 UI 重做 diff。
+- Release solution build 0 warning / 0 error；阶段定向测试通过：唯一、多候选 Top 3/current 权重、历史参与、无匹配、缺失模板源、项目绑定 current 切换/停用、跨模板显式选择、旧历史不变、Snapshot 重新匹配、DataRoot 迁移、ViewModel 不自动执行与 Avalonia Headless Setup 展示。Release 全量回归 319/319 PASS（Core 2 / Documents 45 / Comparison 52 / Data 147 / App 73）；新增迁移断言后的最终全量复跑见阶段提交前验证。最终安装包人工验收仍属于 Stage A 总门禁，不以 Headless 冒充。
+
+`Phase A3 — DONE`（本次独立 commit 正常 push 成功后才进入 A4）。
 
 至少准备：
 

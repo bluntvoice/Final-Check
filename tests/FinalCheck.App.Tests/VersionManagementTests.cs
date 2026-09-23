@@ -26,15 +26,34 @@ public sealed class VersionManagementTests
         public Task RelinkAsync(Guid id, string path, CancellationToken token = default) => Task.CompletedTask;
         public Task<IReadOnlyList<ComparisonFile>> FindRelinkCandidatesAsync(ContractVersion version, CancellationToken token = default) => Task.FromResult<IReadOnlyList<ComparisonFile>>([version.Source]);
     }
-    private sealed class Comparisons(Service versions) : IProjectComparisonService
+    private sealed class Comparisons(Service versions, bool boundTemplate = false) : IProjectComparisonService
     {
         public Task SetBaselineAsync(Guid projectId, Guid versionId, CancellationToken token = default) => throw new NotSupportedException();
-        public Task<ProjectComparisonChoices> ChoicesAsync(Guid projectId, Guid currentVersionId, CancellationToken token = default) =>
-            Task.FromResult(new ProjectComparisonChoices(projectId, currentVersionId, versions.Versions.Where(x => x.ContractVersionId != currentVersionId)
-                .Select(x => new ProjectBaselineOption(ProjectBaselineType.Version, x.ContractVersionId, x.VersionLabel, false)).ToArray(), null, "可选择已有版本作为基准。"));
+        public Task<ProjectComparisonChoices> ChoicesAsync(Guid projectId, Guid currentVersionId, CancellationToken token = default)
+        {
+            var options = versions.Versions.Where(x => x.ContractVersionId != currentVersionId)
+                .Select(x => new ProjectBaselineOption(ProjectBaselineType.Version, x.ContractVersionId, x.VersionLabel, false)).ToList();
+            if (boundTemplate)
+            {
+                options.Add(new(ProjectBaselineType.Own, Guid.NewGuid(), "当前我方基准", true));
+                options.Add(new(ProjectBaselineType.Template, Guid.NewGuid(), "模板 · 1.2（当前）", true));
+            }
+            return Task.FromResult(new ProjectComparisonChoices(projectId, currentVersionId, options, ProjectBaselineType.Own,
+                "请选择基准。", boundTemplate));
+        }
         public Task<ComparisonWorkflowResult> CompareAsync(ProjectComparisonSelection selection, IProgress<string>? progress = null, CancellationToken token = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<ProjectComparisonHistory>> HistoryAsync(Guid projectId, Guid? versionId = null, int offset = 0, int limit = 20, CancellationToken token = default) =>
             Task.FromResult<IReadOnlyList<ProjectComparisonHistory>>([]);
+    }
+    private sealed class Recommendations : ITemplateRecommendationService
+    {
+        public Guid VersionId { get; } = Guid.NewGuid();
+        public Task<TemplateRecommendation> RecommendAsync(ComparisonFile current, CancellationToken token = default) =>
+            RecommendSnapshotAsync(DocumentSnapshot.Empty, current.Name, token);
+        public Task<TemplateRecommendation> RecommendSnapshotAsync(DocumentSnapshot snapshot, string fileName,
+            CancellationToken token = default) => Task.FromResult(new TemplateRecommendation(TemplateRecommendationKind.Unique,
+                [new(Guid.NewGuid(), VersionId, "重新匹配模板", "2.0", true, 0.94,
+                    new("C:\\fixture\\template.docx", "template.docx", 1, DateTimeOffset.UnixEpoch, "hash"))], "已重新匹配。"));
     }
     [Fact] public async Task MultiFileDropQueueDefaultsToUnspecifiedAndAllowsExplicitRoles()
     {
@@ -65,6 +84,28 @@ public sealed class VersionManagementTests
         Assert.Equal("V2", vm.SelectedVersion?.Version.VersionLabel);
         Assert.Equal(first.ContractVersionId, vm.SelectedBaseline?.VersionId);
         Assert.Contains("仍需手动点击开始比对", vm.Message);
+        Assert.Empty(vm.History);
+    }
+    [Fact] public async Task BoundTemplateCurrentIsDefaultAndAdvancedChoicesOpenOnlyOnRequest()
+    {
+        var service = new Service(); var project = Guid.NewGuid();
+        await service.ImportAsync(project, [new("first.docx", ContractVersionRole.Unspecified, 1, ""), new("second.docx", ContractVersionRole.Unspecified, 1, "")]);
+        var vm = new VersionManagementViewModel(service, new Comparisons(service, true)); await vm.OpenProjectAsync(project);
+        await vm.SelectVersionAsync(vm.Versions[1]);
+        Assert.Equal(ProjectBaselineType.Template, vm.SelectedBaseline?.Type);
+        Assert.Contains("模板 · 1.2", vm.BaselineSummary); Assert.False(vm.ShowBaselineChoices);
+        vm.ChangeBaselineCommand.Execute(null); Assert.True(vm.ShowBaselineChoices);
+        Assert.Empty(vm.History);
+    }
+    [Fact] public async Task ProjectCanRematchFrozenVersionWithoutRunningComparison()
+    {
+        var service = new Service(); var project = Guid.NewGuid(); var match = new Recommendations();
+        await service.ImportAsync(project, [new("first.docx", ContractVersionRole.Unspecified, 1, "")]);
+        var vm = new VersionManagementViewModel(service, new Comparisons(service, true), recommendations: match);
+        await vm.OpenProjectAsync(project); await vm.SelectVersionAsync(vm.Versions[0]);
+        await vm.RematchTemplatesCommand.ExecuteAsync(null);
+        Assert.Equal(match.VersionId, vm.SelectedBaseline?.VersionId);
+        Assert.True(vm.ShowBaselineChoices); Assert.Contains("重新匹配模板", vm.BaselineSummary);
         Assert.Empty(vm.History);
     }
     [Fact] public async Task CurrentNextExistingRoundsAndLazyPreviewKeepProjectStateSeparated()

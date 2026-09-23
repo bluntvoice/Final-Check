@@ -8,6 +8,7 @@ using FinalCheck.App.ViewModels;
 using FinalCheck.App.Views;
 using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
+using FinalCheck.Core.Management;
 using Xunit.Abstractions;
 
 namespace FinalCheck.App.Tests;
@@ -18,6 +19,25 @@ public sealed class AvaloniaHeadlessTestGroup { }
 [Collection("AvaloniaHeadless")]
 public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
 {
+    [Fact]
+    public async Task QuickCompareSetupRendersTemplateRecommendationWithoutAutoStarting()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        await session.Dispatch(() =>
+        {
+            using var model = new ComparisonSetupViewModel();
+            model.CurrentFile = new("C:\\fixture\\current.docx", "current.docx", 1, DateTimeOffset.UnixEpoch, "current");
+            model.TemplateCandidates.Add(new(Guid.NewGuid(), Guid.NewGuid(), "运输协议", "1.2", true, 0.93,
+                new("C:\\fixture\\template.docx", "template.docx", 1, DateTimeOffset.UnixEpoch, "template")));
+            model.SelectedTemplate = model.TemplateCandidates[0];
+            var window = new Window { Width = 1080, Height = 680, Content = new ComparisonSetupView { DataContext = model } };
+            window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), x => x.Text?.Contains("运输协议") == true);
+            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), x => x.Content?.ToString() == "开始比对");
+            Assert.Contains(window.GetVisualDescendants().OfType<Button>(), x => x.Content?.ToString() == "更换基准 / 查看模板候选");
+            window.Close(); Dispatcher.UIThread.RunJobs();
+        }, CancellationToken.None);
+    }
     [Fact]
     public async Task SelectingAnotherChangeInRealViewKeepsTheSharedSelection()
     {

@@ -94,6 +94,7 @@ internal static class Program
         services.AddSingleton<IWorkingCopyComparisonService, WorkingCopyComparisonService>();
         services.AddSingleton<IComparisonFileInspector, ComparisonFileInspector>();
         services.AddSingleton<IComparisonWorkflowService, ComparisonWorkflowService>();
+        services.AddSingleton<ITemplateRecommendationService, TemplateRecommendationService>();
         services.AddSingleton<ComparisonSetupViewModel>();
         services.AddSingleton<ITemplateService, TemplateService>();
         services.AddSingleton<TemplateCenterViewModel>();

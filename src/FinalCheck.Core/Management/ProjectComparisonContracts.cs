@@ -4,7 +4,7 @@ using FinalCheck.Core.Documents;
 namespace FinalCheck.Core.Management;
 public sealed record ProjectBaselineOption(ProjectBaselineType Type, Guid VersionId, string Name, bool IsCurrent);
 public sealed record ProjectComparisonChoices(Guid ProjectId, Guid CurrentVersionId, IReadOnlyList<ProjectBaselineOption> Options,
-    ProjectBaselineType? LastType, string Recommendation);
+    ProjectBaselineType? LastType, string Recommendation, bool HasBoundTemplate = false, string? BoundTemplateWarning = null);
 public sealed record ProjectComparisonSelection(Guid ProjectId, Guid CurrentVersionId, ProjectBaselineType BaselineType, Guid BaselineVersionId);
 public sealed record ProjectComparisonInput(ProjectComparisonSelection Selection, ComparisonFile BaselineFile, ComparisonFile CurrentFile, DocumentSnapshot Baseline, DocumentSnapshot Current, string BaselineName);
 public sealed record ProjectComparisonHistory(Guid RecordId, Guid ProjectId, Guid CurrentVersionId, ProjectBaselineType BaselineType, Guid BaselineVersionId,

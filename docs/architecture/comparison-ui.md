@@ -12,6 +12,14 @@ Application workflow 负责可恢复/事务性保存项目、参与版本、Snap
 
 Comparison Workspace 使用统一 selected ChangeId / group member，将清单、两侧上下文、详情、批注、状态和前后项导航同时更新；按需展开的全文双栏复用同一选择。Stage A1 已将旧的两个页签合并为同屏工作台。Review 只是阅读进度，操作增加可撤销反馈，永久删除仍二次确认。
 
+### Stage A3 template recommendation and execution
+
+无项目 Quick Compare 选择当前 DOCX 后，`TemplateRecommendationService` 在后台解析该文件一次，并从启用模板的已保存 DocumentSnapshot 提取有界特征；不打开历史模板源 DOCX，不在 UI 中运行 Engine。特征覆盖文件名、元数据/可识别标题、条款标题、正文三字符片段、表格行列结构及段落数量；固定权重分别为 0.04 / 0.07 / 0.24 / 0.52 / 0.08 / 0.05，当前启用版本额外 +0.03。正文最多取前 200 非空段/2 万规范化字符与 3000 个片段，最多缓存 256 份模板版本特征；目录以 100 条元数据分页、快照延迟读取，取消令牌贯穿。模板解析/身份异常跳过并诊断，不以文件名独断。当前文档 Partial 不自动匹配。
+
+得分低于 0.60 不列入候选；首项 ≥0.78 且比第二项高至少 0.08 才归为高可信唯一、直接预选。否则多个可信候选展示 Top 3（版本、当前/历史、分数）并预选首项；唯一但未达高可信阈值或无候选时不自动选定，要求手动基准。阈值是本地推荐信号，不是法律结论；文件/模板变化后可主动重新匹配。项目已有冻结版本也可直接以 Snapshot 重新匹配，不依赖已移走的原始 DOCX；此时可显式选择其他启用模板作为本次基准，但不会暗中修改项目逻辑模板绑定。即使已预选，用户仍必须点击“开始比对”，手动基准 DOCX 可覆盖推荐。
+
+模板基准执行先重新解析所选当前文件并校验 SHA-256；模板侧直接载入不可变 Snapshot，原模板 DOCX 移走仍可比。Engine 不在 View 实现。保存事务一次写入独立 record/result/Snapshots、自动 Project、V1/V2、逻辑模板绑定和 TemplateVersion 历史链接；失败不留下空项目。成功历史记录实际 TemplateVersionId 和冻结快照，模板 current 后续变化不重算旧结果。显式选择的历史模板版本也可执行，但不会被误当作新的 current。项目内绑定模板默认规则详见 [project-template-version-management.md](project-template-version-management.md)。
+
 ### 默认 Context View 与按需 Full Document（Stage A 展示修正，自动测试已覆盖，安装包人工验收待执行）
 
 默认 Workspace 由修改清单、当前 ChangeItem 的 Baseline/Current Context Panel、详情/批注/状态操作组成；原 A1 完整双栏 `ComparisonPreviewView` 保留为按需 Full Document Mode，不改写冻结 Snapshot、ComparisonResult 或 `LogicalScrollCoordinator`。模式是同一结果 VM 上的展示状态，切换时保持 selected ChangeId、筛选、review 和 Undo；进入全文时定位当前 item，返回 Context 时重建同一 item 的两侧上下文，不创建第二份比对结果。

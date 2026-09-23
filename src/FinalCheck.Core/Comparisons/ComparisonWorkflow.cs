@@ -26,12 +26,14 @@ public sealed record ComparisonWorkflowResult(ComparisonRecord Record, DocumentS
     public bool IsPartial => Baseline.ParseStatus != DocumentParseStatus.Complete || Current.ParseStatus != DocumentParseStatus.Complete;
 }
 public sealed record ComparisonInputValidation(ComparisonFile Baseline, ComparisonFile Current, bool SamePath, bool SameHash, bool Changed);
+public sealed record AutomaticTemplateBaseline(Guid TemplateId, Guid TemplateVersionId, Guid SnapshotId, string TemplateName);
 public interface IComparisonRecordStore
 {
     Task<ComparisonWorkflowResult> SaveAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
         DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult> SaveAutomaticProjectAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
-        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default);
+        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result,
+        AutomaticTemplateBaseline? templateBaseline = null, CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default);
     Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default);
@@ -41,6 +43,8 @@ public interface IComparisonWorkflowService
 {
     Task<ComparisonInputValidation> ValidateAsync(ComparisonFile baseline, ComparisonFile current, CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null, CancellationToken cancellationToken = default);
+    Task<ComparisonWorkflowResult> ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId,
+        IProgress<string>? progress = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default);
     Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default);

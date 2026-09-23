@@ -20,6 +20,8 @@ public sealed class ComparisonExecutionTests
             Executions++; if (wait) await Task.Delay(Timeout.Infinite, cancellationToken);
             if (error is not null) throw error; return Result(partial);
         }
+        public Task<ComparisonWorkflowResult> ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId,
+            IProgress<string>? progress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ComparisonRecord>>([]);
         public Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default) => Task.FromResult<ComparisonWorkflowResult?>(null);
         public Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default) => throw new NotSupportedException();

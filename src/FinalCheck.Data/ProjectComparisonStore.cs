@@ -1,5 +1,7 @@
 using FinalCheck.Core.Abstractions;
+using System.Text.Json;
 using FinalCheck.Core.Comparisons;
+using FinalCheck.Core.Documents;
 using FinalCheck.Core.Management;
 using FinalCheck.Data.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -25,23 +27,48 @@ public sealed class ProjectComparisonStore(FinalCheckDbContext db, IDocumentSnap
             if (own.ProjectId != projectId || own.Role != (int)ContractVersionRole.Own) throw new InvalidDataException("项目当前基准身份无效。");
             options.Add(new(ProjectBaselineType.Own, own.Id, $"我方 · 第 {own.RoundNumber} 轮 · {own.FileName}", true));
         }
+        string? boundTemplateWarning = null;
         if (project.BoundTemplateId is { } templateId)
         {
             var template = await db.Templates.AsNoTracking().SingleAsync(x => x.Id == templateId, token);
-            foreach (var version in await db.TemplateVersions.AsNoTracking().Where(x => x.TemplateId == templateId).OrderByDescending(x => x.IsCurrent).ThenByDescending(x => x.CreatedAtUtc).ToArrayAsync(token))
-                options.Add(new(ProjectBaselineType.Template, version.Id, $"模板 · {template.Name} · {version.Version}", version.IsCurrent));
+            var versions = await db.TemplateVersions.AsNoTracking().Where(x => x.TemplateId == templateId)
+                .OrderByDescending(x => x.IsCurrent).ThenByDescending(x => x.CreatedAtUtc).ToArrayAsync(token);
+            var currentTemplate = versions.FirstOrDefault(x => x.IsCurrent);
+            var currentUsable = template.IsEnabled && !template.IsDeleted && currentTemplate?.ParseStatus == (int)DocumentParseStatus.Complete;
+            if (currentUsable && currentTemplate is not null)
+            {
+                try { _ = await new TemplateStore(db, new DocumentSnapshotStore(db, snapshots)).LoadSnapshotAsync(currentTemplate.Id, token); }
+                catch (Exception error) when (error is InvalidDataException or JsonException) { currentUsable = false; }
+            }
+            if (!currentUsable) boundTemplateWarning = !template.IsEnabled || template.IsDeleted
+                ? "已绑定模板已停用；请选择其他基准，未自动切换。"
+                : "已绑定模板无可用的完整当前版本；请选择其他基准，未自动切换。";
+            foreach (var version in versions)
+                options.Add(new(ProjectBaselineType.Template, version.Id, $"模板 · {template.Name} · {version.Version}{(version.IsCurrent ? "（当前）" : "（历史）")}", currentUsable && version.IsCurrent));
         }
         foreach (var version in await db.ContractVersions.AsNoTracking().Where(x => x.ProjectId == projectId && x.Id != currentVersionId)
             .OrderByDescending(x => x.VersionNumber).Take(100).ToArrayAsync(token))
             options.Add(new(ProjectBaselineType.Version, version.Id, $"V{version.VersionNumber} · {version.FileName}", false));
         var recommendation = current.Role == (int)ContractVersionRole.Counterparty && project.CurrentBaselineVersionId is not null ? "建议与当前我方基准比较，不与上一版对方版本比较。" :
             options.Any(x => x.Type == ProjectBaselineType.Version) ? "可与已有项目版本比较；基准文件不代表我方角色。" : "请明确选择基准版本。";
-        return new(projectId, currentVersionId, options, project.LastBaselineType is { } type ? (ProjectBaselineType)type : null, recommendation);
+        return new(projectId, currentVersionId, options, project.LastBaselineType is { } type ? (ProjectBaselineType)type : null,
+            recommendation, project.BoundTemplateId is not null, boundTemplateWarning);
     }
     public async Task<ProjectComparisonInput> LoadInputAsync(ProjectComparisonSelection selection, CancellationToken token = default)
     {
         var choices = await ChoicesAsync(selection.ProjectId, selection.CurrentVersionId, token);
-        var option = choices.Options.SingleOrDefault(x => x.Type == selection.BaselineType && x.VersionId == selection.BaselineVersionId) ?? throw new ArgumentException("基准已变化或不属于当前项目，请重新选择。");
+        var option = choices.Options.SingleOrDefault(x => x.Type == selection.BaselineType && x.VersionId == selection.BaselineVersionId);
+        if (option is null && selection.BaselineType == ProjectBaselineType.Template)
+        {
+            // An explicit rematch may select a template outside the project's bound logical template.
+            var resolved = await db.TemplateVersions.AsNoTracking().Where(x => x.Id == selection.BaselineVersionId)
+                .Join(db.Templates.AsNoTracking(), version => version.TemplateId, template => template.Id,
+                    (version, template) => new { version.Id, version.Version, template.Name, template.IsEnabled, template.IsDeleted })
+                .SingleOrDefaultAsync(token);
+            if (resolved is { IsEnabled: true, IsDeleted: false })
+                option = new(ProjectBaselineType.Template, resolved.Id, $"模板 · {resolved.Name} · {resolved.Version}", false);
+        }
+        if (option is null) throw new ArgumentException("基准已变化或不属于当前项目，请重新选择。");
         var versionStore = new ContractVersionStore(db, new DocumentSnapshotStore(db, snapshots)); var current = await versionStore.GetAsync(selection.CurrentVersionId, token); var currentSnapshot = await versionStore.LoadSnapshotAsync(selection.CurrentVersionId, token);
         if (selection.BaselineType is ProjectBaselineType.Own or ProjectBaselineType.Version)
         {

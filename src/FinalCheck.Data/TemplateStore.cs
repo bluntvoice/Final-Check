@@ -25,6 +25,12 @@ public sealed class TemplateStore(FinalCheckDbContext db, DocumentSnapshotStore 
         return new(Map(row), (await db.TemplateVersions.AsNoTracking().Where(x => x.TemplateId == id)
             .OrderByDescending(x => x.CreatedAtUtc).ThenBy(x => x.Id).ToArrayAsync(token)).Select(Map).ToArray());
     }
+    public async Task<(Template Template, TemplateVersion Version)> ResolveVersionAsync(Guid versionId, CancellationToken token = default)
+    {
+        var version = await db.TemplateVersions.AsNoTracking().SingleAsync(x => x.Id == versionId, token);
+        var template = await db.Templates.AsNoTracking().SingleAsync(x => x.Id == version.TemplateId, token);
+        return (Map(template), Map(version));
+    }
     public async Task<DocumentSnapshot> LoadSnapshotAsync(Guid versionId, CancellationToken token = default)
     {
         var row = await db.TemplateVersions.AsNoTracking().SingleAsync(x => x.Id == versionId, token);

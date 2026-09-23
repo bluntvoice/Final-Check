@@ -28,8 +28,9 @@
    <TextBlock Text="{Binding Detail}" TextWrapping="Wrap" FontSize="12" />
    <Button Content="将所选我方版本设为当前基准" Command="{Binding SetBaselineCommand}" />
    <TextBlock Text="{Binding BaselineRecommendation}" TextWrapping="Wrap" FontSize="12" />
-   <ComboBox ItemsSource="{Binding Baselines}" SelectedItem="{Binding SelectedBaseline}" PlaceholderText="选择当前我方基准或模板当前/历史版本"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ProjectBaselineOption"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
-   <Button Content="按所选基准执行独立 Comparison" Command="{Binding CompareCommand}" />
+   <WrapPanel><TextBlock Text="{Binding BaselineSummary}" TextWrapping="Wrap" /><Button Content="更换基准" Command="{Binding ChangeBaselineCommand}" Margin="8,0,0,0" /><Button Content="重新匹配模板" Command="{Binding RematchTemplatesCommand}" Margin="8,0,0,0" /></WrapPanel>
+   <ComboBox ItemsSource="{Binding Baselines}" SelectedItem="{Binding SelectedBaseline}" IsVisible="{Binding ShowBaselineChoices}" PlaceholderText="选择我方基准、模板当前/历史版本或已有项目版本"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ProjectBaselineOption"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+   <Button Content="开始比对" Command="{Binding CompareCommand}" />
    <TextBlock Text="所选版本相关比对（独立历史 / 已审阅不表示接受）" FontWeight="SemiBold" />
    <ListBox ItemsSource="{Binding History}" Height="200"><ListBox.ItemTemplate><DataTemplate x:DataType="m:ProjectComparisonHistory"><StackPanel Spacing="4"><TextBlock Text="{Binding CreatedAt}" /><TextBlock Text="{Binding CurrentName}" /><TextBlock Text="{Binding BaselineName}" /><TextBlock Text="{Binding Total, StringFormat='总变化：{0}'}" /><TextBlock Text="{Binding Unresolved, StringFormat='未处理：{0}'}" /><TextBlock Text="{Binding Reviewed, StringFormat='已审阅：{0}'}" /><TextBlock Text="{Binding Ignored, StringFormat='忽略：{0}'}" /><Button Content="打开历史比对" Command="{ReflectionBinding $parent[UserControl].DataContext.OpenHistoryCommand}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
    <TextBox Text="{Binding SourcePath}" PlaceholderText="所选版本原文件路径 / 手动重关联路径" />
