@@ -4,15 +4,23 @@
 
 当前已实现的 Quick Compare 是不要求预建项目、模板或版本链的入口：首页 → 新建比对 → 基准版本 / 当前版本；项目模式已复用同一 Engine / 结果 / 审阅 UI。以下实现描述保留 v0 阶段事实，不代表已满足全部校准后产品目标。
 
-## PRD 校准后的目标（待 Stage A 实现）
+## PRD 校准后的目标（Stage A 进行中）
 
 以 [当前 PRD](../PRD/PRD-v0.1.0.md) 第 5、9–12、23–30、64 章为准：直接提供文件，正式成功后自动项目化；版本自动编号，轮次按需展开，普通比较可暂未指定角色；有绑定模板时默认其当前启用版本，无绑定时区分唯一高可信推荐 / Top 3 / 手动选择。自动匹配只预选，仍须点击开始。
 
 Application workflow 负责可恢复/事务性保存项目、参与版本、Snapshot、独立 Comparison 与上下文，不由 View 拼装数据库写入；复用现有 frozen record 与 history，失败/取消不能生成空项目或假成功。现有只支持 Own/Counterparty 的模型不能靠 UI 隐藏必填或把未知角色映射成 Counterparty 解决，须另行设计增量兼容方案。
 
-Comparison Workspace 使用统一 selected ChangeId / group member，将清单、双栏文档、详情、批注、状态和前后项导航同时更新；当前两个页签是已实现的临时形态，不是最终目标。Review 只是阅读进度，操作增加可撤销反馈，永久删除仍二次确认。
+Comparison Workspace 使用统一 selected ChangeId / group member，将清单、双栏文档、详情、批注、状态和前后项导航同时更新；Stage A1 已将旧的两个页签合并为同屏工作台。Review 只是阅读进度，操作增加可撤销反馈，永久删除仍二次确认。
 
-联动滚动继续复用可靠 NodeMappings，新增基于视口主要 Anchor 的 Leader/Follower 与反馈抑制；需实际滚轮/触控板验收响应、换侧和长文，不将已有定位/模型测试等同新体验验收。Comparison Ignore Rules 使用独立的每次比对 policy，不复用 Ignored 状态；保留完整结果与原始 spans，再评估规范化/过滤/展示策略，转换后位置仍须可追溯，不能丢弃原事实。
+### Stage A1 工作台与状态撤销（已完成阶段验收）
+
+当前 A1 将结果页改为同屏清单、两侧冻结 Snapshot 预览和详情/批注/审阅区；窄窗口把详情移到预览下方，仍无需切页。清单保留 Engine 原 Group/ChangeId，筛选及归并切换尽量保持当前成员选择；上一项/下一项沿当前可见修改顺序导航，不生成第二套 Diff。概览增加基于实际 review states 的未处理/已审阅/忽略计数，未来 Format Restore 可在详情状态动作区扩展，不在 A1 实现恢复按钮。
+
+Review/Undo 只改 `ComparisonRecord.ReviewStates`，不改 Snapshot / 原始 ComparisonResult。每次成功操作记录每个 ChangeId 的原状态、目标状态（组内允许混合），Undo 在单条 SQLite payload compare-and-swap 中原子恢复这些原状态；先核对目标状态，若被其他窗口改动则拒绝撤销并提示重新加载，不能覆盖较新审阅。界面在数据库成功后才更新，并提供 inline 撤销反馈；Undo 完成后的最终状态随历史 record 持久化，重启可重读。Undo 栈是当前会话交互历史，不伪称跨重启可撤销所有旧操作。
+
+滚动核心 `LogicalScrollCoordinator` 使用 `WorkspaceDocumentPanel` 列表及 NodeId link，核心不限定两栏；当前 UI 仅绑定 Baseline/Current 两栏。只有鼠标/滚动条/导航键显式输入可提升 Leader；Follower 的程序滚动不提升 Leader，也不会反向触发。视口实际 realized 元素中选最接近中心的 block 作为逻辑 anchor，33 ms 合并高频事件，anchor 未改变不重复定位。只使用高可信、分数 ≥0.8 且唯一的 Engine NodeMapping；附近最多两行无可靠链接就保持另一侧并提示，不用像素比例猜测。目标端先 `ScrollIntoView` 再只用本地像素把对应逻辑 block 尽量居中；跨文档仍以节点映射为唯一对应依据。解除联动保留各自位置，重开从当前 Leader 的最近 anchor 对齐。A1 已用 Debug 隔离不等长文档在真实窗口复核慢/快滚轮、滚动条、换侧及关闭/重开联动；触控板设备未测。后续仍须从最终 HEAD 安装 Test Build 做 Stage A 总验收。
+
+Comparison Ignore Rules 使用独立的每次比对 policy，不复用 Ignored 状态；保留完整结果与原始 spans，再评估规范化/过滤/展示策略，转换后位置仍须可追溯，不能丢弃原事实。
 
 Three-way Compare 是 Stage E 规划：复用三个 pairwise Comparison，通过共用模板/版本节点建立 Change Matrix 和三栏 Anchor，保留每个结果身份/可信度/未匹配诊断，不另造单一三文本 diff 或破坏双文件入口。Beta 前 Spike 评估，可明确延后 v0.1.x；本轮无模型/代码改动。Format Restore 正式 UI 属于 Stage C，优先在同一 Workspace 消费已有 Plan / Working Copy / Undo 服务。
 
@@ -54,7 +62,7 @@ Database schema 4 的增量 `ComparisonRecords` 引用两份 DocumentSnapshots �
 
 `ComparisonPreviewBuilder` 在后台将冻结 Snapshot 投影为不可变 PreviewBlock / Cell / Paragraph / Segment；正文段落与表格按 SourceIndex 交错排序，表格按行虚拟化，不一次创建整个合同的复杂控件。保留 DisplayText 与 effective 基础字体/字号/粗体/斜体/颜色/下划线/删除线/高亮；与 Run 投影不一致时保留准确段落文字，跳过不可靠格式而非改写文本。Engine UTF-16 span 用于局部高亮，单段 Cell 的精确 span 可投影到该段；多段 Cell 的修改以单元格定位和完整详情表达，不猜测跨段文字范围。
 
-结果右侧为“文档对照 / 修改详情・审阅”两个页签，双侧原生 ListBox 使用 VirtualizingStackPanel；清单、预览和归并成员选择均有有界视口与虚拟化。搜索/筛选一次替换清单集合，避免逐项通知引发反复布局。主窗口使用弹性比例、可换行筛选和滚动详情，最大化/还原保持导航。
+原 Comparison UI v0 的结果右侧曾使用“文档对照 / 修改详情・审阅”两个页签；Stage A1 改为同屏工作台。双侧原生 ListBox 仍使用 VirtualizingStackPanel；清单、预览和归并成员选择均有有界视口与虚拟化。搜索/筛选一次替换清单集合，避免逐项通知引发反复布局。主窗口使用弹性比例、可换行筛选和滚动详情，最大化/还原保持导航。
 
 点击原 ChangeItem 通过 node→block 索引定位段落、Run 或 Table/Row/Cell，并突出目标单元格/段落；找不到位置明确提示。`ComparisonPreviewViewModel` 复用 Engine NodeMappings 建立双向导航引用，不重新匹配。滚动适配器从实际可见 realized row 获取逻辑节点，另一侧将映射节点带入视口；不是像素级顶边对齐或 offset/extent 比例同步。解除联动两侧独立，重新开启按最后活动侧附近最多两行的可靠映射重新定位；Low confidence 不参与自动滚动猜测，无可靠映射另一侧保持不动并提示。显式变化定位的 Medium/Low 匹配保留人工确认提示。
 

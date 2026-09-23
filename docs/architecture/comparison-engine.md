@@ -1,5 +1,13 @@
 # Comparison Engine v0
 
+## Stage A4 格式 Ignore Rules 设计约束（2026-09-14，待实现）
+
+- 每次 Comparison 独立保存内容/格式 policy；提供全部格式与按属性选择，不能复用 ReviewState、人工 Ignored 或 Restore state。
+- 领域 Engine 原始结果保持完整，展示投影只过滤选中 FormatPropertyDifference；混合项保留剩余属性，格式全部隐藏不影响文字、批注、修订证据及表格内容/结构变化。
+- 字体各槽、字号/颜色/粗斜体/下划线/删除线/高亮，以及段落对齐/各缩进/段前后/行距规则按现有稳定属性分类。表格/Cell 对齐、边框、底色、宽度按 scope 独立分类，不能把结构变化当成格式隐藏。
+- 当前 EffectiveFormatDiffService 尚无 character spacing 差异，行高亦不在该服务的格式属性输出中；明确记录未支持，不为 Ignore Rules 擅自扩展检测。已输出 Width 不等于完整列宽分析。
+- 原 Snapshot、NodeMappings、原始格式属性和 spans 不修改。历史保存 policy，打开可切换过滤/完整；Format Restore 使用原始结果，不使用展示投影作为事实输入。A4 需验证属性组合、内容保留、历史重开、raw / Restore 输入不变。
+
 ## 边界与输入输出
 
 Comparison Engine 只接受不可变的 `DocumentSnapshot`，不直接读取 DOCX 文件路径，也不持有 Open XML SDK 对象。稳定的比较结果模型位于 `FinalCheck.Core.Comparisons`，算法接口和实现位于 `FinalCheck.Comparison`，从而保持 UI、文档解析与持久化实现彼此解耦。

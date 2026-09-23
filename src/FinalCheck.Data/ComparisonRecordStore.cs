@@ -74,12 +74,30 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
         ComparisonReviewState state, CancellationToken cancellationToken = default)
     {
         if (!Enum.IsDefined(state) || changeIds.Count == 0) throw new ArgumentException("Invalid review operation.");
+        return await WriteReviewAsync(recordId, changeIds.Distinct(StringComparer.Ordinal).ToDictionary(id => id, _ => state, StringComparer.Ordinal), null, cancellationToken);
+    }
+    public Task<ComparisonRecord> EditReviewAsync(Guid recordId, ComparisonReviewEdit edit, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(edit);
+        if (edit.States.Count == 0 || !edit.States.Keys.ToHashSet(StringComparer.Ordinal).SetEquals(edit.ExpectedStates.Keys) ||
+            edit.States.Values.Concat(edit.ExpectedStates.Values).Any(state => !Enum.IsDefined(state)))
+            throw new ArgumentException("Invalid atomic review edit.");
+        return WriteReviewAsync(recordId, edit.States, edit.ExpectedStates, cancellationToken);
+    }
+    private async Task<ComparisonRecord> WriteReviewAsync(Guid recordId, IReadOnlyDictionary<string, ComparisonReviewState> changes,
+        IReadOnlyDictionary<string, ComparisonReviewState>? expected, CancellationToken cancellationToken)
+    {
         for (var attempt = 0; attempt < 3; attempt++)
         {
             var row = await context.ComparisonRecords.AsNoTracking().SingleAsync(r => r.Id == recordId, cancellationToken);
             var record = Decode(row.Payload); var states = record.ReviewStates.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
-            foreach (var id in changeIds)
-            { if (!states.ContainsKey(id)) throw new ArgumentException("Change is not part of this comparison."); states[id] = state; }
+            foreach (var (id, state) in changes)
+            {
+                if (!states.TryGetValue(id, out var previous)) throw new ArgumentException("Change is not part of this comparison.");
+                if (expected is not null && previous != expected[id])
+                    throw new DbUpdateConcurrencyException("This change was reviewed elsewhere; reload before editing or undoing.");
+                states[id] = state;
+            }
             var updated = record with { ReviewStates = states }; var payload = JsonSerializer.SerializeToUtf8Bytes(updated);
             // Compare-and-swap merges with freshly loaded states instead of overwriting another operation's review work.
             var count = await context.Database.ExecuteSqlInterpolatedAsync(

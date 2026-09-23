@@ -174,6 +174,46 @@ public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
         output.WriteLine($"Real {paragraphs}-paragraph hash/parse/compare/persist: {watch.Elapsed.TotalMilliseconds:F1} ms; {result.Result.Changes.Count} changes.");
     }
     private sealed class StageCapture : IProgress<string> { public List<string> Values { get; } = []; public void Report(string value) => Values.Add(value); }
+    [Fact] public async Task AtomicUndoPreservesMixedStatesFrozenPayloadsAndUnrelatedReviewsAcrossScopes()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
+        var left = Path.Combine(env.Fixture.DirectoryPath, "undo-left.docx"); var right = Path.Combine(env.Fixture.DirectoryPath, "undo-right.docx");
+        WriteDocument(left, "30"); WriteDocument(right, "60"); var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
+        var result = await workflow.ExecuteAsync(await workflow.ValidateAsync(await inspector.InspectAsync(left), await inspector.InspectAsync(right)));
+        var ids = result.Result.Changes.Take(3).Select(c => c.ChangeId).ToArray();
+        byte[] raw;
+        await using (var context = env.Factory.CreateDbContext()) raw = (await context.ComparisonResults.AsNoTracking().SingleAsync(r => r.Id == result.Record.ResultId)).Payload;
+        await workflow.UpdateReviewAsync(result.Record.RecordId, [ids[0]], ComparisonReviewState.Confirmed);
+        var previous = new Dictionary<string, ComparisonReviewState> { [ids[0]] = ComparisonReviewState.Confirmed, [ids[1]] = ComparisonReviewState.Unresolved };
+        var ignored = previous.Keys.ToDictionary(id => id, _ => ComparisonReviewState.Ignored);
+        await workflow.EditReviewAsync(result.Record.RecordId, new(ignored, previous));
+        await workflow.UpdateReviewAsync(result.Record.RecordId, [ids[2]], ComparisonReviewState.Confirmed);
+        await using var fresh = Services(env); var reopened = Workflow(fresh);
+        await reopened.EditReviewAsync(result.Record.RecordId, new(previous, ignored));
+        var loaded = (await reopened.LoadAsync(result.Record.RecordId))!;
+        Assert.Equal(ComparisonReviewState.Confirmed, loaded.Record.ReviewStates[ids[0]]);
+        Assert.Equal(ComparisonReviewState.Unresolved, loaded.Record.ReviewStates[ids[1]]);
+        Assert.Equal(ComparisonReviewState.Confirmed, loaded.Record.ReviewStates[ids[2]]);
+        Assert.Equal(result.Record.CurrentSnapshotId, loaded.Record.CurrentSnapshotId);
+        await using var check = env.Factory.CreateDbContext();
+        Assert.Equal(raw, (await check.ComparisonResults.AsNoTracking().SingleAsync(r => r.Id == result.Record.ResultId)).Payload);
+        Assert.Equal(result.Record.CurrentFile.Sha256, (await inspector.InspectAsync(right)).Sha256);
+    }
+    [Fact] public async Task StaleOrInvalidAtomicUndoDoesNotPartiallyApplyAnyState()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
+        var left = Path.Combine(env.Fixture.DirectoryPath, "stale-left.docx"); var right = Path.Combine(env.Fixture.DirectoryPath, "stale-right.docx");
+        WriteDocument(left, "30"); WriteDocument(right, "60"); var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
+        var result = await workflow.ExecuteAsync(await workflow.ValidateAsync(await inspector.InspectAsync(left), await inspector.InspectAsync(right)));
+        var ids = result.Result.Changes.Take(2).Select(c => c.ChangeId).ToArray();
+        await workflow.UpdateReviewAsync(result.Record.RecordId, ids, ComparisonReviewState.Ignored);
+        await workflow.UpdateReviewAsync(result.Record.RecordId, [ids[1]], ComparisonReviewState.Confirmed);
+        var desired = ids.ToDictionary(id => id, _ => ComparisonReviewState.Unresolved); var expected = ids.ToDictionary(id => id, _ => ComparisonReviewState.Ignored);
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => workflow.EditReviewAsync(result.Record.RecordId, new(desired, expected)));
+        await Assert.ThrowsAsync<ArgumentException>(() => workflow.EditReviewAsync(result.Record.RecordId, new(desired, new Dictionary<string, ComparisonReviewState>())));
+        var loaded = (await workflow.LoadAsync(result.Record.RecordId))!;
+        Assert.Equal(ComparisonReviewState.Ignored, loaded.Record.ReviewStates[ids[0]]); Assert.Equal(ComparisonReviewState.Confirmed, loaded.Record.ReviewStates[ids[1]]);
+    }
     private sealed class CancelProgress(CancellationTokenSource cancellation) : IProgress<string>
     { public void Report(string value) { if (value == "正在比较文字…") cancellation.Cancel(); } }
 }

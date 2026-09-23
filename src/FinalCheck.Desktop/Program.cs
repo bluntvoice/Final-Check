@@ -40,6 +40,7 @@ internal static class Program
         }
 #if DEBUG
         if (StorageDeveloperCommands.RunAsync(args, platformPaths, serviceProvider).GetAwaiter().GetResult()) return;
+        if (ComparisonWorkspaceDeveloperCommands.RunAsync(args, platformPaths, serviceProvider).GetAwaiter().GetResult()) return;
 #endif
 
         FinalCheckApplication.ConfigureServices(serviceProvider);

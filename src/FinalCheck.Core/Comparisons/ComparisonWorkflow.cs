@@ -11,6 +11,9 @@ public interface IComparisonFileInspector
 }
 
 public enum ComparisonReviewState { Unresolved, Confirmed, Ignored }
+/// <summary>An atomic review edit; expected states prevent Undo from overwriting newer review work.</summary>
+public sealed record ComparisonReviewEdit(IReadOnlyDictionary<string, ComparisonReviewState> States,
+    IReadOnlyDictionary<string, ComparisonReviewState> ExpectedStates);
 public sealed record ComparisonRecord(int SchemaVersion, Guid RecordId, ComparisonFile BaselineFile,
     ComparisonFile CurrentFile, Guid BaselineSnapshotId, Guid CurrentSnapshotId, Guid ResultId,
     DateTimeOffset CreatedAt, IReadOnlyDictionary<string, ComparisonReviewState> ReviewStates)
@@ -30,6 +33,7 @@ public interface IComparisonRecordStore
     Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default);
     Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default);
+    Task<ComparisonRecord> EditReviewAsync(Guid recordId, ComparisonReviewEdit edit, CancellationToken cancellationToken = default);
 }
 public interface IComparisonWorkflowService
 {
@@ -38,4 +42,5 @@ public interface IComparisonWorkflowService
     Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default);
     Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default);
+    Task<ComparisonRecord> EditReviewAsync(Guid recordId, ComparisonReviewEdit edit, CancellationToken cancellationToken = default);
 }

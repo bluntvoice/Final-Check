@@ -68,10 +68,10 @@ public sealed partial class ComparisonPreviewViewModel : ViewModelBase
     public IReadOnlyList<PreviewBlock> Current { get; }
     private readonly Dictionary<string, int> baselineIndex;
     private readonly Dictionary<string, int> currentIndex;
-    private readonly Dictionary<string, string> toCurrent = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> toBaseline = new(StringComparer.Ordinal);
-    private bool lastBaseline = true;
-    private int lastTop;
+    public static DocumentPanelId BaselinePanel { get; } = new("baseline");
+    public static DocumentPanelId CurrentPanel { get; } = new("current");
+    public IReadOnlyList<WorkspaceDocumentPanel> Panels { get; }
+    public LogicalScrollCoordinator Scrolling { get; }
     [ObservableProperty] private bool linked = true;
     [ObservableProperty] private PreviewBlock? locatedBaseline;
     [ObservableProperty] private PreviewBlock? locatedCurrent;
@@ -79,16 +79,19 @@ public sealed partial class ComparisonPreviewViewModel : ViewModelBase
     [ObservableProperty] private string? currentTarget;
     [ObservableProperty] private string notice = "基于快照的内容预览，不是 Word 页码/排版；删除修订内容见修改详情。";
     public event Action<bool, int>? ScrollRequested;
+    public event Action? NavigationStarted;
     public ComparisonPreviewViewModel(ComparisonWorkflowResult outcome)
     {
         Baseline = ComparisonPreviewBuilder.Build(outcome.Baseline, outcome.Result, true);
         Current = ComparisonPreviewBuilder.Build(outcome.Current, outcome.Result, false);
         baselineIndex = Index(Baseline); currentIndex = Index(Current);
-        foreach (var mapping in outcome.Result.NodeMappings.Where(m => m.Confidence != ComparisonConfidenceLevel.Low))
-        {
-            toCurrent.TryAdd(mapping.BaselineNode.NodeId, mapping.CurrentNode.NodeId);
-            toBaseline.TryAdd(mapping.CurrentNode.NodeId, mapping.BaselineNode.NodeId);
-        }
+        Panels = [new(BaselinePanel, "基准版本", Baseline), new(CurrentPanel, "当前版本", Current)];
+        var mappings = outcome.Result.NodeMappings.Where(m => m.Confidence == ComparisonConfidenceLevel.High && m.Score >= .8)
+            .SelectMany(m => new[] { new LogicalNodeLink(BaselinePanel, m.BaselineNode.NodeId, CurrentPanel, m.CurrentNode.NodeId),
+                new LogicalNodeLink(CurrentPanel, m.CurrentNode.NodeId, BaselinePanel, m.BaselineNode.NodeId) }).ToArray();
+        Scrolling = new(Panels, mappings);
+        Scrolling.ScrollRequested += request => ScrollRequested?.Invoke(request.Panel == BaselinePanel, request.BlockIndex);
+        Scrolling.Unmatched += () => Notice = "当前位置附近无可靠匹配节点，另一侧保持不动。";
     }
     private static Dictionary<string, int> Index(IReadOnlyList<PreviewBlock> blocks)
     {
@@ -98,6 +101,7 @@ public sealed partial class ComparisonPreviewViewModel : ViewModelBase
     }
     public void Locate(ComparisonChangeItem? change)
     {
+        Scrolling.ResetNavigation(); NavigationStarted?.Invoke();
         BaselineTarget = change?.BaselineNodeId; CurrentTarget = change?.CurrentNodeId;
         LocatedBaseline = LocateSide(true, BaselineTarget); LocatedCurrent = LocateSide(false, CurrentTarget);
         Notice = change is null ? "请选择修改以定位上下文。" : LocatedBaseline is null && LocatedCurrent is null ? "该修改暂无法在正文/表格预览定位；请查看详情与诊断。" :
@@ -109,29 +113,8 @@ public sealed partial class ComparisonPreviewViewModel : ViewModelBase
         if (id is null || !index.TryGetValue(id, out var position)) return null;
         ScrollRequested?.Invoke(baseline, position); return (baseline ? Baseline : Current)[position];
     }
-    public void ViewportMoved(bool baseline, int firstVisible)
-    {
-        var blocks = baseline ? Baseline : Current;
-        if (firstVisible < 0 || firstVisible >= blocks.Count) return;
-        lastBaseline = baseline; lastTop = firstVisible;
-        if (Linked) Align(baseline, firstVisible);
-    }
-    partial void OnLinkedChanged(bool value) { if (value) Align(lastBaseline, lastTop); }
-    private void Align(bool baseline, int position)
-    {
-        var blocks = baseline ? Baseline : Current; if (position < 0 || position >= blocks.Count) return;
-        var mappings = baseline ? toCurrent : toBaseline; var target = baseline ? currentIndex : baselineIndex;
-        // Use a nearby matched logical node, never a scroll-offset percentage. No low-confidence guesses.
-        for (var distance = 0; distance <= 2; distance++)
-        {
-            foreach (var source in new[] { position + distance, position - distance }.Distinct())
-            {
-                if (source < 0 || source >= blocks.Count) continue;
-                foreach (var id in blocks[source].NodeIds)
-                    if (mappings.TryGetValue(id, out var partner) && target.TryGetValue(partner, out var index))
-                    { ScrollRequested?.Invoke(!baseline, index); return; }
-            }
-        }
-        Notice = "当前位置附近无可靠匹配节点，另一侧保持不动。";
-    }
+    /// <summary>Convenience for an explicit user viewport change; UI separates activation from delayed viewport events.</summary>
+    public void ViewportMoved(bool baseline, int centerBlock)
+    { var panel = baseline ? BaselinePanel : CurrentPanel; Scrolling.UserActivated(panel); Scrolling.ViewportChanged(panel, centerBlock); }
+    partial void OnLinkedChanged(bool value) => Scrolling.SetLinked(value);
 }

@@ -15,6 +15,14 @@ public sealed class ComparisonReviewTests
             Record = Record with { ReviewStates = states }; return Task.FromResult(Record);
         }
         public Task<ComparisonInputValidation> ValidateAsync(ComparisonFile baseline, ComparisonFile current, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ComparisonRecord> EditReviewAsync(Guid recordId, ComparisonReviewEdit edit, CancellationToken cancellationToken = default)
+        {
+            if (fail) throw new IOException("injected failure");
+            if (edit.ExpectedStates.Any(pair => Record.ReviewStates[pair.Key] != pair.Value)) throw new InvalidOperationException("conflict");
+            var states = Record.ReviewStates.ToDictionary(p => p.Key, p => p.Value);
+            foreach (var pair in edit.States) states[pair.Key] = pair.Value;
+            Record = Record with { ReviewStates = states }; return Task.FromResult(Record);
+        }
         public Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ComparisonRecord>>([Record]);
         public Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default) => Task.FromResult<ComparisonWorkflowResult?>(result with { Record = Record });
@@ -49,6 +57,7 @@ public sealed class ComparisonReviewTests
         var first = ComparisonResultsTests.Change(); var format = ComparisonResultsTests.Change("format", ComparisonChangeKind.CharacterFormatChange) with
         { DifferenceSpans = [], FormatDifference = new(FormatDifferenceScope.Character, "p0", "p0", [new("Bold", "False", "True")]) };
         var vm = new ComparisonResultsViewModel(ComparisonResultsTests.Result(first, format));
+        Assert.Equal(string.Empty, vm.EmptyMessage);
         vm.SearchText = "30"; Assert.Equal(2, vm.VisibleCount); vm.TypeFilter = "格式"; Assert.Single(vm.Entries);
         vm.TypeFilter = "文字"; Assert.Equal("one", vm.SelectedChange!.ChangeId); vm.SearchText = "60"; Assert.Single(vm.Entries);
         vm.SearchText = "不存在"; Assert.True(vm.NoVisibleEntries); Assert.Equal("0 / 2 项", vm.CountLabel); Assert.Contains("筛选没有结果", vm.EmptyMessage);
@@ -72,5 +81,35 @@ public sealed class ComparisonReviewTests
         Assert.Single(vm.Entries[0].Members); Assert.Equal("部分已审阅", vm.Entries[0].ReviewLabel);
         await vm.ReviewGroupCommand.ExecuteAsync("Ignored"); Assert.Empty(vm.Entries);
         Assert.Equal(ComparisonReviewState.Confirmed, vm.Changes[0].ReviewState); Assert.Equal(ComparisonReviewState.Ignored, vm.Changes[1].ReviewState);
+    }
+    [Fact] public async Task UndoGroupRestoresMixedPriorStatesAndCanReloadFinalState()
+    {
+        var result = Grouped(); var workflow = new Workflow(result); var vm = new ComparisonResultsViewModel(result, workflow);
+        await vm.ReviewSelectedCommand.ExecuteAsync("Confirmed");
+        await vm.ReviewGroupCommand.ExecuteAsync("Ignored"); Assert.Empty(vm.Entries); Assert.True(vm.CanUndo);
+        await vm.UndoReviewCommand.ExecuteAsync(null);
+        Assert.Equal(ComparisonReviewState.Confirmed, vm.Changes[0].ReviewState);
+        Assert.Equal(ComparisonReviewState.Unresolved, vm.Changes[1].ReviewState);
+        Assert.Contains("已审阅 1", vm.ReviewStatistics);
+        await vm.UndoReviewCommand.ExecuteAsync(null); Assert.False(vm.CanUndo);
+        var reopened = new ComparisonResultsViewModel((await workflow.LoadAsync(result.Record.RecordId))!, workflow);
+        Assert.All(reopened.Changes, c => Assert.Equal(ComparisonReviewState.Unresolved, c.ReviewState)); Assert.False(reopened.CanUndo);
+    }
+    [Fact] public async Task UndoDoesNotOverwriteNewerReviewAndFailureDoesNotConsumeUndo()
+    {
+        var result = Grouped(); var workflow = new Workflow(result); var vm = new ComparisonResultsViewModel(result, workflow);
+        await vm.ReviewSelectedCommand.ExecuteAsync("Confirmed");
+        await workflow.UpdateReviewAsync(result.Record.RecordId, ["one"], ComparisonReviewState.Ignored);
+        await vm.UndoReviewCommand.ExecuteAsync(null); Assert.True(vm.CanUndo); Assert.Contains("无法撤销", vm.ReviewMessage);
+        Assert.Equal(ComparisonReviewState.Ignored, workflow.Record.ReviewStates["one"]);
+    }
+    [Fact] public void NavigationTraversesGroupMembersAndPreservesSelectionThroughFilteringAndGrouping()
+    {
+        var vm = new ComparisonResultsViewModel(Grouped()); Assert.False(vm.CanPrevious); Assert.True(vm.CanNext);
+        vm.NextChangeCommand.Execute(null); Assert.Equal("two", vm.SelectedChange!.ChangeId); Assert.False(vm.CanNext);
+        vm.Grouped = false; Assert.Equal("two", vm.SelectedEntry!.Id); Assert.Equal("two", vm.SelectedChange.ChangeId);
+        vm.SearchText = "30"; Assert.Equal("two", vm.SelectedChange.ChangeId);
+        vm.PreviousChangeCommand.Execute(null); Assert.Equal("one", vm.SelectedEntry!.Id);
+        vm.SearchText = "missing"; Assert.False(vm.CanPrevious); Assert.False(vm.CanNext); Assert.Null(vm.SelectedChange);
     }
 }

@@ -110,13 +110,14 @@ public sealed record ChangeListEntry(string Id, string TypeLabel, string Summary
 {
     public string CountLabel => AllMembers is { } all && all.Count != Members.Count ? $"共 {all.Count} 处 · 当前显示 {Members.Count} 处" : $"共 {Members.Count} 处";
     public string Hint => Members[0].Hint;
+    public string Location => Members[0].Location;
     public string ReviewLabel
     {
         get
         {
             var states = (AllMembers ?? Members).Select(m => m.ReviewState).Distinct().ToArray();
             return states.Length == 1 ? states[0] switch { ComparisonReviewState.Confirmed => "已审阅", ComparisonReviewState.Ignored => "忽略", _ => "未处理" } :
-                states.Contains(ComparisonReviewState.Confirmed) ? "部分已审阅" : "部分已处理";
+                states.Contains(ComparisonReviewState.Confirmed) ? "部分已审阅" : "部分忽略";
         }
     }
 }
@@ -124,6 +125,9 @@ public sealed record ChangeListEntry(string Id, string TypeLabel, string Summary
 public sealed partial class ComparisonResultsViewModel : ViewModelBase
 {
     private readonly IComparisonWorkflowService? workflow;
+    private readonly Stack<ComparisonReviewEdit> undo = new();
+    private List<ChangeItemViewModel> visibleChanges = [];
+    private bool rebuildingEntries;
     public ComparisonWorkflowResult Outcome { get; private set; }
     public IReadOnlyList<ChangeItemViewModel> Changes { get; }
     public ObservableCollection<ChangeListEntry> Entries { get; private set; } = [];
@@ -141,6 +145,10 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public IReadOnlyList<string> StatusOptions { get; } = ["全部", "未处理", "已审阅", "已忽略"];
     public IReadOnlyList<string> TypeOptions { get; } = ["全部类型", "文字", "格式", "新增", "删除", "移动", "表格", "批注", "修订"];
     public bool CanReview => workflow is not null && SelectedChange is not null && !IsSaving;
+    public bool CanUndo => workflow is not null && undo.Count > 0 && !IsSaving;
+    public bool CanPrevious => SelectedChange is not null && visibleChanges.IndexOf(SelectedChange) > 0;
+    public bool CanNext => SelectedChange is not null && visibleChanges.IndexOf(SelectedChange) is var index && index >= 0 && index + 1 < visibleChanges.Count;
+    public string ReviewStatistics => $"总变化 {Changes.Count} · 已审阅 {Changes.Count(c => c.ReviewState == ComparisonReviewState.Confirmed)} · 未处理 {Changes.Count(c => c.ReviewState == ComparisonReviewState.Unresolved)} · 忽略 {Changes.Count(c => c.ReviewState == ComparisonReviewState.Ignored)}";
     public int VisibleCount { get; private set; }
     public string CountLabel => $"{VisibleCount} / {Changes.Count} 项";
     public bool NoVisibleEntries => Entries.Count == 0;
@@ -158,37 +166,69 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public string DiagnosticDetails => string.Join("\n", Outcome.Baseline.ParseDiagnostics.Concat(Outcome.Current.ParseDiagnostics).Select(d => $"{d.Code} · {d.NodeId ?? d.SourcePart}")
         .Concat(Outcome.Result.Diagnostics.Select(d => $"{d.Code} · {d.BaselineNodeId} → {d.CurrentNodeId}")));
     public bool HasChanges => Changes.Count > 0;
-    public string EmptyMessage => !HasChanges ? "两份文档没有检测到修改。" : NoVisibleEntries ? "当前筛选没有结果，请调整搜索或筛选条件。" : "请选择左侧修改，查看原文、现文与证据。";
+    public string EmptyMessage => !HasChanges ? "两份文档没有检测到修改。" : NoVisibleEntries ? "当前筛选没有结果，请调整搜索或筛选条件。" : SelectedChange is null ? "请选择左侧修改，查看原文、现文与证据。" : string.Empty;
     partial void OnGroupedChanged(bool value) => RefreshEntries();
-    partial void OnSelectedEntryChanged(ChangeListEntry? value) => SelectedChange = value?.Members.FirstOrDefault();
-    partial void OnSelectedChangeChanged(ChangeItemViewModel? value) { RefreshReviewCommands(); Preview.Locate(value?.Item); }
+    partial void OnSelectedEntryChanged(ChangeListEntry? value)
+    {
+        if (!rebuildingEntries) SelectedChange = value is { Members.Count: > 0 } ? value.Members[0] : null;
+    }
+    partial void OnSelectedChangeChanged(ChangeItemViewModel? value) { RefreshReviewCommands(); RefreshNavigationCommands(); OnPropertyChanged(nameof(EmptyMessage)); Preview.Locate(value?.Item); }
     partial void OnStatusFilterChanged(string value) => RefreshEntries();
     partial void OnTypeFilterChanged(string value) => RefreshEntries();
     partial void OnSearchTextChanged(string value) => RefreshEntries();
     partial void OnIsSavingChanged(bool value) => RefreshReviewCommands();
     private void RefreshReviewCommands()
-    { OnPropertyChanged(nameof(CanReview)); ReviewSelectedCommand.NotifyCanExecuteChanged(); ReviewGroupCommand.NotifyCanExecuteChanged(); }
+    { OnPropertyChanged(nameof(CanReview)); OnPropertyChanged(nameof(CanUndo)); ReviewSelectedCommand.NotifyCanExecuteChanged(); ReviewGroupCommand.NotifyCanExecuteChanged(); UndoReviewCommand.NotifyCanExecuteChanged(); }
+    private void RefreshNavigationCommands()
+    { OnPropertyChanged(nameof(CanPrevious)); OnPropertyChanged(nameof(CanNext)); PreviousChangeCommand.NotifyCanExecuteChanged(); NextChangeCommand.NotifyCanExecuteChanged(); }
+    [RelayCommand(CanExecute = nameof(CanPrevious))] private void PreviousChange() => Select(visibleChanges[visibleChanges.IndexOf(SelectedChange!) - 1]);
+    [RelayCommand(CanExecute = nameof(CanNext))] private void NextChange() => Select(visibleChanges[visibleChanges.IndexOf(SelectedChange!) + 1]);
     [RelayCommand] private void OnlyUnresolved() => StatusFilter = "未处理";
     [RelayCommand(CanExecute = nameof(CanReview))] private Task ReviewSelectedAsync(string state) => UpdateReviewAsync([SelectedChange!.ChangeId], state);
     [RelayCommand(CanExecute = nameof(CanReview))] private Task ReviewGroupAsync(string state) => UpdateReviewAsync(SelectedEntry?.Members.Select(m => m.ChangeId).ToArray() ?? [], state);
     private async Task UpdateReviewAsync(string[] ids, string state)
     {
         if (!CanReview || ids.Length == 0 || !Enum.TryParse<ComparisonReviewState>(state, out var target) || !Enum.IsDefined(target)) return;
-        IsSaving = true; ReviewMessage = "正在保存处理状态…";
+        var previous = ids.ToDictionary(id => id, id => Outcome.Record.ReviewStates[id], StringComparer.Ordinal);
+        var targets = ids.ToDictionary(id => id, _ => target, StringComparer.Ordinal);
+        if (ids.All(id => previous[id] == target)) return;
+        IsSaving = true; ReviewMessage = "正在保存审阅状态…";
         try
         {
-            var record = await workflow!.UpdateReviewAsync(Outcome.Record.RecordId, ids, target);
-            Outcome = Outcome with { Record = record };
-            foreach (var change in Changes) change.ReviewState = record.ReviewStates.GetValueOrDefault(change.ChangeId);
-            RefreshEntries(); ReviewMessage = "处理状态已保存。";
+            var record = await workflow!.EditReviewAsync(Outcome.Record.RecordId, new(targets, previous));
+            undo.Push(new(previous, targets)); ApplyRecord(record);
+            ReviewMessage = target switch { ComparisonReviewState.Confirmed => "已标记为已审阅（仅表示人工查看）。", ComparisonReviewState.Ignored => "已忽略当前修改。", _ => "已恢复未处理。" };
         }
-        catch (Exception) { ReviewMessage = "处理状态未保存，请重试。原状态保持不变。"; }
+        catch (Exception) { ReviewMessage = "审阅状态未保存，未覆盖其他审阅。请重新打开历史后重试。"; }
         finally { IsSaving = false; }
     }
-    private void Select(ChangeItemViewModel item) => SelectedChange = item;
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private async Task UndoReviewAsync()
+    {
+        IsSaving = true; ReviewMessage = "正在撤销…";
+        try
+        {
+            var record = await workflow!.EditReviewAsync(Outcome.Record.RecordId, undo.Peek());
+            undo.Pop(); ApplyRecord(record); ReviewMessage = "已撤销，原审阅状态已保存。";
+        }
+        catch (Exception) { ReviewMessage = "无法撤销：保存失败或状态已被其他操作更改。未覆盖较新的审阅，请重新打开历史确认。"; }
+        finally { IsSaving = false; }
+    }
+    private void ApplyRecord(ComparisonRecord record)
+    {
+        Outcome = Outcome with { Record = record };
+        foreach (var change in Changes) change.ReviewState = record.ReviewStates.GetValueOrDefault(change.ChangeId);
+        RefreshEntries(); OnPropertyChanged(nameof(ReviewStatistics));
+    }
+    private void Select(ChangeItemViewModel item)
+    {
+        var entry = Entries.FirstOrDefault(e => e.Members.Contains(item));
+        if (entry is null) return;
+        SelectedEntry = entry; SelectedChange = item;
+    }
     private void RefreshEntries()
     {
-        var previousId = SelectedEntry?.Id; var entries = new List<ChangeListEntry>();
+        var previousId = SelectedEntry?.Id; var changeId = SelectedChange?.ChangeId; var entries = new List<ChangeListEntry>();
         var visible = Changes.Where(Matches).ToArray(); VisibleCount = visible.Length;
         var byId = visible.ToDictionary(c => c.ChangeId, StringComparer.Ordinal); var all = Changes.ToDictionary(c => c.ChangeId, StringComparer.Ordinal);
         var included = new HashSet<string>(StringComparer.Ordinal);
@@ -202,8 +242,13 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
             }
         }
         foreach (var item in visible.Where(item => !included.Contains(item.ChangeId))) entries.Add(new(item.ChangeId, item.TypeLabel, item.Summary, [item]));
+        visibleChanges = entries.SelectMany(entry => entry.Members).Distinct().ToList();
         Entries = new(entries); OnPropertyChanged(nameof(Entries));
-        SelectedEntry = Entries.FirstOrDefault(entry => entry.Id == previousId) ?? Entries.FirstOrDefault();
+        rebuildingEntries = true;
+        SelectedEntry = Entries.FirstOrDefault(entry => entry.Members.Any(c => c.ChangeId == changeId)) ?? Entries.FirstOrDefault(entry => entry.Id == previousId) ?? (Entries.Count > 0 ? Entries[0] : null);
+        rebuildingEntries = false;
+        SelectedChange = SelectedEntry?.Members.FirstOrDefault(c => c.ChangeId == changeId) ?? (SelectedEntry is { Members.Count: > 0 } currentEntry ? currentEntry.Members[0] : null);
+        RefreshNavigationCommands();
         OnPropertyChanged(nameof(CountLabel)); OnPropertyChanged(nameof(NoVisibleEntries)); OnPropertyChanged(nameof(EmptyMessage));
     }
     private bool Matches(ChangeItemViewModel item)

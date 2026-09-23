@@ -2,28 +2,36 @@
  xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:views="using:FinalCheck.App.Views"
  x:Class="FinalCheck.App.Views.ComparisonResultsView" x:DataType="vm:ComparisonResultsViewModel">
   <Grid RowDefinitions="Auto,12,*">
-    <StackPanel Spacing="8">
-      <TextBlock Text="{Binding Heading}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="18" />
-      <TextBlock Text="{Binding ComparedAt}" />
+    <StackPanel Spacing="4">
+      <WrapPanel VerticalAlignment="Center">
+        <TextBlock Text="{Binding Heading}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="18" Margin="0,0,12,0" />
+        <TextBlock Text="{Binding ComparedAt}" VerticalAlignment="Center" Foreground="#667788" />
+      </WrapPanel>
       <TextBlock Text="{Binding Statistics}" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding ReviewStatistics}" TextWrapping="Wrap" />
       <TextBlock Text="{Binding IntegrityNotice}" Foreground="#9A5B00" TextWrapping="Wrap" />
-      <Expander Header="解析与匹配提示"><ScrollViewer MaxHeight="140"><TextBlock Text="{Binding DiagnosticDetails}" TextWrapping="Wrap" /></ScrollViewer></Expander>
-      <CheckBox Content="归并视图（取消勾选查看逐项）" IsChecked="{Binding Grouped}" />
+      <WrapPanel>
+        <Expander Header="解析与匹配提示" Margin="0,0,12,0"><ScrollViewer MaxHeight="140"><TextBlock Text="{Binding DiagnosticDetails}" TextWrapping="Wrap" /></ScrollViewer></Expander>
+        <CheckBox Content="归并视图（取消勾选查看逐项）" IsChecked="{Binding Grouped}" VerticalAlignment="Center" />
+      </WrapPanel>
       <WrapPanel>
         <TextBox PlaceholderText="搜索原文、现文或批注" Text="{Binding SearchText}" Width="190" Margin="0,0,8,8" AutomationProperties.Name="搜索修改" />
         <ComboBox ItemsSource="{Binding StatusOptions}" SelectedItem="{Binding StatusFilter}" Width="110" Margin="0,0,8,8" AutomationProperties.Name="状态筛选" />
         <ComboBox ItemsSource="{Binding TypeOptions}" SelectedItem="{Binding TypeFilter}" Width="110" Margin="0,0,8,8" AutomationProperties.Name="类型筛选" />
         <Button Content="仅看未处理" Command="{Binding OnlyUnresolvedCommand}" Margin="0,0,8,8" />
+        <Button Content="上一项" Command="{Binding PreviousChangeCommand}" Margin="0,0,8,8" />
+        <Button Content="下一项" Command="{Binding NextChangeCommand}" Margin="0,0,8,8" />
         <TextBlock Text="{Binding CountLabel}" VerticalAlignment="Center" />
       </WrapPanel>
     </StackPanel>
-    <Grid Grid.Row="2" ColumnDefinitions="2*,12,5*">
+    <Grid Grid.Row="2" ColumnDefinitions="240,12,*">
       <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" AutomationProperties.Name="修改清单">
         <ListBox.Styles><Style Selector="ListBoxItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="#E8F1FF" /></Style></ListBox.Styles>
         <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
         <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeListEntry">
           <StackPanel Spacing="6" Margin="4">
             <TextBlock Text="{Binding TypeLabel}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Location}" TextWrapping="Wrap" MaxLines="2" Foreground="#667788" />
             <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" MaxLines="3" />
             <TextBlock Text="{Binding Hint}" TextWrapping="Wrap" MaxLines="2" Foreground="#667788" />
             <TextBlock Text="{Binding CountLabel}" />
@@ -31,13 +39,13 @@
           </StackPanel>
         </DataTemplate></ListBox.ItemTemplate>
       </ListBox>
-      <TabControl Grid.Column="2">
-        <TabItem Header="文档对照"><views:ComparisonPreviewView DataContext="{Binding Preview}" /></TabItem>
-        <TabItem Header="修改详情 / 审阅">
-      <ScrollViewer>
-        <StackPanel Spacing="16">
+      <Grid Grid.Column="2" Name="Workspace" RowDefinitions="*" ColumnDefinitions="*,12,290">
+        <views:ComparisonPreviewView Name="DocumentArea" DataContext="{Binding Preview}" />
+      <ScrollViewer Name="DetailArea" Grid.Column="2">
+        <StackPanel Spacing="10">
           <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
           <TextBlock Text="{Binding ReviewMessage}" TextWrapping="Wrap" />
+          <Button Content="撤销上次状态操作" Command="{Binding UndoReviewCommand}" IsVisible="{Binding CanUndo}" HorizontalAlignment="Left" />
           <WrapPanel>
             <Button Content="审阅当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="已审阅仅表示人工查看，不表示接受、同意或采纳合同修改" />
             <Button Content="忽略当前项" Command="{Binding ReviewSelectedCommand}" CommandParameter="Ignored" Margin="0,0,8,8" />
@@ -45,14 +53,14 @@
             <Button Content="审阅当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="仅标记当前显示修改为已审阅，不表示接受合同修改" />
             <Button Content="忽略当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Ignored" Margin="0,0,8,8" />
           </WrapPanel>
-          <ListBox ItemsSource="{Binding SelectedEntry.Members}" SelectedItem="{Binding SelectedChange}" MaxHeight="140" AutomationProperties.Name="归并组内修改位置">
+          <ListBox ItemsSource="{Binding SelectedEntry.Members}" SelectedItem="{Binding SelectedChange, Mode=OneWay}" SelectionChanged="SelectMember" MaxHeight="140" AutomationProperties.Name="归并组内修改位置">
             <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeItemViewModel"><TextBlock Text="{Binding Location}" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
           <StackPanel DataContext="{Binding SelectedChange}" x:DataType="vm:ChangeItemViewModel" Spacing="12">
             <TextBlock Text="{Binding TypeLabel}" FontSize="18" FontWeight="SemiBold" />
             <TextBlock Text="{Binding ReviewLabel}" />
-            <TextBlock Text="{Binding Location}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Location}" TextWrapping="Wrap" AutomationProperties.AutomationId="SelectedChangeLocation" />
             <TextBlock Text="{Binding ConfidenceText}" Foreground="#9A5B00" TextWrapping="Wrap" />
             <TextBlock Text="原文" FontWeight="SemiBold" />
             <views:DiffTextBlock Segments="{Binding BaselineSegments}" Baseline="True" TextWrapping="Wrap" />
@@ -65,8 +73,7 @@
           </StackPanel>
         </StackPanel>
       </ScrollViewer>
-        </TabItem>
-      </TabControl>
+      </Grid>
     </Grid>
   </Grid>
 </UserControl>
