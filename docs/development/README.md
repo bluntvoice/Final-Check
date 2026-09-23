@@ -112,7 +112,7 @@ dotnet build src/FinalCheck.Desktop -c Debug
 dotnet run --project tools/FinalCheck.WindowsUi.A1 -c Debug -- --app (Resolve-Path src/FinalCheck.Desktop/bin/Debug/net10.0/FinalCheck.Desktop.exe) --data-root $stageACheck
 ```
 
-最后一条 Windows-only CLI 启动真实 Debug 桌面进程，验证默认两侧上下文、Context → Full → Context、导航、审阅/Undo、筛选、全文联动开关、滚轮/滚动条和重启持久化，输出结构化 JSON；成功退出码 0，失败非 0。只接受 Temp 下已生成的 `FinalCheck-StageA1-*` 隔离夹具，不接受 Release 或用户 DataRoot。该 CLI 不在跨平台 solution 中，macOS Core CI 不运行；结果不能替代 Stage A 最终 HEAD 的 Test Build 安装验收。
+最后一条 Windows-only CLI 启动真实 Debug 桌面进程，验证默认两侧上下文、Context → Full → Context、导航、审阅/Undo、筛选、全文联动开关、滚轮/滚动条和重启持久化，输出结构化 JSON；成功退出码 0，失败非 0。已含自动项目重启后的可见性检查；若只排查该检查，可在命令末尾加 `--project-only`。只接受 Temp 下已生成的 `FinalCheck-StageA1-*` 隔离夹具，不接受 Release 或用户 DataRoot。该 CLI 不在跨平台 solution 中，macOS Core CI 不运行；结果不能替代 Stage A 最终 HEAD 的 Test Build 安装验收。
 
 ## Format Restore 开发验证
 

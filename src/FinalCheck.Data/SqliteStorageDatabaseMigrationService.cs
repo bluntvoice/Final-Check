@@ -123,9 +123,21 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
             foreach (var row in await context.ProjectComparisons.AsNoTracking().ToArrayAsync(token))
             {
                 if (!Enum.IsDefined((Core.Management.ProjectBaselineType)row.BaselineType) ||
-                    (row.BaselineType == (int)Core.Management.ProjectBaselineType.Own ? row.OwnBaselineVersionId is null || row.TemplateBaselineVersionId is not null : row.TemplateBaselineVersionId is null || row.OwnBaselineVersionId is not null) ||
+                    (row.BaselineType switch
+                    {
+                        (int)Core.Management.ProjectBaselineType.Own => row.OwnBaselineVersionId is null || row.TemplateBaselineVersionId is not null || row.BaselineContractVersionId is not null,
+                        (int)Core.Management.ProjectBaselineType.Template => row.TemplateBaselineVersionId is null || row.OwnBaselineVersionId is not null || row.BaselineContractVersionId is not null,
+                        (int)Core.Management.ProjectBaselineType.Version => row.BaselineContractVersionId is null || row.OwnBaselineVersionId is not null || row.TemplateBaselineVersionId is not null,
+                        _ => true,
+                    }) ||
                     !await context.ContractVersions.AnyAsync(v => v.Id == row.CurrentVersionId && v.ProjectId == row.ProjectId && v.SnapshotId == row.CurrentSourceSnapshotId, token)) throw new InvalidDataException("Invalid project comparison context.");
-                var baselineValid = row.OwnBaselineVersionId is { } own ? await context.ContractVersions.AnyAsync(v => v.Id == own && v.ProjectId == row.ProjectId && v.Role == (int)Core.Management.ContractVersionRole.Own && v.SnapshotId == row.BaselineSourceSnapshotId, token) : await context.TemplateVersions.AnyAsync(v => v.Id == row.TemplateBaselineVersionId && v.SnapshotId == row.BaselineSourceSnapshotId, token);
+                var baselineValid = row.BaselineType switch
+                {
+                    (int)Core.Management.ProjectBaselineType.Own => await context.ContractVersions.AnyAsync(v => v.Id == row.OwnBaselineVersionId && v.ProjectId == row.ProjectId && v.Role == (int)Core.Management.ContractVersionRole.Own && v.SnapshotId == row.BaselineSourceSnapshotId, token),
+                    (int)Core.Management.ProjectBaselineType.Template => await context.TemplateVersions.AnyAsync(v => v.Id == row.TemplateBaselineVersionId && v.SnapshotId == row.BaselineSourceSnapshotId, token),
+                    (int)Core.Management.ProjectBaselineType.Version => await context.ContractVersions.AnyAsync(v => v.Id == row.BaselineContractVersionId && v.ProjectId == row.ProjectId && v.SnapshotId == row.BaselineSourceSnapshotId, token),
+                    _ => false,
+                };
                 if (!baselineValid) throw new InvalidDataException("Invalid historical baseline identity.");
                 facts.Add("project-comparison:" + row.RecordId, Hash(JsonSerializer.SerializeToUtf8Bytes(row)));
             }
@@ -142,6 +154,7 @@ public sealed class SqliteStorageDatabaseMigrationService(IDocumentSnapshotSeria
             foreach (var row in await context.Projects.AsNoTracking().ToArrayAsync(token))
             {
                 _ = ProjectStore.Map(row);
+                if (row.NextVersionNumber < 1 || await context.ContractVersions.AnyAsync(v => v.ProjectId == row.Id && v.VersionNumber >= row.NextVersionNumber, token)) throw new InvalidDataException("Invalid project version sequence.");
                 if (row.CurrentBaselineVersionId is { } baseline && !await context.ContractVersions.AnyAsync(v => v.Id == baseline && v.ProjectId == row.Id && v.Role == (int)Core.Management.ContractVersionRole.Own, token)) throw new InvalidDataException("Invalid current own baseline.");
                 if ((row.BoundTemplateId is null) != (row.BoundTemplateVersionId is null) || row.BoundTemplateId is { } id &&
                     !await context.TemplateVersions.AnyAsync(v => v.Id == row.BoundTemplateVersionId && v.TemplateId == id, token)) throw new InvalidDataException("Invalid project template binding.");

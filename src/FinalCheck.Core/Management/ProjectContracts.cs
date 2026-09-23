@@ -1,7 +1,7 @@
 namespace FinalCheck.Core.Management;
 
 public enum ProjectStatus { Active, Archived, Recycled }
-public enum ProjectBaselineType { Template, Own }
+public enum ProjectBaselineType { Template, Own, Version }
 public sealed record ProjectTag(string Name, string Color);
 public sealed record ProjectFolder(Guid FolderId, string Name);
 public sealed record ContractProject(Guid ProjectId, string ProjectName, string Counterparty, string ContractType,

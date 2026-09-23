@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using FinalCheck.Core.Abstractions;
 using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
+using FinalCheck.Core.Management;
 using FinalCheck.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,6 +49,41 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
         cancellationToken.ThrowIfCancellationRequested();
         if (transaction is not null) await transaction.CommitAsync(CancellationToken.None);
         return new(record, baseline, current, result);
+    }
+    public async Task<ComparisonWorkflowResult> SaveAutomaticProjectAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
+        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default)
+    {
+        if (context.Database.CurrentTransaction is not null) throw new InvalidOperationException("Automatic project save owns its transaction.");
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var saved = await SaveAsync(baselineFile, currentFile, baseline, current, result, cancellationToken);
+        var projectId = Guid.NewGuid(); var now = saved.Record.CreatedAt.UtcDateTime;
+        var suggested = Path.GetFileNameWithoutExtension(baselineFile.Name).Trim();
+        if (string.IsNullOrWhiteSpace(suggested)) suggested = "未命名合同";
+        if (suggested.Length > 100) suggested = suggested[..100];
+        var sameContent = baselineFile.Sha256.Equals(currentFile.Sha256, StringComparison.OrdinalIgnoreCase);
+        context.Projects.Add(new StoredProject { Id = projectId, ProjectName = suggested, Status = (int)ProjectStatus.Active,
+            CreatedAtUtc = now, UpdatedAtUtc = now, NextVersionNumber = sameContent ? 2 : 3 });
+        context.NegotiationRounds.Add(new StoredNegotiationRound { Id = Guid.NewGuid(), ProjectId = projectId, Number = 1 });
+        StoredContractVersion NewVersion(ComparisonFile file, Guid snapshotId, DocumentSnapshot snapshot, int number) => new()
+        {
+            Id = Guid.NewGuid(), ProjectId = projectId, FilePath = file.Path, FileName = file.Name, FileSize = file.Size,
+            ModifiedAtUtc = file.ModifiedAt.UtcDateTime, Sha256 = file.Sha256, SnapshotId = snapshotId,
+            Role = (int)ContractVersionRole.Unspecified, RoundNumber = 1, ImportedAtUtc = now.AddTicks(number - 1),
+            VersionNumber = number, OriginalSourceJson = JsonSerializer.Serialize(file), ParseStatus = (int)snapshot.ParseStatus,
+        };
+        var baselineVersion = NewVersion(baselineFile, saved.Record.BaselineSnapshotId, baseline, 1);
+        var currentVersion = sameContent ? baselineVersion : NewVersion(currentFile, saved.Record.CurrentSnapshotId, current, 2);
+        context.ContractVersions.Add(baselineVersion);
+        if (!sameContent) context.ContractVersions.Add(currentVersion);
+        context.ProjectComparisons.Add(new StoredProjectComparison { RecordId = saved.Record.RecordId, ProjectId = projectId,
+            CurrentVersionId = currentVersion.Id, BaselineType = (int)ProjectBaselineType.Version,
+            BaselineContractVersionId = baselineVersion.Id, BaselineSourceSnapshotId = baselineVersion.SnapshotId,
+            CurrentSourceSnapshotId = currentVersion.SnapshotId, BaselineName = baselineFile.Name, CurrentName = currentFile.Name,
+            TotalChanges = result.Changes.Count, CreatedAtUtc = now });
+        await context.SaveChangesAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        await transaction.CommitAsync(CancellationToken.None);
+        return saved;
     }
     public async Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default)
     {

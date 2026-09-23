@@ -13,6 +13,7 @@ public sealed class StoredProject
     public int Status { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
+    public int NextVersionNumber { get; set; } = 1;
     public Guid? CurrentBaselineVersionId { get; set; }
     public int? LastBaselineType { get; set; }
     public string Notes { get; set; } = "";

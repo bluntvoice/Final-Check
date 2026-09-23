@@ -19,16 +19,17 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        if (args.Length != 4 || args[0] != "--app" || args[2] != "--data-root" ||
+        if (args.Length is not (4 or 5) || args.Length == 5 && args[4] != "--project-only" || args[0] != "--app" || args[2] != "--data-root" ||
             !Path.IsPathFullyQualified(args[1]) || !Path.IsPathFullyQualified(args[3]))
         {
-            Emit(new(false, "arguments", "Usage: --app <Debug Desktop.exe> --data-root <existing isolated fixture>",
+            Emit(new(false, "arguments", "Usage: --app <Debug Desktop.exe> --data-root <existing isolated fixture> [--project-only]",
                 null, null, [], [], 0));
             return 2;
         }
 
         var appPath = Path.GetFullPath(args[1]);
         var dataRoot = Path.GetFullPath(args[3]);
+        var projectOnly = args.Length == 5;
         var temp = Path.GetFullPath(Path.GetTempPath());
         if (!OperatingSystem.IsWindows() || !File.Exists(appPath) ||
             !string.Equals(Path.GetFileName(appPath), "FinalCheck.Desktop.exe", StringComparison.OrdinalIgnoreCase) ||
@@ -66,6 +67,13 @@ internal static class Program
             title = window.Title;
             stage = "home-tree";
             controls = ReadTree(window);
+            if (projectOnly)
+            {
+                stage = "automatic-project";
+                VerifyAutomaticProject(window, dataRoot, checks);
+                watch.Stop(); Emit(new(true, "complete", null, processId, title, checks.ToArray(), [], watch.ElapsedMilliseconds));
+                return 0;
+            }
             var recent = window.FindFirstDescendant(cf => cf.ByName("继续最近一次比对"))?.AsButton()
                 ?? throw new InvalidOperationException("Recent comparison button was not found.");
             stage = "open-recent";
@@ -322,6 +330,9 @@ internal static class Program
                 "Restoring unresolved after restart did not persist the expected final state.");
             checks.Add(new("review-restart", "one reviewed item survived normal restart; restored to unresolved afterward"));
 
+            stage = "automatic-project";
+            VerifyAutomaticProject(window, dataRoot, checks);
+
             stage = "complete";
             if (issues.Count > 0) throw new InvalidDataException(string.Join(" ", issues));
         }
@@ -340,6 +351,40 @@ internal static class Program
         watch.Stop();
         Emit(new(error is null, stage, error, processId, title, checks.ToArray(), error is null ? [] : controls, watch.ElapsedMilliseconds));
         return error is null ? 0 : 1;
+    }
+
+    private static void VerifyAutomaticProject(Window window, string dataRoot, List<CheckInfo> checks)
+    {
+        Named(window, "合同项目").AsButton().Invoke();
+        var projectWait = Stopwatch.StartNew();
+        AutomationElement? projectElement = null;
+        while (projectWait.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            projectElement = window.FindFirstDescendant(cf => cf.ByName("合同项目列表"));
+            if (projectElement?.AsListBox().Items.Length > 0 && projectElement.IsEnabled) break;
+            Thread.Sleep(150);
+        }
+        var projects = projectElement?.AsListBox() ?? throw new InvalidOperationException("Automatic project list did not open.");
+        Require(projects.Items.Any(item => item.Name.Contains("workspace-baseline", StringComparison.OrdinalIgnoreCase)),
+            "The comparison fixture did not appear as an automatic project.");
+        Require(projects.IsEnabled, "Project list was still refreshing when the selection test began.");
+        projects.Items.First(item => item.Name.Contains("workspace-baseline", StringComparison.OrdinalIgnoreCase)).Click();
+        Named(window, "版本 / 谈判轮次").Click();
+        var versionWait = Stopwatch.StartNew();
+        AutomationElement? versions = null;
+        while (versionWait.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            versions = window.FindFirstDescendant(cf => cf.ByName("谈判轮次版本列表"));
+            if (versions is not null && window.FindAllDescendants().Any(element =>
+                Safe(() => element.Name).Contains("显示 2 份版本", StringComparison.Ordinal))) break;
+            Thread.Sleep(150);
+        }
+        var projectCapture = Path.Combine(dataRoot + ".fixtures", "automatic-project-" + Guid.NewGuid().ToString("N") + ".png");
+        using (var capture = Capture.Element(window)) capture.ToFile(projectCapture);
+        Require(versions?.AsListBox().Items.Length > 0 && window.FindAllDescendants().Any(element =>
+                Safe(() => element.Name).Contains("显示 2 份版本", StringComparison.Ordinal)),
+            $"Automatic project did not expose its two-version count after restart: realized items={versions?.AsListBox().Items.Length ?? -1}; capture={projectCapture}.");
+        checks.Add(new("automatic-project", "project and two-version count appeared after restart; V1/V2 identities are asserted in Data tests"));
     }
 
     private static ControlInfo[] ReadTree(Window window) => window.FindAllDescendants()

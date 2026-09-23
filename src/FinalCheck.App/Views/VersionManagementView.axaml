@@ -6,19 +6,20 @@
   <Button Content="取消项目比对" Command="{Binding CancelComparisonCommand}" IsVisible="{Binding IsComparing}" />
   <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
    <StackPanel Spacing="8" IsEnabled="{Binding CanImport}">
-   <Border x:Name="DropZone" Background="#182B4055" BorderBrush="#58738B" BorderThickness="1" Padding="12" AutomationProperties.Name="合同版本拖入区域"><TextBlock Text="拖入一份或多份 DOCX（随后逐份确认角色和轮次）" TextWrapping="Wrap" /></Border>
+   <Border x:Name="DropZone" Background="#182B4055" BorderBrush="#58738B" BorderThickness="1" Padding="12" AutomationProperties.Name="合同版本拖入区域"><TextBlock Text="拖入一份或多份 DOCX（自动编号；角色和轮次可稍后整理）" TextWrapping="Wrap" /></Border>
    <Button Content="选择合同 DOCX（可多选）" Click="PickFiles" />
-   <WrapPanel><Button Content="当前轮" Command="{Binding CurrentRoundCommand}" /><Button Content="下一轮" Command="{Binding NextRoundCommand}" /><ComboBox ItemsSource="{Binding RoundNumbers}" SelectedItem="{Binding ExistingRoundSelection}" Width="80" AutomationProperties.Name="选择已有谈判轮次" /><NumericUpDown Value="{Binding ImportRoundInput}" Minimum="1" Maximum="10000" Width="100" AutomationProperties.Name="导入谈判轮次" /><Button Content="应用轮次到待导入项" Command="{Binding ApplyRoundCommand}" /></WrapPanel>
-   <TextBlock Text="{Binding RoundValidationMessage}" TextWrapping="Wrap" />
+   <CheckBox Content="高级：按谈判轮次整理" IsChecked="{Binding AdvancedRoundMode}" />
+   <WrapPanel IsVisible="{Binding AdvancedRoundMode}"><Button Content="当前轮" Command="{Binding CurrentRoundCommand}" /><Button Content="下一轮" Command="{Binding NextRoundCommand}" /><ComboBox ItemsSource="{Binding RoundNumbers}" SelectedItem="{Binding ExistingRoundSelection}" Width="80" AutomationProperties.Name="选择已有谈判轮次" /><NumericUpDown Value="{Binding ImportRoundInput}" Minimum="1" Maximum="10000" Width="100" AutomationProperties.Name="导入谈判轮次" /><Button Content="应用轮次到待导入项" Command="{Binding ApplyRoundCommand}" /></WrapPanel>
+   <TextBlock Text="{Binding RoundValidationMessage}" TextWrapping="Wrap" IsVisible="{Binding AdvancedRoundMode}" />
    <ListBox ItemsSource="{Binding ImportQueue}" MaxHeight="300" AutomationProperties.Name="待导入版本列表">
     <ListBox.ItemTemplate><DataTemplate x:DataType="vm:VersionImportRow"><StackPanel Spacing="6"><TextBlock Text="{Binding Source.Name}" FontWeight="SemiBold" /><TextBlock Text="{Binding Source.Path}" FontSize="11" TextWrapping="Wrap" />
-     <WrapPanel><ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding Role}" PlaceholderText="必须选择我方/对方" Width="180" /><NumericUpDown Value="{Binding RoundInput}" Minimum="1" Maximum="10000" Width="100" AutomationProperties.Name="待导入文件谈判轮次" /><TextBox Text="{Binding Notes}" PlaceholderText="版本备注" Width="140" /></WrapPanel>
-     <TextBlock Text="{Binding RoundValidationMessage}" TextWrapping="Wrap" />
+     <WrapPanel><ComboBox ItemsSource="{Binding Roles}" SelectedItem="{Binding Role}" PlaceholderText="角色可暂未指定" Width="180" /><NumericUpDown Value="{Binding RoundInput}" Minimum="1" Maximum="10000" Width="100" AutomationProperties.Name="待导入文件谈判轮次" IsVisible="{ReflectionBinding $parent[UserControl].DataContext.AdvancedRoundMode}" /><TextBox Text="{Binding Notes}" PlaceholderText="版本备注" Width="140" /></WrapPanel>
+     <TextBlock Text="{Binding RoundValidationMessage}" TextWrapping="Wrap" IsVisible="{ReflectionBinding $parent[UserControl].DataContext.AdvancedRoundMode}" />
      <TextBlock Text="{Binding DuplicateMessage}" TextWrapping="Wrap" /><CheckBox Content="仍然导入相同内容" IsChecked="{Binding AllowDuplicate}" IsVisible="{Binding Duplicate}" />
      <WrapPanel><Button Content="上移" Command="{ReflectionBinding $parent[UserControl].DataContext.MoveUpCommand}" CommandParameter="{Binding}" /><Button Content="下移" Command="{ReflectionBinding $parent[UserControl].DataContext.MoveDownCommand}" CommandParameter="{Binding}" /><Button Content="移除" Command="{ReflectionBinding $parent[UserControl].DataContext.RemoveCommand}" CommandParameter="{Binding}" /></WrapPanel>
     </StackPanel></DataTemplate></ListBox.ItemTemplate>
    </ListBox>
-   <Button Content="确认角色与轮次并导入（不自动比对）" Command="{Binding ImportCommand}" />
+   <Button Content="导入版本（自动编号，不自动比对）" Command="{Binding ImportCommand}" />
    <Border IsVisible="{Binding BaselinePrompt}" BorderBrush="#D68910" BorderThickness="1" Padding="8"><StackPanel Spacing="6"><TextBlock Text="是否将新我方版本设为当前基准？默认：否。" TextWrapping="Wrap" /><ComboBox ItemsSource="{Binding NewOwnVersions}" SelectedItem="{Binding NewOwnBaseline}" PlaceholderText="如需设置，明确选择一个新我方版本"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ContractVersion"><TextBlock Text="{Binding Source.Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox><Button Content="否，保留现有基准（默认）" Command="{Binding KeepBaselineCommand}" /><Button Content="明确设为当前我方基准" Command="{Binding ConfirmNewBaselineCommand}" /></StackPanel></Border>
    </StackPanel>
    <WrapPanel><ComboBox ItemsSource="{Binding OrderOptions}" SelectedItem="{Binding Order}" Width="140" /><Button Content="刷新版本列表" Command="{Binding RefreshCommand}" /></WrapPanel>

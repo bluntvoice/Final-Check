@@ -6,11 +6,19 @@ This architecture extends independent Quick Compare without replacing its Engine
 
 ## 校准后的产品边界（2026-09-14）
 
-后续产品行为以 [PRD](../PRD/PRD-v0.1.0.md) 为准，下面各 Phase/schema 描述保留已实现事实，不是强制维持原交互的要求。Stage A 将改为成功比对后自动项目化、项目内自动 V1/V2 标签、默认时间顺序、轮次高级可选、普通比较可暂未指定角色；既有明确 Own/Counterparty、ContractRound、Own-only baseline 和冻结历史不废弃。
+后续产品行为以 [PRD](../PRD/PRD-v0.1.0.md) 为准，下面各 Phase/schema 描述保留已实现事实，不是强制维持原交互的要求。Stage A2 已将成功的无项目上下文比对自动项目化、项目内自动 V1/V2 标签、默认时间顺序、轮次高级可选、普通比较可暂未指定角色；既有明确 Own/Counterparty、ContractRound、Own-only baseline 和冻结历史不废弃。
 
 有绑定模板时直接预选逻辑模板的当前启用版本，当前实现的绑定历史版本/Own 推荐/上次类型记忆不得视为已满足该新默认；用户主动选择可切换 Own 或历史模板，开始前显示实际基准，历史记录冻结实际模板版本。Template Current 变化不重写旧 project binding evidence 或 Comparison。
 
-角色未知、自动序号、自动关联与旧 Quick Compare 的迁移/事务方案须在实现任务中测试兼容，不能用默认 Counterparty 猜角色、重建数据库或回写旧事实。自动创建项目名称稍后可编辑，不作为首次必填表单；已完成任务的 DONE/验收证据保留。工作台目标详见 [comparison-ui.md](comparison-ui.md)。
+角色未知不得映射成 Counterparty；自动创建项目名称稍后可编辑，不作为首次必填表单。A2 具体事务与迁移见下节；已完成任务的 DONE/验收证据保留。工作台目标详见 [comparison-ui.md](comparison-ui.md)。
+
+## Stage A2 automatic project and stable version sequence
+
+Schema 10 appends `ContractVersionRole.Unspecified`, `ProjectBaselineType.Version`, `ContractVersions.VersionNumber`, `Projects.NextVersionNumber` and `ProjectComparisons.BaselineContractVersionId`. Existing enum values and IDs are retained. Migration assigns existing versions Vn once by imported UTC and stable ID tie-break, then initializes each project's next counter to max + 1; it does not rewrite filenames, original paths, Snapshot payloads, Round, Role, Own baseline or Comparison history. A unique `(ProjectId, VersionNumber)` index protects numbering. Imports allocate numbers within the existing project transaction, so rejected/cancelled batches do not consume Vn. Duplicates skipped by the import queue do not consume Vn; an explicitly imported duplicate is a new version and gets a new number. Deleting a version never renumbers remaining versions or rewinds the counter.
+
+Successful no-project Quick Compare saves the immutable Comparison record/result and both source Snapshots, creates one active Project, a compatibility Round 1 and V1/V2 with `Unspecified` role, then links the Comparison to those versions in one SQLite transaction. Same-hash input explicitly approved by the user reuses V1 as both logical sides; it does not create a spurious V2. The suggested Project name comes from the baseline filename stem (bounded, with a safe fallback), not inferred legal-party metadata; it remains editable. Original DOCX stays at its source path. Any failure or cancellation before commit rolls back the record, Snapshots, Project, versions and link together. Each new contextless Quick Compare creates a project; there is no guessed project lookup by filename/hash. Project-context comparison appends an independent historical record to that explicit project and can use any existing version as a baseline, without reclassifying it as Own or moving the Own-only Current Baseline.
+
+Ordinary project import defaults to Unspecified and assigns the next Vn automatically; Round 1 is a hidden compatibility/default grouping and existing Round data remains available behind an advanced control. Version timeline defaults to chronological order, selects the imported version and suggests an existing-version/Own/template baseline as available, but never runs Comparison automatically. Current Own baseline still requires explicit Own role and explicit confirmation. History preserves the exact baseline-version identity and independent frozen record. Storage migration validates the new version sequence and baseline references; project deletion removes comparison links before version rows so the new FK does not change the guarded deletion order.
 
 ## Template model and persistence
 

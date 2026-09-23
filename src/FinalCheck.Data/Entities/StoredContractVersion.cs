@@ -19,6 +19,7 @@ public sealed class StoredContractVersion
     public int Role { get; set; }
     public int RoundNumber { get; set; }
     public DateTime ImportedAtUtc { get; set; }
+    public int VersionNumber { get; set; }
     public string Notes { get; set; } = "";
     public string OriginalSourceJson { get; set; } = "";
     public Guid? DuplicateReference { get; set; }

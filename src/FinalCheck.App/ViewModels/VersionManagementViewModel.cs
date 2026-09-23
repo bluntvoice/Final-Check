@@ -10,8 +10,8 @@ public partial class VersionImportRow(ComparisonFile source, int round) : ViewMo
 {
     public ComparisonFile Source { get; } = source;
     public bool ExistingDuplicate { get; set; }
-    public IReadOnlyList<string> Roles { get; } = ["我方版本", "对方版本"];
-    [ObservableProperty] private string? role;
+    public IReadOnlyList<string> Roles { get; } = ["暂未指定", "我方版本", "对方版本"];
+    [ObservableProperty] private string? role = "暂未指定";
     [ObservableProperty] private int roundNumber = round;
     [ObservableProperty] private decimal? roundInput = round;
     public bool HasValidRound => RoundInput is >= 1 and <= 10000 && RoundInput == decimal.Truncate(RoundInput.Value);
@@ -30,7 +30,7 @@ public partial class VersionImportRow(ComparisonFile source, int round) : ViewMo
 }
 public sealed record VersionTimelineItem(ContractVersion Version)
 {
-    public string Heading => $"第 {Version.RoundNumber} 轮 · {(Version.Role == ContractVersionRole.Own ? "我方" : "对方")} · {Version.Source.Name}";
+    public string Heading => $"{Version.VersionLabel} · {Version.Role switch { ContractVersionRole.Own => "我方", ContractVersionRole.Counterparty => "对方", _ => "暂未指定" }} · {Version.Source.Name}";
     public string State => $"{Version.ParseStatus}{(Version.IsCurrentBaseline ? " · 当前我方基准" : "")}{(Version.DuplicateReference is null ? "" : " · 内容相同")}";
 }
 public partial class VersionManagementViewModel(IContractVersionService? service = null, IProjectComparisonService? comparisons = null, IComparisonWorkflowService? workflow = null, IProjectLifecycleService? lifecycle = null) : ViewModelBase
@@ -56,11 +56,16 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     public ObservableCollection<VersionTimelineItem> Versions { get; } = [];
     public ObservableCollection<int> RoundNumbers { get; } = [];
     public ObservableCollection<PreviewBlock> PreviewBlocks { get; } = [];
-    public IReadOnlyList<string> OrderOptions { get; } = ["按轮次", "按时间顺序"];
+    public IReadOnlyList<string> OrderOptions { get; } = ["按时间顺序", "按轮次"];
     [ObservableProperty] private Guid? projectId;
     [ObservableProperty] private bool isBusy;
     [ObservableProperty] private bool hasMore;
-    [ObservableProperty] private string order = "按轮次";
+    [ObservableProperty] private string order = "按时间顺序";
+    [ObservableProperty] private bool advancedRoundMode;
+    partial void OnAdvancedRoundModeChanged(bool value)
+    {
+        if (!value) foreach (var row in ImportQueue.Where(row => !row.HasValidRound)) row.RoundInput = ImportRound;
+    }
     [ObservableProperty] private int importRound = 1;
     [ObservableProperty] private decimal? importRoundInput = 1;
     [ObservableProperty] private int? existingRoundSelection;
@@ -103,7 +108,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
             var file = await service.InspectAsync(path); var row = new VersionImportRow(file, ImportRound);
             row.ExistingDuplicate = (await service.SameContentAsync(id, file.Sha256)).Count > 0; ImportQueue.Add(row); RecheckQueueDuplicates();
         }
-        Message = "请逐份明确选择我方/对方和轮次；重复内容默认跳过。导入不会自动比对。";
+        Message = "版本默认暂未指定角色，按 Vn 自动编号；重复内容默认跳过。可选高级轮次整理，导入不会自动比对。";
     });
     [RelayCommand] private void CurrentRound() { ImportRoundInput = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max(); }
     [RelayCommand] private void NextRound() { ImportRoundInput = RoundNumbers.Count == 0 ? 1 : RoundNumbers.Max() + 1; }
@@ -116,12 +121,15 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     [RelayCommand] private Task ImportAsync() => PerformAsync(async () =>
     {
         if (service is null || ProjectId is not { } id) return;
-        if (ImportQueue.Any(x => x.Role is not ("我方版本" or "对方版本"))) throw new ArgumentException("每份文件都必须明确选择角色（包括准备跳过的重复项）。");
+        if (ImportQueue.Any(x => x.Role is not ("暂未指定" or "我方版本" or "对方版本"))) throw new ArgumentException("版本角色必须为暂未指定、我方或对方。");
         if (ImportQueue.Any(x => !x.HasValidRound)) throw new ArgumentException("每份待导入文件的轮次必须为 1–10000 的整数；请修正空白或非整数轮次。");
         var selected = ImportQueue.Where(x => !x.Duplicate || x.AllowDuplicate).ToArray();
         if (selected.Length == 0) { Message = "重复内容已跳过，没有新增版本。"; ImportQueue.Clear(); return; }
-        var result = await service.ImportAsync(id, selected.Select(x => new VersionImport(x.Source.Path, x.Role == "我方版本" ? ContractVersionRole.Own : ContractVersionRole.Counterparty, x.RoundNumber, x.Notes, x.AllowDuplicate, x.Source.Sha256)).ToArray());
-        ImportQueue.Clear(); await LoadCoreAsync(false); Message = $"已导入 {result.Count} 份版本；未自动比对或改变基准。";
+        var result = await service.ImportAsync(id, selected.Select(x => new VersionImport(x.Source.Path, x.Role switch { "我方版本" => ContractVersionRole.Own, "对方版本" => ContractVersionRole.Counterparty, _ => ContractVersionRole.Unspecified }, x.RoundNumber, x.Notes, x.AllowDuplicate, x.Source.Sha256)).ToArray());
+        ImportQueue.Clear(); await LoadCoreAsync(false);
+        var suggested = comparisons is not null && result.Count > 0 && Versions.FirstOrDefault(x => x.Version.ContractVersionId == result[^1].ContractVersionId) is { };
+        if (suggested) await SelectVersionCoreAsync(Versions.Single(x => x.Version.ContractVersionId == result[^1].ContractVersionId));
+        Message = $"已导入 {result.Count} 份版本（{string.Join("、", result.Select(x => x.VersionLabel))}）；{(suggested ? "已显示比对建议，仍需手动点击开始比对" : "请选择新版本查看比对建议")}。原文件名和既有基准未改变。";
         NewOwnVersions.Clear(); foreach (var own in result.Where(x => x.Role == ContractVersionRole.Own)) NewOwnVersions.Add(own); NewOwnBaseline = null; BaselinePrompt = comparisons is not null && NewOwnVersions.Count > 0;
     });
     [RelayCommand] private Task RefreshAsync() => PerformAsync(() => LoadCoreAsync(false));
@@ -139,19 +147,21 @@ public partial class VersionManagementViewModel(IContractVersionService? service
         if (!append && comparisons is not null) await LoadHistoryCoreAsync(false);
         Message = Versions.Count == 0 ? "导入第一份合同版本开始管理。" : $"显示 {Versions.Count} 份版本；完整 Snapshot 仅在预览时读取。";
     }
-    public Task SelectVersionAsync(VersionTimelineItem item) => PerformAsync(async () =>
+    public Task SelectVersionAsync(VersionTimelineItem item) => PerformAsync(() => SelectVersionCoreAsync(item));
+    private async Task SelectVersionCoreAsync(VersionTimelineItem item)
     {
         if (service is null) return; var version = await service.GetAsync(item.Version.ContractVersionId); SelectedVersion = item; SourcePath = version.Source.Path; PreviewBlocks.Clear();
-        Detail = $"{new VersionTimelineItem(version).Heading}\nSHA-256: {version.Source.Sha256}\n导入: {version.ImportedAt:u}\nSnapshot: {version.SnapshotId} · {version.ParseStatus}\n{version.Notes}";
+        Detail = $"{new VersionTimelineItem(version).Heading}\n内部轮次: {version.RoundNumber}\nSHA-256: {version.Source.Sha256}\n导入: {version.ImportedAt:u}\nSnapshot: {version.SnapshotId} · {version.ParseStatus}\n{version.Notes}";
         if (lifecycle is not null) { var restore = await lifecycle.RestoreStateAsync(version.ContractVersionId); Detail += $"\n{(version.IsCurrentBaseline ? "当前我方基准" : "非当前我方基准")}\n{restore.Message}\nPending Restore: {restore.PendingCount}"; }
         if (comparisons is not null && ProjectId is { } id)
         {
             var choices = await comparisons.ChoicesAsync(id, version.ContractVersionId); Baselines.Clear(); foreach (var option in choices.Options) Baselines.Add(option);
-            SelectedBaseline = Baselines.FirstOrDefault(x => x.Type == choices.LastType && x.IsCurrent) ?? Baselines.FirstOrDefault(x => x.IsCurrent);
+            SelectedBaseline = Baselines.FirstOrDefault(x => x.Type == choices.LastType && x.IsCurrent) ?? Baselines.FirstOrDefault(x => x.IsCurrent)
+                ?? Baselines.FirstOrDefault(x => x.Type == ProjectBaselineType.Version);
             BaselineRecommendation = choices.Recommendation + "记忆仅预选类型，仍需点击执行；比对已导入的冻结版本，不重新读取变化后的源文件。";
             History.Clear(); foreach (var history in await comparisons.HistoryAsync(id, version.ContractVersionId)) History.Add(history);
         }
-    });
+    }
     [RelayCommand] private void KeepBaseline() { if (!IsBusy) { BaselinePrompt = false; NewOwnBaseline = null; Message = "保留原基准，新我方版本未设为基准。"; } }
     [RelayCommand] private Task ConfirmNewBaselineAsync() => PerformAsync(async () =>
     {

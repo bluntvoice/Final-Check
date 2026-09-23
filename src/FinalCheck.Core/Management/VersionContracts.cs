@@ -3,11 +3,14 @@ using FinalCheck.Core.Documents;
 
 namespace FinalCheck.Core.Management;
 
-public enum ContractVersionRole { Own, Counterparty }
+public enum ContractVersionRole { Own, Counterparty, Unspecified }
 public sealed record NegotiationRound(Guid RoundId, Guid ProjectId, int Number);
 public sealed record ContractVersion(Guid ContractVersionId, Guid ProjectId, ComparisonFile Source, Guid SnapshotId,
     ContractVersionRole Role, int RoundNumber, bool IsCurrentBaseline, DateTimeOffset ImportedAt, string Notes,
-    ComparisonFile OriginalSourceMetadata, Guid? DuplicateReference, DocumentParseStatus ParseStatus);
+    ComparisonFile OriginalSourceMetadata, Guid? DuplicateReference, DocumentParseStatus ParseStatus, int VersionNumber = 0)
+{
+    public string VersionLabel => VersionNumber > 0 ? $"V{VersionNumber}" : "未编号";
+}
 public sealed record VersionImport(string Path, ContractVersionRole Role, int RoundNumber, string Notes, bool AllowDuplicate = false, string? ExpectedSha256 = null);
 public sealed record PreparedVersion(VersionImport Request, ComparisonFile Source, DocumentSnapshot Snapshot);
 public interface IContractVersionStore

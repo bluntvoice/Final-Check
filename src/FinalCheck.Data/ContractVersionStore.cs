@@ -11,11 +11,11 @@ public sealed class ContractVersionStore(FinalCheckDbContext db, DocumentSnapsho
 {
     public static ContractVersion Map(StoredContractVersion row, Guid? baseline = null)
     {
-        if (!Enum.IsDefined((ContractVersionRole)row.Role) || !Enum.IsDefined((DocumentParseStatus)row.ParseStatus) || row.RoundNumber < 1 || !Path.IsPathFullyQualified(row.FilePath)) throw new InvalidDataException("无效合同版本元数据。");
+        if (!Enum.IsDefined((ContractVersionRole)row.Role) || !Enum.IsDefined((DocumentParseStatus)row.ParseStatus) || row.RoundNumber < 1 || row.VersionNumber < 1 || !Path.IsPathFullyQualified(row.FilePath)) throw new InvalidDataException("无效合同版本元数据。");
         var original = JsonSerializer.Deserialize<ComparisonFile>(row.OriginalSourceJson) ?? throw new InvalidDataException("源文件元数据缺失。");
         if (original.Sha256 != row.Sha256 || !Path.IsPathFullyQualified(original.Path)) throw new InvalidDataException("源文件身份不一致。");
         return new(row.Id, row.ProjectId, new(row.FilePath, row.FileName, row.FileSize, row.ModifiedAtUtc, row.Sha256), row.SnapshotId,
-            (ContractVersionRole)row.Role, row.RoundNumber, baseline == row.Id, row.ImportedAtUtc, row.Notes, original, row.DuplicateReference, (DocumentParseStatus)row.ParseStatus);
+            (ContractVersionRole)row.Role, row.RoundNumber, baseline == row.Id, row.ImportedAtUtc, row.Notes, original, row.DuplicateReference, (DocumentParseStatus)row.ParseStatus, row.VersionNumber);
     }
     public async Task<IReadOnlyList<ContractVersion>> ListAsync(Guid projectId, bool chronological = false, int offset = 0, int limit = 20, CancellationToken token = default)
     {
@@ -45,6 +45,7 @@ public sealed class ContractVersionStore(FinalCheckDbContext db, DocumentSnapsho
         await using var transaction = await db.Database.BeginTransactionAsync(token);
         var project = await db.Projects.SingleAsync(x => x.Id == projectId, token);
         if (project.Status != (int)ProjectStatus.Active) throw new InvalidOperationException("请先恢复项目再导入版本。");
+        if (project.NextVersionNumber < 1) throw new InvalidDataException("项目版本序号无效。");
         var rounds = (await db.NegotiationRounds.Where(x => x.ProjectId == projectId).ToArrayAsync(token)).ToList();
         // Validate/create requested rounds in number order, independent of user queue order.
         foreach (var number in versions.Select(x => x.Request.RoundNumber).Distinct().Order())
@@ -59,12 +60,12 @@ public sealed class ContractVersionStore(FinalCheckDbContext db, DocumentSnapsho
         foreach (var prepared in versions)
         {
             token.ThrowIfCancellationRequested(); var request = prepared.Request; var file = prepared.Source;
-            if (!Enum.IsDefined(request.Role) || request.RoundNumber < 1 || request.RoundNumber > 10000 || file.Sha256 != prepared.Snapshot.Metadata.Sha256 || !Path.IsPathFullyQualified(file.Path)) throw new ArgumentException("明确选择合法角色和轮次，且文件与快照身份必须一致。");
+            if (!Enum.IsDefined(request.Role) || request.RoundNumber < 1 || request.RoundNumber > 10000 || file.Sha256 != prepared.Snapshot.Metadata.Sha256 || !Path.IsPathFullyQualified(file.Path)) throw new ArgumentException("角色、轮次及文件快照身份必须有效。");
             var duplicate = added.FirstOrDefault(x => x.Sha256 == file.Sha256)?.Id ?? await db.ContractVersions.Where(x => x.ProjectId == projectId && x.Sha256 == file.Sha256).OrderBy(x => x.ImportedAtUtc).Select(x => (Guid?)x.Id).FirstOrDefaultAsync(token);
             if (duplicate is not null && !request.AllowDuplicate) throw new InvalidOperationException("已存在内容完全相同的版本，请跳过或明确选择仍然导入。");
             var snapshotId = await snapshots.SaveAsync(prepared.Snapshot, token);
             var row = new StoredContractVersion { Id = Guid.NewGuid(), ProjectId = projectId, FilePath = file.Path, FileName = file.Name, FileSize = file.Size, ModifiedAtUtc = file.ModifiedAt.UtcDateTime,
-                Sha256 = file.Sha256, SnapshotId = snapshotId, Role = (int)request.Role, RoundNumber = request.RoundNumber, ImportedAtUtc = now.AddTicks(added.Count), Notes = request.Notes,
+                Sha256 = file.Sha256, SnapshotId = snapshotId, Role = (int)request.Role, RoundNumber = request.RoundNumber, ImportedAtUtc = now.AddTicks(added.Count), VersionNumber = project.NextVersionNumber++, Notes = request.Notes,
                 OriginalSourceJson = JsonSerializer.Serialize(file), DuplicateReference = duplicate, ParseStatus = (int)prepared.Snapshot.ParseStatus };
             db.ContractVersions.Add(row); added.Add(row);
         }

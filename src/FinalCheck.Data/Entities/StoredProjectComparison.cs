@@ -6,6 +6,7 @@ public sealed class StoredProjectComparison
     public Guid CurrentVersionId { get; set; }
     public int BaselineType { get; set; }
     public Guid? OwnBaselineVersionId { get; set; }
+    public Guid? BaselineContractVersionId { get; set; }
     public Guid? TemplateBaselineVersionId { get; set; }
     public Guid BaselineSourceSnapshotId { get; set; }
     public Guid CurrentSourceSnapshotId { get; set; }

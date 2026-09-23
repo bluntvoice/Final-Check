@@ -8,7 +8,7 @@
 
 以 [当前 PRD](../PRD/PRD-v0.1.0.md) 第 5、9–12、23–30、64 章为准：直接提供文件，正式成功后自动项目化；版本自动编号，轮次按需展开，普通比较可暂未指定角色；有绑定模板时默认其当前启用版本，无绑定时区分唯一高可信推荐 / Top 3 / 手动选择。自动匹配只预选，仍须点击开始。
 
-Application workflow 负责可恢复/事务性保存项目、参与版本、Snapshot、独立 Comparison 与上下文，不由 View 拼装数据库写入；复用现有 frozen record 与 history，失败/取消不能生成空项目或假成功。现有只支持 Own/Counterparty 的模型不能靠 UI 隐藏必填或把未知角色映射成 Counterparty 解决，须另行设计增量兼容方案。
+Application workflow 负责可恢复/事务性保存项目、参与版本、Snapshot、独立 Comparison 与上下文，不由 View 拼装数据库写入；复用现有 frozen record 与 history，失败/取消不能生成空项目或假成功。Stage A2 已将角色未知建模为独立 `Unspecified` 值，而非通过 UI 隐藏必填或映射为 Counterparty；增量 schema 10、自动版本号和事务边界详见 [project-template-version-management.md](project-template-version-management.md)。
 
 Comparison Workspace 使用统一 selected ChangeId / group member，将清单、两侧上下文、详情、批注、状态和前后项导航同时更新；按需展开的全文双栏复用同一选择。Stage A1 已将旧的两个页签合并为同屏工作台。Review 只是阅读进度，操作增加可撤销反馈，永久删除仍二次确认。
 
@@ -56,7 +56,7 @@ Phase 1–5 已实现入口、真实引擎工作流、独立历史、结果管�
 
 ## 独立历史与存储
 
-Database schema 4 的增量 `ComparisonRecords` 引用两份 DocumentSnapshots 和一个 ComparisonResults（FK Restrict），payload schema 1 保存独立 RecordId、外部路径/metadata/hash、时间和原 ChangeId → review state。不预建项目实体，后续可另行关联；每次比对追加，不覆盖历史。快照/结果/record 单一 SQLite transaction 写入，任一步失败/提交前取消都不能留下半条记录。读取核对外键、hash、snapshot identity 和 review keys；未知 schema 拒绝。
+Database schema 4 的增量 `ComparisonRecords` 引用两份 DocumentSnapshots 和一个 ComparisonResults（FK Restrict），payload schema 1 保存独立 RecordId、外部路径/metadata/hash、时间和原 ChangeId → review state。原 Quick Compare 不以预建项目为前提；Stage A2 在 schema 10 扩大保存事务，正式成功后自动创建项目、版本与历史关联。每次比对追加独立记录，不覆盖历史；任一步失败/提交前取消都不能留下半条记录或空项目。读取核对外键、hash、snapshot identity 和 review keys；未知 schema 拒绝。
 
 数据 scope 只在一次存取操作内使用，结束即释放共同 storage lease，不在 ViewModel 中持有 DbContext。新表加入 readonly bootstrap inspector、迁移 logical facts / payload digest / 引用验证与占用计算；两侧原始路径加入排除清单，即使原文恰好位于旧 DataRoot 也不迁移。记录/review payload 是包含于 Database 的 Comparison 逻辑 bytes，不能重复加到物理总计。旧 schema 3 的原 payload 在增量升级中保持原样。
 

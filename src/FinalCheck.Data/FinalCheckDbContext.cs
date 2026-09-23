@@ -27,7 +27,7 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
     {
         try { await base.DisposeAsync(); } finally { storageSession?.Dispose(); }
     }
-    public const int DatabaseSchemaVersion = 9;
+    public const int DatabaseSchemaVersion = 10;
     public DbSet<StoredProjectDeletion> ProjectDeletionOperations => Set<StoredProjectDeletion>();
     public DbSet<StoredProjectComparison> ProjectComparisons => Set<StoredProjectComparison>();
     public DbSet<StoredContractVersion> ContractVersions => Set<StoredContractVersion>();
@@ -68,6 +68,7 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             entity.HasOne<StoredProject>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<StoredContractVersion>().WithMany().HasForeignKey(x => x.CurrentVersionId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<StoredContractVersion>().WithMany().HasForeignKey(x => x.OwnBaselineVersionId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<StoredContractVersion>().WithMany().HasForeignKey(x => x.BaselineContractVersionId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<StoredTemplateVersion>().WithMany().HasForeignKey(x => x.TemplateBaselineVersionId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(x => x.BaselineSourceSnapshotId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(x => x.CurrentSourceSnapshotId).OnDelete(DeleteBehavior.Restrict);
@@ -84,6 +85,7 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             entity.Property(x => x.Notes).IsRequired(); entity.Property(x => x.OriginalSourceJson).IsRequired();
             entity.Property(x => x.ModifiedAtUtc).HasConversion(utcDateTimeConverter); entity.Property(x => x.ImportedAtUtc).HasConversion(utcDateTimeConverter);
             entity.HasIndex(x => new { x.ProjectId, x.RoundNumber, x.ImportedAtUtc }); entity.HasIndex(x => new { x.ProjectId, x.Sha256 });
+            entity.HasIndex(x => new { x.ProjectId, x.VersionNumber }).IsUnique();
             entity.HasOne<StoredNegotiationRound>().WithMany().HasForeignKey(x => new { x.ProjectId, x.RoundNumber }).HasPrincipalKey(x => new { x.ProjectId, x.Number }).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne<StoredDocumentSnapshot>().WithMany().HasForeignKey(x => x.SnapshotId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -96,6 +98,7 @@ public sealed class FinalCheckDbContext(DbContextOptions<FinalCheckDbContext> op
             entity.ToTable("Projects"); entity.HasKey(x => x.Id);
             entity.Property(x => x.ProjectName).IsRequired(); entity.Property(x => x.Counterparty).IsRequired(); entity.Property(x => x.ContractType).IsRequired();
             entity.Property(x => x.TagsJson).IsRequired(); entity.Property(x => x.Notes).IsRequired();
+            entity.Property(x => x.NextVersionNumber).HasDefaultValue(1);
             entity.Property(x => x.CreatedAtUtc).HasConversion(utcDateTimeConverter); entity.Property(x => x.UpdatedAtUtc).HasConversion(utcDateTimeConverter);
             entity.HasIndex(x => new { x.Status, x.UpdatedAtUtc });
             entity.HasOne<StoredTemplate>().WithMany().HasForeignKey(x => x.BoundTemplateId).OnDelete(DeleteBehavior.Restrict);

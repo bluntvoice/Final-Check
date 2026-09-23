@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using FinalCheck.Core.Abstractions;
 using FinalCheck.Core.Management;
 using FinalCheck.Desktop;
@@ -33,7 +34,9 @@ public sealed class VersionTests(ITestOutputHelper output)
         ComparisonWorkflowTests.WriteDocument(own, "30"); ComparisonWorkflowTests.WriteDocument(other, "60"); var before = await service.InspectAsync(own);
         var batch = await service.ImportAsync(id, [new(own, ContractVersionRole.Own, 1, "首份"), new(other, ContractVersionRole.Counterparty, 1, "对方")]);
         Assert.Equal(ContractVersionRole.Own, batch[0].Role); Assert.Equal(ContractVersionRole.Counterparty, batch[1].Role); Assert.All(batch, x => Assert.False(x.IsCurrentBaseline));
+        Assert.Equal([1, 2], batch.Select(x => x.VersionNumber));
         var next = (await service.ImportAsync(id, [new(own, ContractVersionRole.Own, 2, "第二轮", true)]))[0]; Assert.Equal(batch[0].ContractVersionId, next.DuplicateReference);
+        Assert.Equal(3, next.VersionNumber); Assert.Equal("V3", next.VersionLabel);
         Assert.Equal(2, (await service.RoundsAsync(id)).Count); Assert.Equal(3, (await service.ListAsync(id)).Count);
         Assert.Equal(before.Sha256, (await service.InspectAsync(own)).Sha256); Assert.Equal(next.Source.Sha256, (await service.LoadSnapshotAsync(next.ContractVersionId)).Metadata.Sha256);
         Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(database)!, "*.docx", SearchOption.AllDirectories));
@@ -51,6 +54,7 @@ public sealed class VersionTests(ITestOutputHelper output)
         await Assert.ThrowsAsync<IOException>(() => service.ImportAsync(id, [new(file, ContractVersionRole.Own, 2, "", true, original.Sha256)]));
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.ImportAsync(id, [new(file, ContractVersionRole.Own, 2, "")], cancellation.Token));
         await using var dbAfter = fixture.OpenDatabase(database); Assert.Single(await dbAfter.ContractVersions.ToArrayAsync()); Assert.Single(await dbAfter.NegotiationRounds.ToArrayAsync()); Assert.Equal(2, await dbAfter.DocumentSnapshots.CountAsync());
+        Assert.Equal(2, (await dbAfter.Projects.SingleAsync(x => x.Id == id)).NextVersionNumber);
     }
     [Fact] public async Task MissingMovedSourcePreviewAndRelinkPreserveOriginalIdentity()
     {
@@ -76,6 +80,33 @@ public sealed class VersionTests(ITestOutputHelper output)
         }
         Assert.Equal(Core.Storage.StorageMigrationStatus.Completed, (await env.Migration().MigrateAsync(env.Target)).Status); Assert.True(File.Exists(source)); Assert.False(File.Exists(Path.Combine(env.Target, "original-contract.docx")));
         await using var target = env.Factory.CreateDbContext(); var version = await new ContractVersionStore(target, new DocumentSnapshotStore(target, new JsonDocumentSnapshotSerializer())).GetAsync(versionId); Assert.Equal(source, version.Source.Path);
+    }
+    [Fact] public async Task Schema9BackfillAssignsStableChronologicalNumbersWithoutChangingLegacyIdentity()
+    {
+        using var fixture = new StorageFixture(); var database = Path.Combine(fixture.DirectoryPath, "legacy", "finalcheck.db");
+        await fixture.CreateDatabaseAsync(database, "20260913062104_AddProjectDeletionJournal");
+        await using var db = fixture.OpenDatabase(database);
+        var snapshot = await db.DocumentSnapshots.AsNoTracking().SingleAsync(); var payload = snapshot.Payload.ToArray();
+        var projectId = Guid.NewGuid(); var roundId = Guid.NewGuid(); var earlier = Guid.NewGuid(); var later = Guid.NewGuid();
+        var firstPath = Path.Combine(fixture.DirectoryPath, "legacy-first.docx");
+        var secondPath = Path.Combine(fixture.DirectoryPath, "legacy-second.docx");
+        var firstFile = new Core.Comparisons.ComparisonFile(firstPath, "legacy-first.docx", 1, DateTimeOffset.UtcNow, new('A', 64));
+        var secondFile = new Core.Comparisons.ComparisonFile(secondPath, "legacy-second.docx", 1, DateTimeOffset.UtcNow, new('B', 64));
+        var now = DateTime.UtcNow;
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO Projects (Id, ProjectName, Counterparty, ContractType, TagsJson, Status, CreatedAtUtc, UpdatedAtUtc, Notes) VALUES ({projectId}, {"历史项目"}, {""}, {""}, {"[]"}, {0}, {now}, {now}, {""})");
+        await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO NegotiationRounds (Id, ProjectId, Number) VALUES ({roundId}, {projectId}, {1})");
+        async Task InsertAsync(Guid id, Core.Comparisons.ComparisonFile file, DateTime imported) => await db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO ContractVersions (Id, ProjectId, FilePath, FileName, FileSize, ModifiedAtUtc, Sha256, SnapshotId, Role, RoundNumber, ImportedAtUtc, Notes, OriginalSourceJson, ParseStatus) VALUES ({id}, {projectId}, {file.Path}, {file.Name}, {file.Size}, {file.ModifiedAt.UtcDateTime}, {file.Sha256}, {snapshot.Id}, {0}, {1}, {imported}, {""}, {JsonSerializer.Serialize(file)}, {0})");
+        // Insert in the opposite order to verify the migration uses time rather than insertion order.
+        await InsertAsync(later, secondFile, now); await InsertAsync(earlier, firstFile, now.AddMinutes(-1));
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE Projects SET CurrentBaselineVersionId = {earlier}, LastBaselineType = {(int)ProjectBaselineType.Own} WHERE Id = {projectId}");
+        await db.Database.MigrateAsync(); db.ChangeTracker.Clear();
+        Assert.Equal(payload, (await db.DocumentSnapshots.AsNoTracking().SingleAsync()).Payload);
+        var rows = await db.ContractVersions.AsNoTracking().OrderBy(x => x.VersionNumber).ToArrayAsync();
+        Assert.Equal([earlier, later], rows.Select(x => x.Id)); Assert.Equal([1, 2], rows.Select(x => x.VersionNumber));
+        var project = await db.Projects.AsNoTracking().SingleAsync(x => x.Id == projectId);
+        Assert.Equal(3, project.NextVersionNumber); Assert.Equal(earlier, project.CurrentBaselineVersionId);
+        Assert.All(rows, row => { Assert.Equal(1, row.RoundNumber); Assert.Equal(0, row.Role); });
+        await new SqliteDataRootDatabaseInspector().ValidateAsync(database);
     }
     [Fact] public async Task FiftyVersionsAndTwentyTemplatesUseMetadataPagesWithoutSnapshotDecode()
     {

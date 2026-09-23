@@ -15,10 +15,11 @@
 ## 实际执行状态（截至 2026-09-23；起始基线 2026-09-14）
 
 - Phase A1：DONE；统一工作台、持久化状态撤销与逻辑滚动协调已实现并完成阶段验收。
-- Phase A2 / A3 / A4：NOT STARTED；仅在前一阶段测试、文档、commit / push 全部完成后开始。
+- Phase A2：DONE；无项目上下文的正式比对自动形成项目、稳定 Vn 和独立历史；角色/轮次默认交互简化且旧模型保留。
+- Phase A3 / A4：NOT STARTED；仅在前一阶段测试、文档、commit / push 全部完成后开始。
 - 起始基线：`b8986e2`，main 与 origin/main 一致，工作区原本干净；数据库 schema 9。
 - 起始 Release 测试：288/288 PASS（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 50）。
-- 尚未完成：A2–A4 及 Stage A 最终 HEAD CI / Test Build / 实际安装验收；A1 的 Debug 隔离数据试用不得替代最终安装包验收。
+- 尚未完成：A3–A4 及 Stage A 最终 HEAD CI / Test Build / 实际安装验收；A1/A2 的 Debug 隔离数据试用不得替代最终安装包验收。
 
 ### A1 安全检查点（2026-09-19，仍为 IN PROGRESS）
 
@@ -710,6 +711,15 @@ Anchor 真正变化时才驱动另一侧。
 ---
 
 # 8. Phase A2 验收
+
+### 实际完成与验证（2026-09-23）
+
+- 正式无项目 Quick Compare 在单一 SQLite transaction 内保存冻结 record/result/Snapshots、自动项目、兼容 Round 1、角色暂未指定的 V1/V2 与历史关联；同内容获准比对只建立 V1，取消或关联写入失败均不留下空项目、版本或孤立结果。项目名来自基准文件名的安全建议值，原 DOCX 仍只引用原路径/hash，不进入 DataRoot。
+- Schema 10 对旧项目按导入 UTC 与稳定 ID 一次性回填 Vn，并给每项目设置持久 `NextVersionNumber`；新批次在同一事务分配，跳过重复/失败不会消耗编号。旧 Round/Role/Own Baseline 与冻结历史不改；普通导入默认暂未指定角色和时间顺序，轮次仍可在高级区整理。新版本导入后展示比对建议，仍须手动点击开始。项目内已有版本可作一般 Version 基准，不被猜测为 Own。
+- Release `dotnet test FinalCheck.sln -c Release --no-restore`：312/312 PASS（Core 2 / Documents 45 / Comparison 52 / Data 145 / App 68）；Debug Desktop build：0 warning / 0 error。Data 集成测试覆盖 Quick Compare → V1/V2 → V3 → 独立历史 → 重启、相同内容、失败事务回滚、旧 schema 9 回填及含新版本/历史关联的 DataRoot 迁移；App 测试覆盖版本默认角色、自动编号与导入后建议。
+- Windows 隔离 Debug 夹具的 `FinalCheck.WindowsUi.A1 --project-only` 返回 exit 0 / JSON success，重启后自动项目及“两份版本”在真实窗口可见；版本 ID/编号由 Data 测试验证。此项不是最终安装包人工验收。Stage A 总验收仍须从最终 HEAD 安装 Test Build，覆盖完整项目链与 Context/Full 工作台。
+
+`Phase A2 — DONE`（须在本次独立 commit 正常 push 成功后才进入 A3）。
 
 至少：
 

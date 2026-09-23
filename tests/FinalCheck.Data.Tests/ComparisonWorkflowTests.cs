@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using FinalCheck.Core.Abstractions;
 using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
+using FinalCheck.Core.Management;
 using FinalCheck.Core.Storage;
 using FinalCheck.Desktop;
 using FinalCheck.Documents;
@@ -56,6 +57,92 @@ public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
         Assert.Equal(result.Record.ResultId, loaded.Record.ResultId); Assert.Equal(result.Current.Paragraphs[0].DisplayText, loaded.Current.Paragraphs[0].DisplayText);
         Assert.Contains((await workflow.ListAsync()), record => record.RecordId == result.Record.RecordId);
     }
+    [Fact] public async Task QuickCompareCreatesProjectVersionsAndIndependentV3HistoryAcrossRestart()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = ProjectComparisonTests.Services(env);
+        var left = Path.Combine(env.Fixture.DirectoryPath, "agreement-original.docx");
+        var right = Path.Combine(env.Fixture.DirectoryPath, "agreement-revision.docx");
+        var third = Path.Combine(env.Fixture.DirectoryPath, "agreement-third.docx");
+        WriteDocument(left, "30"); WriteDocument(right, "60"); WriteDocument(third, "45");
+        var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
+        var first = await workflow.ExecuteAsync(await workflow.ValidateAsync(await inspector.InspectAsync(left), await inspector.InspectAsync(right)));
+        Guid projectId; Guid v2Id;
+        await using (var db = env.Factory.CreateDbContext())
+        {
+            var project = Assert.Single(await db.Projects.AsNoTracking().ToArrayAsync()); projectId = project.Id;
+            Assert.Equal("agreement-original", project.ProjectName); Assert.Equal(3, project.NextVersionNumber);
+            Assert.Null(project.CurrentBaselineVersionId);
+            var versions = await db.ContractVersions.AsNoTracking().OrderBy(x => x.VersionNumber).ToArrayAsync();
+            Assert.Equal([1, 2], versions.Select(x => x.VersionNumber)); Assert.All(versions, x => Assert.Equal((int)ContractVersionRole.Unspecified, x.Role));
+            Assert.Equal([left, right], versions.Select(x => x.FilePath)); v2Id = versions[1].Id;
+            var link = Assert.Single(await db.ProjectComparisons.AsNoTracking().ToArrayAsync());
+            Assert.Equal(first.Record.RecordId, link.RecordId); Assert.Equal((int)ProjectBaselineType.Version, link.BaselineType);
+            Assert.Equal(versions[0].Id, link.BaselineContractVersionId); Assert.Equal(v2Id, link.CurrentVersionId);
+        }
+        var versionsService = new ContractVersionService(inspector, new OpenXmlDocumentParser(), provider.GetRequiredService<IServiceScopeFactory>());
+        var v3 = Assert.Single(await versionsService.ImportAsync(projectId, [new(third, ContractVersionRole.Unspecified, 1, "")]));
+        Assert.Equal(3, v3.VersionNumber); Assert.Equal("V3", v3.VersionLabel);
+        var projectComparisons = ProjectComparisonTests.Service(provider);
+        var choices = await projectComparisons.ChoicesAsync(projectId, v3.ContractVersionId);
+        Assert.Contains(choices.Options, x => x.Type == ProjectBaselineType.Version && x.VersionId == v2Id);
+        var second = await projectComparisons.CompareAsync(new(projectId, v3.ContractVersionId, ProjectBaselineType.Version, v2Id));
+        Assert.NotEqual(first.Record.RecordId, second.Record.RecordId);
+        Assert.Equal(2, (await projectComparisons.HistoryAsync(projectId)).Count);
+        File.Delete(left); File.Delete(right); File.Delete(third);
+        await using var reopened = ProjectComparisonTests.Services(env);
+        var reopenedWorkflow = Workflow(reopened); var loaded = await reopenedWorkflow.LoadAsync(first.Record.RecordId);
+        Assert.NotNull(loaded); Assert.Equal(first.Result.Changes.Count, loaded.Result.Changes.Count);
+        var reopenedHistory = await ProjectComparisonTests.Service(reopened).HistoryAsync(projectId, limit: 100);
+        Assert.Equal(2, reopenedHistory.Count);
+        await using (var check = env.Factory.CreateDbContext())
+        {
+            var numbers = await check.ContractVersions.AsNoTracking().Where(x => x.ProjectId == projectId)
+                .OrderBy(x => x.VersionNumber).Select(x => x.VersionNumber).ToArrayAsync();
+            Assert.Equal([1, 2, 3], numbers);
+        }
+        Assert.Empty(Directory.EnumerateFiles(env.Source, "agreement-*.docx", SearchOption.AllDirectories));
+        Assert.Equal(StorageMigrationStatus.Completed, (await env.Migration().MigrateAsync(env.Target)).Status);
+        Assert.Equal(2, (await ProjectComparisonTests.Service(reopened).HistoryAsync(projectId, limit: 100)).Count);
+        await using var migrated = env.Factory.CreateDbContext();
+        Assert.Equal(3, await migrated.ContractVersions.CountAsync(x => x.ProjectId == projectId));
+    }
+    [Fact] public async Task SameContentQuickCompareCreatesOnlyV1AndNeverInfersOwnRole()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
+        var path = Path.Combine(env.Fixture.DirectoryPath, "same-version.docx"); WriteDocument(path, "30");
+        var file = await new ComparisonFileInspector().InspectAsync(path);
+        var result = await Workflow(provider).ExecuteAsync(new(file, file, true, true, false));
+        await using var db = env.Factory.CreateDbContext();
+        var project = Assert.Single(await db.Projects.AsNoTracking().ToArrayAsync());
+        Assert.Equal(2, project.NextVersionNumber); Assert.Null(project.CurrentBaselineVersionId);
+        var version = Assert.Single(await db.ContractVersions.AsNoTracking().ToArrayAsync());
+        Assert.Equal(1, version.VersionNumber); Assert.Equal((int)ContractVersionRole.Unspecified, version.Role);
+        var link = Assert.Single(await db.ProjectComparisons.AsNoTracking().ToArrayAsync());
+        Assert.Equal(result.Record.RecordId, link.RecordId);
+        Assert.Equal(version.Id, link.CurrentVersionId); Assert.Equal(version.Id, link.BaselineContractVersionId);
+    }
+    [Fact] public async Task AutomaticProjectLinkFailureRollsBackRecordSnapshotsAndEmptyProject()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
+        var left = Path.Combine(env.Fixture.DirectoryPath, "rollback-left.docx");
+        var right = Path.Combine(env.Fixture.DirectoryPath, "rollback-right.docx");
+        WriteDocument(left, "30"); WriteDocument(right, "60");
+        int previousSnapshots;
+        await using (var db = env.Factory.CreateDbContext())
+        {
+            previousSnapshots = await db.DocumentSnapshots.CountAsync();
+            await db.Database.ExecuteSqlRawAsync("CREATE TRIGGER FailAutomaticProjectLink BEFORE INSERT ON ProjectComparisons BEGIN SELECT RAISE(ABORT, 'injected project link failure'); END;");
+        }
+        var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
+        var input = await workflow.ValidateAsync(await inspector.InspectAsync(left), await inspector.InspectAsync(right));
+        await Assert.ThrowsAsync<DbUpdateException>(() => workflow.ExecuteAsync(input));
+        await using var check = env.Factory.CreateDbContext();
+        Assert.Equal(previousSnapshots, await check.DocumentSnapshots.CountAsync());
+        Assert.Empty(await check.ComparisonRecords.ToArrayAsync()); Assert.Empty(await check.ProjectComparisons.ToArrayAsync());
+        Assert.Empty(await check.ContractVersions.ToArrayAsync()); Assert.Empty(await check.Projects.ToArrayAsync());
+        Assert.Equal(input.Baseline.Sha256, (await inspector.InspectAsync(left)).Sha256);
+        Assert.Equal(input.Current.Sha256, (await inspector.InspectAsync(right)).Sha256);
+    }
     [Fact] public async Task IdenticalInputsHaveZeroActualChangesAndSamePathIsExplicit()
     {
         await using var env = await MigrationEnvironment.CreateAsync(); await using var provider = Services(env);
@@ -92,7 +179,9 @@ public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
         var file = await new ComparisonFileInspector().InspectAsync(path); var input = new ComparisonInputValidation(file, file, true, true, false);
         using var cancellation = new CancellationTokenSource(); var workflow = Workflow(provider);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => workflow.ExecuteAsync(input, new CancelProgress(cancellation), cancellation.Token));
-        Assert.Empty(await workflow.ListAsync()); Assert.NotNull(await workflow.ExecuteAsync(input));
+        Assert.Empty(await workflow.ListAsync());
+        await using (var db = env.Factory.CreateDbContext()) Assert.Empty(await db.Projects.ToArrayAsync());
+        Assert.NotNull(await workflow.ExecuteAsync(input));
     }
     [Fact] public async Task SelectionChangeRefreshesHashButChangeAfterValidationIsRejected()
     {

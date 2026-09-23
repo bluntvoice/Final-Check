@@ -31,7 +31,11 @@ public sealed class ProjectComparisonStore(FinalCheckDbContext db, IDocumentSnap
             foreach (var version in await db.TemplateVersions.AsNoTracking().Where(x => x.TemplateId == templateId).OrderByDescending(x => x.IsCurrent).ThenByDescending(x => x.CreatedAtUtc).ToArrayAsync(token))
                 options.Add(new(ProjectBaselineType.Template, version.Id, $"模板 · {template.Name} · {version.Version}", version.IsCurrent));
         }
-        var recommendation = current.Role == (int)ContractVersionRole.Counterparty && project.CurrentBaselineVersionId is not null ? "建议与当前我方基准比较，不与上一版对方版本比较。" : "请明确选择当前我方基准或模板当前/历史版本。";
+        foreach (var version in await db.ContractVersions.AsNoTracking().Where(x => x.ProjectId == projectId && x.Id != currentVersionId)
+            .OrderByDescending(x => x.VersionNumber).Take(100).ToArrayAsync(token))
+            options.Add(new(ProjectBaselineType.Version, version.Id, $"V{version.VersionNumber} · {version.FileName}", false));
+        var recommendation = current.Role == (int)ContractVersionRole.Counterparty && project.CurrentBaselineVersionId is not null ? "建议与当前我方基准比较，不与上一版对方版本比较。" :
+            options.Any(x => x.Type == ProjectBaselineType.Version) ? "可与已有项目版本比较；基准文件不代表我方角色。" : "请明确选择基准版本。";
         return new(projectId, currentVersionId, options, project.LastBaselineType is { } type ? (ProjectBaselineType)type : null, recommendation);
     }
     public async Task<ProjectComparisonInput> LoadInputAsync(ProjectComparisonSelection selection, CancellationToken token = default)
@@ -39,7 +43,7 @@ public sealed class ProjectComparisonStore(FinalCheckDbContext db, IDocumentSnap
         var choices = await ChoicesAsync(selection.ProjectId, selection.CurrentVersionId, token);
         var option = choices.Options.SingleOrDefault(x => x.Type == selection.BaselineType && x.VersionId == selection.BaselineVersionId) ?? throw new ArgumentException("基准已变化或不属于当前项目，请重新选择。");
         var versionStore = new ContractVersionStore(db, new DocumentSnapshotStore(db, snapshots)); var current = await versionStore.GetAsync(selection.CurrentVersionId, token); var currentSnapshot = await versionStore.LoadSnapshotAsync(selection.CurrentVersionId, token);
-        if (selection.BaselineType == ProjectBaselineType.Own)
+        if (selection.BaselineType is ProjectBaselineType.Own or ProjectBaselineType.Version)
         {
             var baseline = await versionStore.GetAsync(selection.BaselineVersionId, token); return new(selection, baseline.Source, current.Source, await versionStore.LoadSnapshotAsync(baseline.ContractVersionId, token), currentSnapshot, option.Name);
         }
@@ -55,10 +59,11 @@ public sealed class ProjectComparisonStore(FinalCheckDbContext db, IDocumentSnap
         var rechecked = await LoadInputAsync(selection, token);
         if (rechecked.BaselineFile.Sha256 != input.BaselineFile.Sha256 || rechecked.CurrentFile.Sha256 != input.CurrentFile.Sha256) throw new InvalidDataException("比对输入身份已变化。");
         var currentRow = await db.ContractVersions.AsNoTracking().SingleAsync(x => x.Id == selection.CurrentVersionId, token);
-        var baselineSnapshot = selection.BaselineType == ProjectBaselineType.Own ? await db.ContractVersions.Where(x => x.Id == selection.BaselineVersionId).Select(x => x.SnapshotId).SingleAsync(token) : await db.TemplateVersions.Where(x => x.Id == selection.BaselineVersionId).Select(x => x.SnapshotId).SingleAsync(token);
+        var baselineSnapshot = selection.BaselineType is ProjectBaselineType.Own or ProjectBaselineType.Version ? await db.ContractVersions.Where(x => x.Id == selection.BaselineVersionId).Select(x => x.SnapshotId).SingleAsync(token) : await db.TemplateVersions.Where(x => x.Id == selection.BaselineVersionId).Select(x => x.SnapshotId).SingleAsync(token);
         var saved = await new ComparisonRecordStore(db, snapshots, comparisons).SaveAsync(input.BaselineFile, input.CurrentFile, input.Baseline, input.Current, result, token);
         db.ProjectComparisons.Add(new() { RecordId = saved.Record.RecordId, ProjectId = selection.ProjectId, CurrentVersionId = selection.CurrentVersionId, BaselineType = (int)selection.BaselineType,
             OwnBaselineVersionId = selection.BaselineType == ProjectBaselineType.Own ? selection.BaselineVersionId : null, TemplateBaselineVersionId = selection.BaselineType == ProjectBaselineType.Template ? selection.BaselineVersionId : null,
+            BaselineContractVersionId = selection.BaselineType == ProjectBaselineType.Version ? selection.BaselineVersionId : null,
             BaselineSourceSnapshotId = baselineSnapshot, CurrentSourceSnapshotId = currentRow.SnapshotId, BaselineName = input.BaselineName, CurrentName = input.CurrentFile.Name, TotalChanges = result.Changes.Count, CreatedAtUtc = saved.Record.CreatedAt.UtcDateTime });
         project.LastBaselineType = (int)selection.BaselineType; project.UpdatedAtUtc = DateTime.UtcNow; await db.SaveChangesAsync(token); token.ThrowIfCancellationRequested(); await transaction.CommitAsync(CancellationToken.None); return saved;
     }
@@ -66,13 +71,13 @@ public sealed class ProjectComparisonStore(FinalCheckDbContext db, IDocumentSnap
     {
         if (offset < 0 || limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(limit));
         var links = db.ProjectComparisons.AsNoTracking().Where(x => x.ProjectId == projectId);
-        if (versionId is { } id) links = links.Where(x => x.CurrentVersionId == id || x.OwnBaselineVersionId == id);
+        if (versionId is { } id) links = links.Where(x => x.CurrentVersionId == id || x.OwnBaselineVersionId == id || x.BaselineContractVersionId == id);
         var rows = await (from link in links join record in db.ComparisonRecords.AsNoTracking() on link.RecordId equals record.Id orderby link.CreatedAtUtc descending, link.RecordId select new { Link = link, record.Payload }).Skip(offset).Take(limit).ToArrayAsync(token);
         return rows.Select(x =>
         {
             var record = ComparisonRecordStore.Decode(x.Payload); var link = x.Link;
             if (!Enum.IsDefined((ProjectBaselineType)link.BaselineType) || record.ReviewStates.Count != link.TotalChanges) throw new InvalidDataException("比对历史元数据不一致。");
-            return new ProjectComparisonHistory(link.RecordId, link.ProjectId, link.CurrentVersionId, (ProjectBaselineType)link.BaselineType, link.OwnBaselineVersionId ?? link.TemplateBaselineVersionId ?? throw new InvalidDataException("缺失基准身份。"),
+            return new ProjectComparisonHistory(link.RecordId, link.ProjectId, link.CurrentVersionId, (ProjectBaselineType)link.BaselineType, link.OwnBaselineVersionId ?? link.BaselineContractVersionId ?? link.TemplateBaselineVersionId ?? throw new InvalidDataException("缺失基准身份。"),
                 link.CurrentName, link.BaselineName, link.CreatedAtUtc, link.TotalChanges, record.ReviewStates.Values.Count(x => x == ComparisonReviewState.Unresolved), record.ReviewStates.Values.Count(x => x == ComparisonReviewState.Confirmed), record.ReviewStates.Values.Count(x => x == ComparisonReviewState.Ignored));
         }).ToArray();
     }

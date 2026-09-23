@@ -35,7 +35,7 @@ public sealed class ComparisonWorkflowService(IComparisonFileInspector files, ID
             await VerifyAsync(left, input.Baseline.Sha256, cancellationToken); await VerifyAsync(right, input.Current.Sha256, cancellationToken);
             progress?.Report("正在保存比对结果…");
             await using var scope = scopes.CreateAsyncScope();
-            return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAsync(input.Baseline, input.Current, baseline, current, result, cancellationToken);
+            return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAutomaticProjectAsync(input.Baseline, input.Current, baseline, current, result, cancellationToken);
         }, cancellationToken);
     private static FileStream Open(string path) => new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
     private static async Task VerifyAsync(Stream stream, string expected, CancellationToken token)

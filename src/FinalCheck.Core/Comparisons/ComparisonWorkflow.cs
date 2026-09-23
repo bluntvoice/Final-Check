@@ -30,6 +30,8 @@ public interface IComparisonRecordStore
 {
     Task<ComparisonWorkflowResult> SaveAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
         DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default);
+    Task<ComparisonWorkflowResult> SaveAutomaticProjectAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
+        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default);
     Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default);
     Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state, CancellationToken cancellationToken = default);
