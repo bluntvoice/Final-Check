@@ -16,21 +16,24 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
     public static ComparisonRecord Decode(byte[] payload)
     {
         var record = JsonSerializer.Deserialize<ComparisonRecord>(payload, JsonOptions) ?? throw new InvalidDataException("Invalid comparison record.");
-        if (record.SchemaVersion != ComparisonRecord.CurrentSchemaVersion || record.RecordId == Guid.Empty ||
+        if (record.SchemaVersion is not (1 or ComparisonRecord.CurrentSchemaVersion) || record.RecordId == Guid.Empty ||
             record.BaselineSnapshotId == Guid.Empty || record.CurrentSnapshotId == Guid.Empty || record.ResultId == Guid.Empty ||
             record.BaselineFile is null || record.CurrentFile is null ||
             !Path.IsPathFullyQualified(record.BaselineFile.Path ?? "") || !Path.IsPathFullyQualified(record.CurrentFile.Path ?? "") ||
             record.BaselineFile.Sha256?.Length != 64 || record.CurrentFile.Sha256?.Length != 64 ||
-            record.ReviewStates is null || record.ReviewStates.Values.Any(value => !Enum.IsDefined(value)))
+            record.ReviewStates is null || record.ReviewStates.Values.Any(value => !Enum.IsDefined(value)) ||
+            record.IgnoreRules is null || record.IgnoreRules.Characters is null || record.IgnoreRules.HiddenProperties.Any(string.IsNullOrWhiteSpace))
             throw new InvalidDataException("Unknown comparison record schema/identity.");
         return record;
     }
     public async Task<ComparisonWorkflowResult> SaveAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
-        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, CancellationToken cancellationToken = default)
+        DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result, ComparisonIgnoreRules? ignoreRules = null,
+        CancellationToken cancellationToken = default)
     {
         var baselineId = Guid.NewGuid(); var currentId = Guid.NewGuid(); var resultId = Guid.NewGuid();
-        var record = new ComparisonRecord(1, Guid.NewGuid(), baselineFile, currentFile, baselineId, currentId,
-            resultId, DateTimeOffset.UtcNow, result.Changes.ToDictionary(c => c.ChangeId, _ => ComparisonReviewState.Unresolved, StringComparer.Ordinal));
+        var record = new ComparisonRecord(ComparisonRecord.CurrentSchemaVersion, Guid.NewGuid(), baselineFile, currentFile, baselineId, currentId,
+            resultId, DateTimeOffset.UtcNow, result.Changes.ToDictionary(c => c.ChangeId, _ => ComparisonReviewState.Unresolved, StringComparer.Ordinal))
+        { IgnoreRules = ignoreRules ?? new() };
         if (baseline.Metadata.Sha256 != baselineFile.Sha256 || current.Metadata.Sha256 != currentFile.Sha256)
             throw new InvalidDataException("Input identity changed before persistence.");
         // Project comparisons own a wider transaction including immutable context linkage.
@@ -52,7 +55,8 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
     }
     public async Task<ComparisonWorkflowResult> SaveAutomaticProjectAsync(ComparisonFile baselineFile, ComparisonFile currentFile,
         DocumentSnapshot baseline, DocumentSnapshot current, ComparisonResult result,
-        AutomaticTemplateBaseline? templateBaseline = null, CancellationToken cancellationToken = default)
+        AutomaticTemplateBaseline? templateBaseline = null, ComparisonIgnoreRules? ignoreRules = null,
+        CancellationToken cancellationToken = default)
     {
         if (context.Database.CurrentTransaction is not null) throw new InvalidOperationException("Automatic project save owns its transaction.");
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
@@ -63,7 +67,7 @@ public sealed class ComparisonRecordStore(FinalCheckDbContext context, IDocument
             if (!valid || !await context.Templates.AsNoTracking().AnyAsync(x => x.Id == templateBaseline.TemplateId && x.IsEnabled && !x.IsDeleted, cancellationToken))
                 throw new InvalidDataException("所选模板版本已变化或不可用，请重新匹配。 ");
         }
-        var saved = await SaveAsync(baselineFile, currentFile, baseline, current, result, cancellationToken);
+        var saved = await SaveAsync(baselineFile, currentFile, baseline, current, result, ignoreRules, cancellationToken);
         var projectId = Guid.NewGuid(); var now = saved.Record.CreatedAt.UtcDateTime;
         var suggested = (templateBaseline?.TemplateName ?? Path.GetFileNameWithoutExtension(baselineFile.Name)).Trim();
         if (string.IsNullOrWhiteSpace(suggested)) suggested = "未命名合同";

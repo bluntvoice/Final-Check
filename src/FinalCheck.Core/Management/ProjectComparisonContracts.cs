@@ -14,13 +14,13 @@ public interface IProjectComparisonStore
     Task SetBaselineAsync(Guid projectId, Guid versionId, CancellationToken token = default);
     Task<ProjectComparisonChoices> ChoicesAsync(Guid projectId, Guid currentVersionId, CancellationToken token = default);
     Task<ProjectComparisonInput> LoadInputAsync(ProjectComparisonSelection selection, CancellationToken token = default);
-    Task<ComparisonWorkflowResult> SaveAsync(ProjectComparisonInput input, ComparisonResult result, CancellationToken token = default);
+    Task<ComparisonWorkflowResult> SaveAsync(ProjectComparisonInput input, ComparisonResult result, ComparisonIgnoreRules? ignoreRules = null, CancellationToken token = default);
     Task<IReadOnlyList<ProjectComparisonHistory>> HistoryAsync(Guid projectId, Guid? versionId = null, int offset = 0, int limit = 20, CancellationToken token = default);
 }
 public interface IProjectComparisonService
 {
     Task SetBaselineAsync(Guid projectId, Guid versionId, CancellationToken token = default);
     Task<ProjectComparisonChoices> ChoicesAsync(Guid projectId, Guid currentVersionId, CancellationToken token = default);
-    Task<ComparisonWorkflowResult> CompareAsync(ProjectComparisonSelection selection, IProgress<string>? progress = null, CancellationToken token = default);
+    Task<ComparisonWorkflowResult> CompareAsync(ProjectComparisonSelection selection, IProgress<string>? progress = null, ComparisonIgnoreRules? ignoreRules = null, CancellationToken token = default);
     Task<IReadOnlyList<ProjectComparisonHistory>> HistoryAsync(Guid projectId, Guid? versionId = null, int offset = 0, int limit = 20, CancellationToken token = default);
 }

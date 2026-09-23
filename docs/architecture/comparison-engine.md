@@ -97,6 +97,10 @@ v0 使用最长公共子序列生成稳定的 Token 编辑序列，再把相邻�
 - 单段 Token LCS 对极长单段文本仍为二次复杂度，超长段落优化留待后续版本。
 - schema version 1 暂无旧版本迁移；遇到未知版本会明确拒绝而不是静默误读。
 
+## Stage A4 展示投影边界
+
+Comparison Engine 继续生成未删减的 `ComparisonResult`、DifferenceSpan、FormatDifference、NodeMapping 和诊断。每次比对的 `ComparisonIgnoreRules` 保存于独立 `ComparisonRecord`，不改变 Engine 算法版本或结果 schema。Core 的纯函数 `ComparisonIgnoreProjection` 仅供结果展示投影：返回原 ChangeItem 或同 ChangeId 的可见属性副本，必要时隐藏整个仅含被忽略证据的项；原结果仍供审阅状态、历史和 Format Restore 使用。表格合并结构与低可信诊断不归类为可隐藏格式。页码/序号保守识别限制见 [comparison-ui.md](comparison-ui.md)。
+
 ## 后续 Phase
 
 Comparison Engine v0 的五个 Phase 已在同一结果 schema 上完成。当前范围不实现格式恢复、正式业务 UI 或 AI 语义分析。

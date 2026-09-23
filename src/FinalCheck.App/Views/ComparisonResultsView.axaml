@@ -9,6 +9,10 @@
       </WrapPanel>
       <TextBlock Text="{Binding Statistics}" TextWrapping="Wrap" />
       <TextBlock Text="{Binding ReviewStatistics}" TextWrapping="Wrap" />
+      <WrapPanel>
+        <TextBlock Text="{Binding IgnoreRulesLabel}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <CheckBox Content="显示完整差异（临时关闭本次忽略规则）" IsChecked="{Binding ShowAllDifferences}" />
+      </WrapPanel>
       <TextBlock Text="{Binding IntegrityNotice}" Foreground="#9A5B00" TextWrapping="Wrap" />
       <WrapPanel>
         <Expander Header="解析与匹配提示" Margin="0,0,12,0"><ScrollViewer MaxHeight="140"><TextBlock Text="{Binding DiagnosticDetails}" TextWrapping="Wrap" /></ScrollViewer></Expander>

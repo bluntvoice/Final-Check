@@ -31,6 +31,24 @@
         </StackPanel>
       </Border>
     </Grid>
+    <Expander Header="比对选项（仅本次比对）">
+      <StackPanel Spacing="8" Margin="8" IsEnabled="{Binding !IsBusy}">
+        <TextBlock Text="内容差异" FontWeight="SemiBold" />
+        <WrapPanel>
+          <CheckBox Content="忽略标点符号变化" IsChecked="{Binding IgnorePunctuation}" Margin="0,0,16,4" />
+          <CheckBox Content="忽略可靠页码标记变化" IsChecked="{Binding IgnorePageNumbers}" Margin="0,0,16,4" />
+          <CheckBox Content="忽略独立序号标记变化" IsChecked="{Binding IgnoreNumbering}" Margin="0,0,16,4" />
+        </WrapPanel>
+        <TextBox PlaceholderText="自定义忽略字符（逐字符，不是正则表达式）" Text="{Binding IgnoredCharacters}" />
+        <TextBlock Text="格式差异" FontWeight="SemiBold" />
+        <CheckBox Content="忽略全部格式变化（不影响文字或表格结构）" IsChecked="{Binding IgnoreAllFormatting}" />
+        <ItemsControl ItemsSource="{Binding FormatOptions}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:FormatIgnoreOption"><CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" Margin="0,0,14,5" /></DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="字间距、行高及列宽尚无稳定差异分类；不会伪装成可忽略项。完整差异始终保留。" TextWrapping="Wrap" FontSize="12" />
+      </StackPanel>
+    </Expander>
     <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
     <ProgressBar IsVisible="{Binding IsExecuting}" IsIndeterminate="True" />
     <WrapPanel>

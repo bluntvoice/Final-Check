@@ -48,6 +48,14 @@ public partial class VersionManagementViewModel(IContractVersionService? service
     public ObservableCollection<ContractVersion> NewOwnVersions { get; } = [];
     public ObservableCollection<ProjectComparisonHistory> History { get; } = [];
     [ObservableProperty] private ProjectBaselineOption? selectedBaseline;
+    [ObservableProperty] private bool ignorePunctuation;
+    [ObservableProperty] private bool ignorePageNumbers;
+    [ObservableProperty] private bool ignoreNumbering;
+    [ObservableProperty] private string ignoredCharacters = "";
+    [ObservableProperty] private bool ignoreAllFormatting;
+    public IReadOnlyList<FormatIgnoreOption> FormatOptions { get; } = FormatIgnoreOption.Supported;
+    public ComparisonIgnoreRules IgnoreRules => new(IgnorePunctuation, IgnorePageNumbers, IgnoreNumbering,
+        IgnoredCharacters, IgnoreAllFormatting, FormatOptions.Where(x => x.IsSelected).SelectMany(x => x.Keys).ToArray());
     [ObservableProperty] private bool showBaselineChoices = true;
     public string BaselineSummary => SelectedBaseline is { } selected ? $"比对基准：{selected.Name}" : "尚未选定可用基准";
     partial void OnSelectedBaselineChanged(ProjectBaselineOption? value) => OnPropertyChanged(nameof(BaselineSummary));
@@ -201,7 +209,7 @@ public partial class VersionManagementViewModel(IContractVersionService? service
         using var cancellation = new CancellationTokenSource(); comparisonCancellation = cancellation; IsComparing = true;
         try
         {
-            var result = await comparisons.CompareAsync(new(id, item.Version.ContractVersionId, baseline.Type, baseline.VersionId), new Progress<string>(stage => Message = stage), cancellation.Token);
+            var result = await comparisons.CompareAsync(new(id, item.Version.ContractVersionId, baseline.Type, baseline.VersionId), new Progress<string>(stage => Message = stage), IgnoreRules, cancellation.Token);
             Message = result.IsPartial ? "独立历史已保存；Partial / 低可信差异请人工审阅。" : "独立比对已保存；正在打开共用结果页。";
             if (Completed is { } handler) await handler(result);
         }

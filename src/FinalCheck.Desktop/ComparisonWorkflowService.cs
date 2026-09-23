@@ -18,7 +18,8 @@ public sealed class ComparisonWorkflowService(IComparisonFileInspector files, ID
         return new(left, right, string.Equals(left.Path, right.Path, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal),
             left.Sha256 == right.Sha256, left.Sha256 != baseline.Sha256 || right.Sha256 != current.Sha256);
     }
-    public Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null, CancellationToken cancellationToken = default) =>
+    public Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null,
+        ComparisonIgnoreRules? ignoreRules = null, CancellationToken cancellationToken = default) =>
         Task.Run(async () =>
         {
             // Read handles protect against cooperative writers through parse + comparison; no source bytes are copied to DataRoot.
@@ -36,10 +37,10 @@ public sealed class ComparisonWorkflowService(IComparisonFileInspector files, ID
             await VerifyAsync(left, input.Baseline.Sha256, cancellationToken); await VerifyAsync(right, input.Current.Sha256, cancellationToken);
             progress?.Report("正在保存比对结果…");
             await using var scope = scopes.CreateAsyncScope();
-            return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAutomaticProjectAsync(input.Baseline, input.Current, baseline, current, result, cancellationToken: cancellationToken);
+            return await scope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAutomaticProjectAsync(input.Baseline, input.Current, baseline, current, result, cancellationToken: cancellationToken, ignoreRules: ignoreRules);
         }, cancellationToken);
     public Task<ComparisonWorkflowResult> ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId,
-        IProgress<string>? progress = null, CancellationToken cancellationToken = default) => Task.Run(async () =>
+        IProgress<string>? progress = null, ComparisonIgnoreRules? ignoreRules = null, CancellationToken cancellationToken = default) => Task.Run(async () =>
     {
         progress?.Report("正在读取模板快照…");
         Template template; TemplateVersion version; Core.Documents.DocumentSnapshot baseline;
@@ -66,7 +67,7 @@ public sealed class ComparisonWorkflowService(IComparisonFileInspector files, ID
         await using var saveScope = scopes.CreateAsyncScope();
         return await saveScope.ServiceProvider.GetRequiredService<IComparisonRecordStore>().SaveAutomaticProjectAsync(
             version.Source, currentSource, baseline, currentSnapshot, result,
-            new(template.TemplateId, version.TemplateVersionId, version.SnapshotId, template.Name), cancellationToken);
+            new(template.TemplateId, version.TemplateVersionId, version.SnapshotId, template.Name), ignoreRules, cancellationToken);
     }, cancellationToken);
     private static FileStream Open(string path) => new(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
     private static async Task VerifyAsync(Stream stream, string expected, CancellationToken token)

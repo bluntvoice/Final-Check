@@ -24,9 +24,9 @@ public sealed class ComparisonReviewTests
             foreach (var pair in edit.States) states[pair.Key] = pair.Value;
             Record = Record with { ReviewStates = states }; return Task.FromResult(Record);
         }
-        public Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null, ComparisonIgnoreRules? ignoreRules = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ComparisonWorkflowResult> ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId,
-            IProgress<string>? progress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+            IProgress<string>? progress = null, ComparisonIgnoreRules? ignoreRules = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ComparisonRecord>>([Record]);
         public Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default) => Task.FromResult<ComparisonWorkflowResult?>(result with { Record = Record });
     }

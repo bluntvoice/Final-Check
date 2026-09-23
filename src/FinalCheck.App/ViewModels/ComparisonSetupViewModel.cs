@@ -22,6 +22,14 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
     public ComparisonSession Session { get; private set; } = new();
     [ObservableProperty] private ComparisonFile? baselineFile;
     [ObservableProperty] private ComparisonFile? currentFile;
+    [ObservableProperty] private bool ignorePunctuation;
+    [ObservableProperty] private bool ignorePageNumbers;
+    [ObservableProperty] private bool ignoreNumbering;
+    [ObservableProperty] private string ignoredCharacters = "";
+    [ObservableProperty] private bool ignoreAllFormatting;
+    public IReadOnlyList<FormatIgnoreOption> FormatOptions { get; } = FormatIgnoreOption.Supported;
+    public ComparisonIgnoreRules IgnoreRules => new(IgnorePunctuation, IgnorePageNumbers, IgnoreNumbering,
+        IgnoredCharacters, IgnoreAllFormatting, FormatOptions.Where(x => x.IsSelected).SelectMany(x => x.Keys).ToArray());
     public ObservableCollection<TemplateRecommendationCandidate> TemplateCandidates { get; } = [];
     [ObservableProperty] private TemplateRecommendationCandidate? selectedTemplate;
     [ObservableProperty] private bool isMatching;
@@ -173,7 +181,7 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
         var token = cancellation!.Token;
         var progress = new Progress<string>(value => { if (IsExecuting && Session.Status == ComparisonSessionStatus.Comparing && !token.IsCancellationRequested) Message = value; });
         Session.Status = ComparisonSessionStatus.Comparing;
-        var result = await workflow!.ExecuteAsync(input, progress, token);
+        var result = await workflow!.ExecuteAsync(input, progress, IgnoreRules, token);
         PublishResult(result);
     }
     private async Task ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId)
@@ -181,7 +189,7 @@ public sealed partial class ComparisonSetupViewModel(IComparisonFileInspector? i
         var token = cancellation!.Token;
         var progress = new Progress<string>(value => { if (IsExecuting && Session.Status == ComparisonSessionStatus.Comparing && !token.IsCancellationRequested) Message = value; });
         Session.Status = ComparisonSessionStatus.Comparing;
-        var result = await workflow!.ExecuteTemplateAsync(current, templateVersionId, progress, token);
+        var result = await workflow!.ExecuteTemplateAsync(current, templateVersionId, progress, IgnoreRules, token);
         PublishResult(result);
     }
     private void PublishResult(ComparisonWorkflowResult result)

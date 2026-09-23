@@ -41,7 +41,7 @@ public sealed class VersionManagementTests
             return Task.FromResult(new ProjectComparisonChoices(projectId, currentVersionId, options, ProjectBaselineType.Own,
                 "请选择基准。", boundTemplate));
         }
-        public Task<ComparisonWorkflowResult> CompareAsync(ProjectComparisonSelection selection, IProgress<string>? progress = null, CancellationToken token = default) => throw new NotSupportedException();
+        public Task<ComparisonWorkflowResult> CompareAsync(ProjectComparisonSelection selection, IProgress<string>? progress = null, ComparisonIgnoreRules? ignoreRules = null, CancellationToken token = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<ProjectComparisonHistory>> HistoryAsync(Guid projectId, Guid? versionId = null, int offset = 0, int limit = 20, CancellationToken token = default) =>
             Task.FromResult<IReadOnlyList<ProjectComparisonHistory>>([]);
     }

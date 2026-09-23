@@ -78,7 +78,7 @@ public sealed class ProjectComparisonStore(FinalCheckDbContext db, IDocumentSnap
         var templateSnapshot = await new TemplateStore(db, new DocumentSnapshotStore(db, snapshots)).LoadSnapshotAsync(templateVersion.Id, token);
         return new(selection, new(templateVersion.FilePath, templateVersion.FileName, templateVersion.FileSize, templateVersion.ModifiedAtUtc, templateVersion.Sha256), current.Source, templateSnapshot, currentSnapshot, option.Name);
     }
-    public async Task<ComparisonWorkflowResult> SaveAsync(ProjectComparisonInput input, ComparisonResult result, CancellationToken token = default)
+    public async Task<ComparisonWorkflowResult> SaveAsync(ProjectComparisonInput input, ComparisonResult result, ComparisonIgnoreRules? ignoreRules = null, CancellationToken token = default)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(token); var selection = input.Selection;
         var project = await db.Projects.SingleAsync(x => x.Id == selection.ProjectId, token);
@@ -87,7 +87,7 @@ public sealed class ProjectComparisonStore(FinalCheckDbContext db, IDocumentSnap
         if (rechecked.BaselineFile.Sha256 != input.BaselineFile.Sha256 || rechecked.CurrentFile.Sha256 != input.CurrentFile.Sha256) throw new InvalidDataException("比对输入身份已变化。");
         var currentRow = await db.ContractVersions.AsNoTracking().SingleAsync(x => x.Id == selection.CurrentVersionId, token);
         var baselineSnapshot = selection.BaselineType is ProjectBaselineType.Own or ProjectBaselineType.Version ? await db.ContractVersions.Where(x => x.Id == selection.BaselineVersionId).Select(x => x.SnapshotId).SingleAsync(token) : await db.TemplateVersions.Where(x => x.Id == selection.BaselineVersionId).Select(x => x.SnapshotId).SingleAsync(token);
-        var saved = await new ComparisonRecordStore(db, snapshots, comparisons).SaveAsync(input.BaselineFile, input.CurrentFile, input.Baseline, input.Current, result, token);
+        var saved = await new ComparisonRecordStore(db, snapshots, comparisons).SaveAsync(input.BaselineFile, input.CurrentFile, input.Baseline, input.Current, result, ignoreRules, token);
         db.ProjectComparisons.Add(new() { RecordId = saved.Record.RecordId, ProjectId = selection.ProjectId, CurrentVersionId = selection.CurrentVersionId, BaselineType = (int)selection.BaselineType,
             OwnBaselineVersionId = selection.BaselineType == ProjectBaselineType.Own ? selection.BaselineVersionId : null, TemplateBaselineVersionId = selection.BaselineType == ProjectBaselineType.Template ? selection.BaselineVersionId : null,
             BaselineContractVersionId = selection.BaselineType == ProjectBaselineType.Version ? selection.BaselineVersionId : null,

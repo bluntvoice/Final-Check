@@ -17,10 +17,10 @@
 - Phase A1：DONE；统一工作台、持久化状态撤销与逻辑滚动协调已实现并完成阶段验收。
 - Phase A2：DONE；无项目上下文的正式比对自动形成项目、稳定 Vn 和独立历史；角色/轮次默认交互简化且旧模型保留。
 - Phase A3：DONE；已绑定模板默认 current、无项目模板推荐与快照比对、显式重新匹配/更换基准均已实现并通过阶段测试；独立 commit/push 见本节验收记录。
-- Phase A4：NOT STARTED；仅在 A3 测试、文档、commit / push 全部完成后开始。
+- Phase A4：DONE；本次规则、可逆展示投影、历史回读和阶段测试已完成，阶段 commit / push 见下方实际验收记录。
 - 起始基线：`b8986e2`，main 与 origin/main 一致，工作区原本干净；数据库 schema 9。
 - 起始 Release 测试：288/288 PASS（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 50）。
-- 尚未完成：A3–A4 及 Stage A 最终 HEAD CI / Test Build / 实际安装验收；A1/A2 的 Debug 隔离数据试用不得替代最终安装包验收。
+- 尚未完成：Stage A 最终 HEAD Windows/macOS CI、Test Build / 实际安装验收；早期 Debug 隔离数据试用不得替代最终安装包验收。
 
 ### A1 安全检查点（2026-09-19，仍为 IN PROGRESS）
 
@@ -1272,6 +1272,13 @@ Comparison Ignore Rules 可追溯。
 建议 commit：
 
 `feat: add configurable comparison ignore rules`
+
+## Phase A4 实际验收（2026-09-23）
+
+- 两条入口（Quick Compare、项目内版本比对）均提供默认折叠的单次“比对选项”，内容规则含中英文列举标点、保守页码/段首序号和逐字符自定义集合；格式规则含一键全部与现有 Engine 已稳定识别的字符、段落、表格/单元格属性。字间距、行高、独立列宽当前无可靠分类，界面明确说明，不伪造开关。
+- `ComparisonRecord` payload 升至 schema 2 保存规则；schema 1 老历史缺少规则时按空策略读取。独立 `ComparisonResult`、Snapshot、Mapping、ChangeId、原始 spans/格式属性和人工审阅状态不被过滤改写；Format Restore 仍使用完整原始事实。全文与上下文、修改清单与详情共同使用只读投影，并可即时“显示完整差异”。表格合并结构和诊断不会因“忽略全部格式”被吞掉。
+- 对页码只可靠识别整段 `第 N 页` / `Page N` / `N/M`，不能证明为 Word PAGE field 的文本保持可见；序号只在段首明确标记及其对应 span 内过滤。无法安全拆分的混合 span 保守保留完整差异，用户可切换查看原始事实。不会把金额、天数、日期中的数字当作页码/序号忽略。
+- 阶段自动测试覆盖标点与 literal set、页码/正文数字、序号与正文并存、属性粒度与表格结构、关闭规则后恢复、入口策略传递、schema 1 兼容、持久化回读与原始结果字节不变。Release solution build 0 warning / 0 error；Release 全量 325/325 PASS（Core 5 / Documents 45 / Comparison 52 / Data 148 / App 75）。最终安装包与 Windows/macOS CI 仍待总阶段验收，不把自动测试当作安装验收。
 
 ---
 

@@ -16,11 +16,22 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics;
 using Xunit.Abstractions;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace FinalCheck.Data.Tests;
 
 public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
 {
+    [Fact] public void LegacyRecordWithoutIgnoreRulesLoadsAsUnfiltered()
+    {
+        var file = new ComparisonFile(Path.GetFullPath("legacy.docx"), "legacy.docx", 1, DateTimeOffset.UnixEpoch, new string('a', 64));
+        var record = new ComparisonRecord(1, Guid.NewGuid(), file, file, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UnixEpoch,
+            new Dictionary<string, ComparisonReviewState>());
+        var payload = JsonNode.Parse(JsonSerializer.Serialize(record))!.AsObject(); payload.Remove("IgnoreRules");
+        var decoded = ComparisonRecordStore.Decode(JsonSerializer.SerializeToUtf8Bytes(payload));
+        Assert.True(decoded.IgnoreRules.IsEmpty); Assert.Equal(1, decoded.SchemaVersion);
+    }
     internal static ServiceProvider Services(MigrationEnvironment env)
     {
         var services = new ServiceCollection();
@@ -47,7 +58,9 @@ public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
         WriteDocument(left, "30"); WriteDocument(right, "60");
         var inspector = new ComparisonFileInspector(); var workflow = Workflow(provider);
         var input = await workflow.ValidateAsync(await inspector.InspectAsync(left), await inspector.InspectAsync(right));
-        var stages = new StageCapture(); var result = await workflow.ExecuteAsync(input, stages);
+        var stages = new StageCapture(); var ignoreRules = new ComparisonIgnoreRules(Punctuation: true,
+            FormatProperties: ["Character.Font.EastAsia", "Paragraph.LineSpacing"]);
+        var result = await workflow.ExecuteAsync(input, stages, ignoreRules);
         Assert.False(result.IsPartial); Assert.True(result.Result.Statistics.TotalChanges > 0);
         Assert.Contains("正在读取基准文档…", stages.Values); Assert.Contains("正在比较文字…", stages.Values); Assert.Contains("正在保存比对结果…", stages.Values);
         Assert.Equal(input.Current.Sha256, (await inspector.InspectAsync(right)).Sha256);
@@ -55,6 +68,9 @@ public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
         File.Delete(left); File.Delete(right);
         var loaded = await workflow.LoadAsync(result.Record.RecordId); Assert.NotNull(loaded);
         Assert.Equal(result.Record.ResultId, loaded.Record.ResultId); Assert.Equal(result.Current.Paragraphs[0].DisplayText, loaded.Current.Paragraphs[0].DisplayText);
+        Assert.True(loaded.Record.IgnoreRules.Punctuation);
+        Assert.Equal(ignoreRules.HiddenProperties, loaded.Record.IgnoreRules.HiddenProperties);
+        Assert.Equal(new JsonComparisonResultSerializer().Serialize(result.Result), new JsonComparisonResultSerializer().Serialize(loaded.Result));
         Assert.Contains((await workflow.ListAsync()), record => record.RecordId == result.Record.RecordId);
     }
     [Fact] public async Task QuickCompareCreatesProjectVersionsAndIndependentV3HistoryAcrossRestart()
@@ -178,7 +194,7 @@ public sealed class ComparisonWorkflowTests(ITestOutputHelper output)
         var path = Path.Combine(env.Fixture.DirectoryPath, "cancel.docx"); WriteDocument(path, "30");
         var file = await new ComparisonFileInspector().InspectAsync(path); var input = new ComparisonInputValidation(file, file, true, true, false);
         using var cancellation = new CancellationTokenSource(); var workflow = Workflow(provider);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => workflow.ExecuteAsync(input, new CancelProgress(cancellation), cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => workflow.ExecuteAsync(input, new CancelProgress(cancellation), cancellationToken: cancellation.Token));
         Assert.Empty(await workflow.ListAsync());
         await using (var db = env.Factory.CreateDbContext()) Assert.Empty(await db.Projects.ToArrayAsync());
         Assert.NotNull(await workflow.ExecuteAsync(input));

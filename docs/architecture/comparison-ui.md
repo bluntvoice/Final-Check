@@ -36,7 +36,15 @@ Review/Undo 只改 `ComparisonRecord.ReviewStates`，不改 Snapshot / 原始 Co
 
 滚动核心 `LogicalScrollCoordinator` 使用 `WorkspaceDocumentPanel` 列表及 NodeId link，核心不限定两栏；当前 UI 仅绑定 Baseline/Current 两栏。只有鼠标/滚动条/导航键显式输入可提升 Leader；Follower 的程序滚动不提升 Leader，也不会反向触发。视口实际 realized 元素中选最接近中心的 block 作为逻辑 anchor，33 ms 合并高频事件，anchor 未改变不重复定位。只使用高可信、分数 ≥0.8 且唯一的 Engine NodeMapping；附近最多两行无可靠链接就保持另一侧并提示，不用像素比例猜测。目标端先 `ScrollIntoView` 再只用本地像素把对应逻辑 block 尽量居中；跨文档仍以节点映射为唯一对应依据。解除联动保留各自位置，重开从当前 Leader 的最近 anchor 对齐。A1 已用 Debug 隔离不等长文档在真实窗口复核慢/快滚轮、滚动条、换侧及关闭/重开联动；触控板设备未测。后续仍须从最终 HEAD 安装 Test Build 做 Stage A 总验收。
 
-Comparison Ignore Rules 使用独立的每次比对 policy，不复用 Ignored 状态；保留完整结果与原始 spans，再评估规范化/过滤/展示策略，转换后位置仍须可追溯，不能丢弃原事实。
+Comparison Ignore Rules 使用独立的每次比对 policy，不复用人工 Ignored 状态；Stage A4 的只读投影策略如下。
+
+### Stage A4 — 可逆的比对忽略规则
+
+Quick Compare 与项目内比对均在“开始比对”前提供默认折叠的本次选项。选项由 Application workflow 传至保存事务，写入 `ComparisonRecord` payload schema 2 的 `IgnoreRules`；旧 schema 1 记录缺少此字段时按空规则读取，原有审阅状态仍以 ChangeId 独立保存。ComparisonResult schema 1 和完整 Snapshot 不改动。历史打开后读取当时的规则，工作台显示可见/原始总项，并可临时切换“显示完整差异”；该切换不写数据库、不改人工 Ignored/已审阅状态。结果清单、上下文与按需全文预览均使用同一只读投影，Format Restore 仍使用未投影的完整结果。
+
+文字规则只对 Engine 原有 DifferenceSpan 作保守过滤：中英文列举标点及用户输入的逐字符 literal set 只有在忽略字符后旧/新 span 相同才隐藏；“忽略页码”只接受整段明确的 `第 N 页` / `Page N` / `N/M` 标记，“忽略序号”只接受段首明确编号且对应 span 落在编号内。正文金额、日期、天数或无可靠分类的 Word PAGE field 结果不猜测性隐藏。此策略不重新计算文字 diff；跨一个 span 混合的无法安全拆分差异会完整显示。用户可用“显示完整差异”核查法律含义，避免静默丢失事实。
+
+格式规则按 `FormatDifferenceScope.Property` 过滤已稳定识别的字符、段落、表格及单元格属性；同一 ChangeItem 的未选属性和文字 span 继续展示。`GridSpan`、`VerticalMerge` 与 `TableStructureChanged` 属结构证据，即使“忽略全部格式”也不隐藏。当前引擎不输出字间距、表格行高和独立列宽差异，因此 UI 明示限制而不提供虚假开关；表格宽度仅指已解析的 table/cell 宽度。`ComparisonIgnoreProjection` 不持有数据库/引擎写入能力，不改原 ChangeId、Mapping、Snapshot 或 raw ComparisonResult。
 
 Three-way Compare 是 Stage E 规划：复用三个 pairwise Comparison，通过共用模板/版本节点建立 Change Matrix 和三栏 Anchor，保留每个结果身份/可信度/未匹配诊断，不另造单一三文本 diff 或破坏双文件入口。Beta 前 Spike 评估，可明确延后 v0.1.x；本轮无模型/代码改动。Format Restore 正式 UI 属于 Stage C，优先在同一 Workspace 消费已有 Plan / Working Copy / Undo 服务。
 

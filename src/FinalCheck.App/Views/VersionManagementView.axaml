@@ -30,6 +30,17 @@
    <TextBlock Text="{Binding BaselineRecommendation}" TextWrapping="Wrap" FontSize="12" />
    <WrapPanel><TextBlock Text="{Binding BaselineSummary}" TextWrapping="Wrap" /><Button Content="更换基准" Command="{Binding ChangeBaselineCommand}" Margin="8,0,0,0" /><Button Content="重新匹配模板" Command="{Binding RematchTemplatesCommand}" Margin="8,0,0,0" /></WrapPanel>
    <ComboBox ItemsSource="{Binding Baselines}" SelectedItem="{Binding SelectedBaseline}" IsVisible="{Binding ShowBaselineChoices}" PlaceholderText="选择我方基准、模板当前/历史版本或已有项目版本"><ComboBox.ItemTemplate><DataTemplate x:DataType="m:ProjectBaselineOption"><TextBlock Text="{Binding Name}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+   <Expander Header="比对选项（仅本次比对）">
+    <StackPanel Spacing="8" Margin="8">
+     <TextBlock Text="内容差异" FontWeight="SemiBold" />
+     <WrapPanel><CheckBox Content="忽略标点符号变化" IsChecked="{Binding IgnorePunctuation}" Margin="0,0,16,4" /><CheckBox Content="忽略可靠页码标记变化" IsChecked="{Binding IgnorePageNumbers}" Margin="0,0,16,4" /><CheckBox Content="忽略独立序号标记变化" IsChecked="{Binding IgnoreNumbering}" /></WrapPanel>
+     <TextBox PlaceholderText="自定义忽略字符（逐字符，不是正则表达式）" Text="{Binding IgnoredCharacters}" />
+     <TextBlock Text="格式差异" FontWeight="SemiBold" />
+     <CheckBox Content="忽略全部格式变化（不影响文字或表格结构）" IsChecked="{Binding IgnoreAllFormatting}" />
+     <ItemsControl ItemsSource="{Binding FormatOptions}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:FormatIgnoreOption"><CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected}" Margin="0,0,14,5" /></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+     <TextBlock Text="字间距、行高及列宽尚无稳定差异分类；完整结果仍会保存。" TextWrapping="Wrap" FontSize="12" />
+    </StackPanel>
+   </Expander>
    <Button Content="开始比对" Command="{Binding CompareCommand}" />
    <TextBlock Text="所选版本相关比对（独立历史 / 已审阅不表示接受）" FontWeight="SemiBold" />
    <ListBox ItemsSource="{Binding History}" Height="200"><ListBox.ItemTemplate><DataTemplate x:DataType="m:ProjectComparisonHistory"><StackPanel Spacing="4"><TextBlock Text="{Binding CreatedAt}" /><TextBlock Text="{Binding CurrentName}" /><TextBlock Text="{Binding BaselineName}" /><TextBlock Text="{Binding Total, StringFormat='总变化：{0}'}" /><TextBlock Text="{Binding Unresolved, StringFormat='未处理：{0}'}" /><TextBlock Text="{Binding Reviewed, StringFormat='已审阅：{0}'}" /><TextBlock Text="{Binding Ignored, StringFormat='忽略：{0}'}" /><Button Content="打开历史比对" Command="{ReflectionBinding $parent[UserControl].DataContext.OpenHistoryCommand}" CommandParameter="{Binding}" /></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>

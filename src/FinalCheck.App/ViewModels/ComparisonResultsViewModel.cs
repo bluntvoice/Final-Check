@@ -30,11 +30,13 @@ public static class DifferenceHighlight
 
 public sealed partial class ChangeItemViewModel : ViewModelBase
 {
-    public ComparisonChangeItem Item { get; }
+    public ComparisonChangeItem RawItem { get; }
+    public ComparisonChangeItem Item { get; private set; }
+    public bool IsHiddenByRules { get; private set; }
     public ChangeItemViewModel(ComparisonChangeItem item, DocumentSnapshot current, Action<ChangeItemViewModel> select,
         IReadOnlyDictionary<string, string>? baselineLocations = null, IReadOnlyDictionary<string, string>? currentLocations = null)
     {
-        Item = item; SelectCommand = new RelayCommand(() => select(this));
+        RawItem = Item = item; SelectCommand = new RelayCommand(() => select(this));
         Location = $"原位置：{LocationName(item.BaselineNodeId, baselineLocations)} → 当前位置：{LocationName(item.CurrentNodeId, currentLocations)}";
         CommentDetails = string.Join("\n", current.Comments.Where(c => item.CommentIds.Contains(c.CommentId, StringComparer.Ordinal)).Select(c => $"{c.Author ?? "未知作者"} · {c.TimestampUtc?.ToLocalTime():yyyy-MM-dd HH:mm}\n{c.Text}"));
         RevisionDetails = string.Join("\n", current.Revisions.Where(r => item.RevisionIds.Contains(r.RevisionId, StringComparer.Ordinal)).Select(r => $"Word {RevisionName(r.Kind)} · {r.Author ?? "未知作者"} · {r.TimestampUtc?.ToLocalTime():yyyy-MM-dd HH:mm}\n{r.Text}"));
@@ -57,6 +59,14 @@ public sealed partial class ChangeItemViewModel : ViewModelBase
     public string CommentDetails { get; }
     public string RevisionDetails { get; }
     public string Diagnostics => string.Join("、", Item.DiagnosticCodes);
+    public void ApplyRules(ComparisonIgnoreRules rules, bool showAll)
+    {
+        var projection = showAll ? RawItem : ComparisonIgnoreProjection.Project(RawItem, rules);
+        IsHiddenByRules = projection is null;
+        Item = projection ?? RawItem;
+        OnPropertyChanged(nameof(Summary)); OnPropertyChanged(nameof(FormatDetails));
+        OnPropertyChanged(nameof(BaselineSegments)); OnPropertyChanged(nameof(CurrentSegments));
+    }
     private static string Short(string text) => text.Length == 0 ? "（无）" : text.Length > 70 ? text[..70] + "…" : text;
     private static string LocationName(string? id, IReadOnlyDictionary<string, string>? locations) => id is null ? "无对应位置" :
         locations is not null && locations.TryGetValue(id, out var value) ? value : "位置暂无法定位";
@@ -131,7 +141,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public ComparisonWorkflowResult Outcome { get; private set; }
     public IReadOnlyList<ChangeItemViewModel> Changes { get; }
     public ObservableCollection<ChangeListEntry> Entries { get; private set; } = [];
-    public ComparisonPreviewViewModel Preview { get; }
+    public ComparisonPreviewViewModel Preview { get; private set; }
     public static Task<ComparisonResultsViewModel> CreateAsync(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null) =>
         Task.Run(() => new ComparisonResultsViewModel(outcome, workflow));
     [ObservableProperty] private bool grouped = true;
@@ -151,6 +161,16 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     [ObservableProperty] private string searchText = "";
     [ObservableProperty] private bool isSaving;
     [ObservableProperty] private string reviewMessage = "";
+    [ObservableProperty] private bool showAllDifferences;
+    partial void OnShowAllDifferencesChanged(bool value)
+    {
+        var linked = Preview.Linked;
+        Preview = BuildPreview(value); Preview.Linked = linked;
+        OnPropertyChanged(nameof(Preview));
+        RefreshEntries(); Preview.Locate(SelectedChange?.Item);
+    }
+    public string IgnoreRulesLabel => Outcome.Record.IgnoreRules.IsEmpty ? "本次未启用比对忽略规则。" :
+        $"本次已启用比对忽略规则；完整事实保留。内容：{(Outcome.Record.IgnoreRules.Punctuation ? "标点 " : "")}{(Outcome.Record.IgnoreRules.PageNumbers ? "页码 " : "")}{(Outcome.Record.IgnoreRules.Numbering ? "序号 " : "")}{(Outcome.Record.IgnoreRules.Characters.Length > 0 ? "自定义字符 " : "")}；格式：{(Outcome.Record.IgnoreRules.AllFormatting ? "全部" : string.Join("、", Outcome.Record.IgnoreRules.HiddenProperties))}";
     public IReadOnlyList<string> StatusOptions { get; } = ["全部", "未处理", "已审阅", "已忽略"];
     public IReadOnlyList<string> TypeOptions { get; } = ["全部类型", "文字", "格式", "新增", "删除", "移动", "表格", "批注", "修订"];
     public bool CanReview => workflow is not null && SelectedChange is not null && !IsSaving;
@@ -163,10 +183,18 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public bool NoVisibleEntries => Entries.Count == 0;
     public ComparisonResultsViewModel(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null)
     {
-        Outcome = outcome; this.workflow = workflow; Preview = new(outcome);
+        Outcome = outcome; this.workflow = workflow;
         var baselineLocations = ChangeItemViewModel.Locations(outcome.Baseline); var currentLocations = ChangeItemViewModel.Locations(outcome.Current);
         Changes = outcome.Result.Changes.Select(item => new ChangeItemViewModel(item, outcome.Current, Select, baselineLocations, currentLocations)
-            { ReviewState = outcome.Record.ReviewStates.GetValueOrDefault(item.ChangeId) }).ToArray(); RefreshEntries();
+            { ReviewState = outcome.Record.ReviewStates.GetValueOrDefault(item.ChangeId) }).ToArray();
+        Preview = BuildPreview(false); RefreshEntries();
+    }
+    private ComparisonPreviewViewModel BuildPreview(bool showAll)
+    {
+        var projected = showAll ? Outcome.Result.Changes : Outcome.Result.Changes
+            .Select(item => ComparisonIgnoreProjection.Project(item, Outcome.Record.IgnoreRules))
+            .OfType<ComparisonChangeItem>().ToArray();
+        return new(Outcome with { Result = Outcome.Result with { Changes = projected } });
     }
     public string Heading => $"{Outcome.Record.BaselineFile.Name} → {Outcome.Record.CurrentFile.Name}";
     public string ComparedAt => Outcome.Record.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture);
@@ -237,6 +265,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     }
     private void RefreshEntries()
     {
+        foreach (var change in Changes) change.ApplyRules(Outcome.Record.IgnoreRules, ShowAllDifferences);
         var previousId = SelectedEntry?.Id; var changeId = SelectedChange?.ChangeId; var entries = new List<ChangeListEntry>();
         var visible = Changes.Where(Matches).ToArray(); VisibleCount = visible.Length;
         var byId = visible.ToDictionary(c => c.ChangeId, StringComparer.Ordinal); var all = Changes.ToDictionary(c => c.ChangeId, StringComparer.Ordinal);
@@ -247,7 +276,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
             {
                 var members = group.ChangeIds.Where(byId.ContainsKey).Select(id => byId[id]).ToArray(); if (members.Length == 0) continue;
                 foreach (var member in members) included.Add(member.ChangeId);
-                entries.Add(new(group.GroupId, ChangeItemViewModel.TypeName(group.Kind), $"{group.BaselineText} → {group.CurrentText}", members, group.ChangeIds.Where(all.ContainsKey).Select(id => all[id]).ToArray()));
+                entries.Add(new(group.GroupId, ChangeItemViewModel.TypeName(group.Kind), string.Join("；", members.Take(2).Select(member => member.Summary)), members, group.ChangeIds.Where(all.ContainsKey).Select(id => all[id]).ToArray()));
             }
         }
         foreach (var item in visible.Where(item => !included.Contains(item.ChangeId))) entries.Add(new(item.ChangeId, item.TypeLabel, item.Summary, [item]));
@@ -262,6 +291,7 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     }
     private bool Matches(ChangeItemViewModel item)
     {
+        if (item.IsHiddenByRules) return false;
         if (!(StatusFilter switch { "未处理" => item.ReviewState == ComparisonReviewState.Unresolved, "已审阅" => item.ReviewState == ComparisonReviewState.Confirmed,
             "已忽略" => item.ReviewState == ComparisonReviewState.Ignored, _ => item.ReviewState != ComparisonReviewState.Ignored })) return false;
         var kind = item.Item.Kind;

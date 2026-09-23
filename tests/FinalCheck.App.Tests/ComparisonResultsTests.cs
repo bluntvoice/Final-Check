@@ -60,4 +60,34 @@ public sealed class ComparisonResultsTests
             Revisions = [new(new("revision-node", null, DocumentNodeKind.Run, "p0/r0", "", 0), "revision", DocumentRevisionKind.Insert, "60", "修订作者", null, "p0", "p0", null, true, null, null, null)] } };
         var vm = new ComparisonResultsViewModel(result); Assert.Contains("请核实付款期限", vm.SelectedChange!.CommentDetails); Assert.Contains("插入修订", vm.SelectedChange.RevisionDetails);
     }
+    [Fact] public void HistoryPolicyCanToggleFullFactsWithoutChangingReviewStateOrRawResult()
+    {
+        var hidden = Change("punctuation") with { BaselineText = "甲，方", CurrentText = "甲,方",
+            DifferenceSpans = [new(DifferenceOperation.Replace, 1, 1, 1, 1, "，", ",")] };
+        var visible = Change("content");
+        var result = Result(hidden, visible);
+        result = result with { Record = result.Record with { IgnoreRules = new(Punctuation: true) } };
+        var vm = new ComparisonResultsViewModel(result);
+        Assert.Single(vm.Entries); Assert.Equal("1 / 2 项", vm.CountLabel);
+        Assert.Equal("content", vm.SelectedChange!.ChangeId);
+        vm.ShowAllDifferences = true;
+        Assert.Equal(2, vm.Entries.Count); Assert.Single(result.Result.Changes[0].DifferenceSpans);
+        vm.ShowAllDifferences = false;
+        Assert.Single(vm.Entries); Assert.Equal("content", vm.SelectedChange!.ChangeId);
+        Assert.All(vm.Changes, change => Assert.Equal(ComparisonReviewState.Unresolved, change.ReviewState));
+    }
+    [Fact] public void SelectiveFormatPolicyKeepsUnselectedFormattingAndTextVisible()
+    {
+        var font = Change("font", ComparisonChangeKind.CharacterFormatChange) with { DifferenceSpans = [],
+            FormatDifference = new(FormatDifferenceScope.Character, "p0", "p0", [new("Font.EastAsia", "宋体", "仿宋"), new("FontSizeHalfPoints", "24", "20")]) };
+        var spacing = Change("spacing", ComparisonChangeKind.ParagraphFormatChange) with { DifferenceSpans = [],
+            FormatDifference = new(FormatDifferenceScope.Paragraph, "p0", "p0", [new("LineSpacing", "20", "30")]) };
+        var result = Result(font, spacing, Change("text"));
+        result = result with { Record = result.Record with { IgnoreRules = new(FormatProperties: ["Character.Font.EastAsia", "Character.FontSizeHalfPoints"]) } };
+        var vm = new ComparisonResultsViewModel(result);
+        Assert.Equal(2, vm.Entries.Count); Assert.DoesNotContain(vm.Entries, x => x.Id == "font");
+        Assert.Contains(vm.Entries, x => x.Id == "spacing"); Assert.Contains(vm.Entries, x => x.Id == "text");
+        vm.ShowAllDifferences = true; Assert.Equal(3, vm.Entries.Count);
+        Assert.Equal(2, vm.Changes[0].FormatDetails.Count); Assert.Equal(2, result.Result.Changes[0].FormatDifference!.Properties.Count);
+    }
 }

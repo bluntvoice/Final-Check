@@ -27,13 +27,14 @@ public sealed class ComparisonSetupTests
     private sealed class TemplateWorkflow : IComparisonWorkflowService
     {
         public int Executions { get; private set; }
+        public ComparisonIgnoreRules? SavedRules { get; private set; }
         public Task<ComparisonWorkflowResult> ExecuteTemplateAsync(ComparisonFile current, Guid templateVersionId,
-            IProgress<string>? progress = null, CancellationToken cancellationToken = default)
-        { Executions++; return Task.FromResult(ComparisonExecutionTests.Result()); }
+            IProgress<string>? progress = null, ComparisonIgnoreRules? ignoreRules = null, CancellationToken cancellationToken = default)
+        { Executions++; SavedRules = ignoreRules; return Task.FromResult(ComparisonExecutionTests.Result()); }
         public Task<ComparisonInputValidation> ValidateAsync(ComparisonFile baseline, ComparisonFile current, CancellationToken cancellationToken = default) =>
             Task.FromResult(new ComparisonInputValidation(baseline, current, false, false, false));
         public Task<ComparisonWorkflowResult> ExecuteAsync(ComparisonInputValidation input, IProgress<string>? progress = null,
-            CancellationToken cancellationToken = default) { Executions++; return Task.FromResult(ComparisonExecutionTests.Result()); }
+            ComparisonIgnoreRules? ignoreRules = null, CancellationToken cancellationToken = default) { Executions++; SavedRules = ignoreRules; return Task.FromResult(ComparisonExecutionTests.Result()); }
         public Task<IReadOnlyList<ComparisonRecord>> ListAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<ComparisonRecord>>([]);
         public Task<ComparisonWorkflowResult?> LoadAsync(Guid recordId, CancellationToken cancellationToken = default) => Task.FromResult<ComparisonWorkflowResult?>(null);
         public Task<ComparisonRecord> UpdateReviewAsync(Guid recordId, IReadOnlyList<string> changeIds, ComparisonReviewState state,
@@ -49,7 +50,9 @@ public sealed class ComparisonSetupTests
         Assert.NotNull(vm.SelectedTemplate); Assert.True(vm.CanStart); Assert.Equal(0, workflow.Executions);
         Assert.Contains("运输协议", vm.BaselineInfo); Assert.False(vm.ShowTemplateChoices);
         vm.ChangeBaselineCommand.Execute(null); Assert.True(vm.ShowTemplateChoices);
+        vm.IgnorePunctuation = true; vm.FormatOptions.Single(x => x.Label == "字号").IsSelected = true;
         await vm.StartCommand.ExecuteAsync(null); Assert.Equal(1, workflow.Executions);
+        Assert.True(workflow.SavedRules!.Punctuation); Assert.Contains("Character.FontSizeHalfPoints", workflow.SavedRules.HiddenProperties);
         await vm.SelectFilesAsync(true, ["/manual.docx"]);
         Assert.Null(vm.SelectedTemplate); Assert.Equal("manual.docx", vm.BaselineFile?.Name);
     }
