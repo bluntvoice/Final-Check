@@ -10,7 +10,15 @@
 
 Application workflow 负责可恢复/事务性保存项目、参与版本、Snapshot、独立 Comparison 与上下文，不由 View 拼装数据库写入；复用现有 frozen record 与 history，失败/取消不能生成空项目或假成功。现有只支持 Own/Counterparty 的模型不能靠 UI 隐藏必填或把未知角色映射成 Counterparty 解决，须另行设计增量兼容方案。
 
-Comparison Workspace 使用统一 selected ChangeId / group member，将清单、双栏文档、详情、批注、状态和前后项导航同时更新；Stage A1 已将旧的两个页签合并为同屏工作台。Review 只是阅读进度，操作增加可撤销反馈，永久删除仍二次确认。
+Comparison Workspace 使用统一 selected ChangeId / group member，将清单、两侧上下文、详情、批注、状态和前后项导航同时更新；按需展开的全文双栏复用同一选择。Stage A1 已将旧的两个页签合并为同屏工作台。Review 只是阅读进度，操作增加可撤销反馈，永久删除仍二次确认。
+
+### 默认 Context View 与按需 Full Document（Stage A 展示修正，自动测试已覆盖，安装包人工验收待执行）
+
+默认 Workspace 由修改清单、当前 ChangeItem 的 Baseline/Current Context Panel、详情/批注/状态操作组成；原 A1 完整双栏 `ComparisonPreviewView` 保留为按需 Full Document Mode，不改写冻结 Snapshot、ComparisonResult 或 `LogicalScrollCoordinator`。模式是同一结果 VM 上的展示状态，切换时保持 selected ChangeId、筛选、review 和 Undo；进入全文时定位当前 item，返回 Context 时重建同一 item 的两侧上下文，不创建第二份比对结果。
+
+Context Projection 从已投影的 `PreviewBlock`、Snapshot 节点索引及 Engine `ChangeItem` / DifferenceSpan / FormatDifference 构造，不重新解析 DOCX 或运行 Engine。当前冻结 Snapshot 的可预览结构是完整 Paragraph 与 Table Row / Cell，按目标块及必要前后块选择逻辑邻接；不按固定字符数裁剪。若后续引入可靠 Clause 边界，可在同一投影层扩大到整个条款，不从段落序号猜测条款。表格沿用行/单元格结构，文字高亮仅使用当前选中 ChangeItem 的 span；段落新增/删除及段落级格式差异可标记整段；纯移动标明来源/目标节点而不误标成文字变化。未匹配或低可信不填造另一侧文本。预建 node→block 索引并只重投影少量上下文块；100+ changes 连续切换不重新解析 DOCX。Full Mode 仍使用虚拟化列表和基于高可信 NodeMapping 的 Leader/Follower；Context Mode 无长距离联动依赖。
+
+`ContextDocumentPanel` 以 `DocumentPanelId` 标识 Document Source，并携带 selected Change Mapping 的目标节点及不可变 preview blocks；当前双文件 VM 仍分别暴露 Baseline/Current 便于 XAML 绑定，但不把 Context 的数据契约写成两个全文控件。未来 Three-way 可扩展 source 与布局，本 Stage 不实现三文件结果或三栏。宽窗并列两侧上下文，普通宽度堆叠上下文、旁列详情，极窄窗口再把详情置于下方；全文模式在普通宽度为双栏让出空间。自动测试覆盖 selection/前后项/筛选审阅后的身份、高亮、段落/表格/移动上下文、Context ↔ Full、150 次连续切换和窄窗；Windows Debug CLI 的 368 项隔离夹具已走通往返及真实滚轮，最终 HEAD 安装包仍需人工连续审阅验收。
 
 ### Stage A1 工作台与状态撤销（已完成阶段验收）
 

@@ -28,6 +28,38 @@ public sealed class ComparisonPreviewTests(ITestOutputHelper output)
         Assert.Same(p, result.Baseline.Paragraphs[0]); Assert.Equal("p0", vm.Preview.LocatedBaseline!.NodeId);
         Assert.Equal("60", string.Concat(vm.Preview.Current[0].Cells[0].Paragraphs[0].Segments.Where(s => s.Changed).Select(s => s.Text)));
     }
+    [Fact] public void ContextTracksSelectionAndHighlightsOnlyTheSelectedChange()
+    {
+        var first = ComparisonResultsTests.Change();
+        var second = ComparisonResultsTests.Change("second") with
+        {
+            DifferenceSpans = [new(DifferenceOperation.Replace, 6, 1, 6, 1, "日", "天")],
+        };
+        var result = ComparisonResultsTests.Result(first, second) with
+        {
+            Baseline = DocumentSnapshot.Empty with { Paragraphs = [Paragraph("before", 0), Paragraph("p0", 1), Paragraph("after", 2)] },
+            Current = DocumentSnapshot.Empty with { Paragraphs = [Paragraph("before", 0), Paragraph("p0", 1, "付款期限60天"), Paragraph("after", 2)] },
+        };
+        var vm = new ComparisonResultsViewModel(result);
+        Assert.True(vm.ContextMode); Assert.False(vm.FullDocumentMode);
+        Assert.Equal(ComparisonPreviewViewModel.BaselinePanel, vm.Preview.BaselineContext.Source);
+        Assert.Equal(ComparisonPreviewViewModel.CurrentPanel, vm.Preview.CurrentContext.Source);
+        Assert.Equal(["before", "p0", "after"], vm.Preview.BaselineContext.Blocks.Select(block => block.NodeId));
+        Assert.Equal("30", Changed(vm.Preview.BaselineContext));
+        Assert.Equal("60", Changed(vm.Preview.CurrentContext));
+        vm.NextChangeCommand.Execute(null);
+        Assert.Equal("second", vm.SelectedChange?.ChangeId);
+        Assert.Equal("日", Changed(vm.Preview.BaselineContext));
+        Assert.Equal("天", Changed(vm.Preview.CurrentContext));
+        vm.ShowFullDocumentCommand.Execute(null);
+        Assert.True(vm.FullDocumentMode); Assert.Equal("p0", vm.Preview.LocatedBaseline?.NodeId);
+        vm.ShowContextCommand.Execute(null);
+        Assert.True(vm.ContextMode); Assert.Equal("second", vm.SelectedChange?.ChangeId);
+        vm.PreviousChangeCommand.Execute(null);
+        Assert.Equal("30", Changed(vm.Preview.BaselineContext));
+    }
+    private static string Changed(ContextDocumentPanel context) => string.Concat(context.Blocks.SelectMany(block => block.Cells)
+        .SelectMany(cell => cell.Paragraphs).SelectMany(paragraph => paragraph.Segments).Where(segment => segment.Changed).Select(segment => segment.Text));
     [Fact] public void LogicalScrollUsesMappingsAcrossInsertedRowsAndRelinksFromLastViewport()
     {
         var outcome = ComparisonResultsTests.Result() with
@@ -60,6 +92,52 @@ public sealed class ComparisonPreviewTests(ITestOutputHelper output)
         var vm = new ComparisonPreviewViewModel(outcome); Assert.Equal(TableOrder, vm.Baseline.Select(b => b.NodeId));
         Assert.True(vm.Baseline[1].IsTable); vm.Locate(ComparisonResultsTests.Change() with { BaselineNodeId = "cpr", CurrentNodeId = null });
         Assert.Equal("row", vm.LocatedBaseline!.NodeId); Assert.Null(vm.LocatedCurrent);
+        Assert.True(vm.BaselineContext.Blocks.Single(block => block.NodeId == "row").IsTable);
+        Assert.Equal("cell", vm.BaselineContext.Blocks.Single(block => block.NodeId == "row").Cells.Single().NodeId);
+        Assert.Empty(vm.CurrentContext.Blocks); Assert.Contains("无对应正文", vm.CurrentContext.Notice);
+    }
+    [Fact] public void MoveAndFormatContextRetainSourceTargetAndFormatEvidence()
+    {
+        var outcome = ComparisonResultsTests.Result() with
+        {
+            Baseline = DocumentSnapshot.Empty with { Paragraphs = [Paragraph("b", 0)] },
+            Current = DocumentSnapshot.Empty with { Paragraphs = [Paragraph("c", 0)] },
+        };
+        var vm = new ComparisonPreviewViewModel(outcome);
+        vm.Locate(ComparisonResultsTests.Change("move", ComparisonChangeKind.ParagraphMove) with
+        { BaselineNodeId = "b", CurrentNodeId = "c", DifferenceSpans = [] });
+        Assert.Equal("b", vm.BaselineContext.TargetNodeId); Assert.Equal("c", vm.CurrentContext.TargetNodeId);
+        Assert.Empty(Changed(vm.BaselineContext)); Assert.Empty(Changed(vm.CurrentContext));
+        Assert.Contains("原位置", vm.BaselineContext.Notice); Assert.Contains("现位置", vm.CurrentContext.Notice);
+        vm.Locate(ComparisonResultsTests.Change("format", ComparisonChangeKind.CharacterFormatChange) with
+        { BaselineNodeId = "b", CurrentNodeId = "c", DifferenceSpans = [],
+            FormatDifference = new(FormatDifferenceScope.Character, "b", "c", [new("Bold", "False", "True")]) });
+        Assert.Equal("付款期限30日", Changed(vm.BaselineContext));
+        Assert.Equal("付款期限30日", Changed(vm.CurrentContext));
+    }
+    [Fact] public void MultiParagraphCellUsesCellOffsetsForExactContextHighlight()
+    {
+        static DocumentTableSnapshot Table(string prefix, string deadline)
+        {
+            var first = Paragraph(prefix + "-first", 0, "前言"); var second = Paragraph(prefix + "-second", 1, "付款期限" + deadline);
+            var cell = new DocumentTableCellSnapshot(new(prefix + "-cell", prefix + "-row", DocumentNodeKind.Cell, "", "", 0),
+                0, 0, 0, first.DisplayText + "\n" + second.DisplayText, [first, second], TableCellFormatSnapshot.Empty, 0);
+            var row = new DocumentTableRowSnapshot(new(prefix + "-row", prefix + "-table", DocumentNodeKind.Row, "", "", 0), 0, [cell], null, null);
+            return new(new(prefix + "-table", null, DocumentNodeKind.Table, "", "", 0), 0, [row], TableFormatSnapshot.Empty);
+        }
+        var change = ComparisonResultsTests.Change("cell", ComparisonChangeKind.TableCellChange) with
+        {
+            BaselineNodeId = "b-cell", CurrentNodeId = "c-cell",
+            DifferenceSpans = [new(DifferenceOperation.Replace, 7, 2, 7, 2, "30", "60")],
+        };
+        var outcome = ComparisonResultsTests.Result(change) with
+        {
+            Baseline = DocumentSnapshot.Empty with { Tables = [Table("b", "30日")] },
+            Current = DocumentSnapshot.Empty with { Tables = [Table("c", "60日")] },
+        };
+        var vm = new ComparisonResultsViewModel(outcome);
+        Assert.Equal("30", Changed(vm.Preview.BaselineContext)); Assert.Equal("60", Changed(vm.Preview.CurrentContext));
+        Assert.Equal(2, vm.Preview.BaselineContext.Blocks.Single().Cells.Single().Paragraphs.Count);
     }
     [Fact] public void MismatchedRunProjectionPreservesTextAndSkipsUnreliableFormatting()
     {
@@ -77,5 +155,25 @@ public sealed class ComparisonPreviewTests(ITestOutputHelper output)
         var main = new MainViewModel(); main.NavigateCommand.Execute("about"); Assert.True(main.IsOther);
         var vm = await pending; watch.Stop(); Assert.Equal(4000, vm.Preview.Baseline.Count); Assert.Equal("p3999", vm.Preview.LocatedCurrent!.NodeId);
         output.WriteLine($"4000-paragraph immutable projection: {watch.Elapsed.TotalMilliseconds:F1} ms (no UI containers created).");
+    }
+    [Fact] public void NavigatingMoreThanOneHundredChangesReusesSnapshotProjection()
+    {
+        var changes = Enumerable.Range(0, 160).Select(i => ComparisonResultsTests.Change("change-" + i) with
+        { BaselineNodeId = "b" + i, CurrentNodeId = "c" + i }).ToArray();
+        var outcome = ComparisonResultsTests.Result(changes) with
+        {
+            Baseline = DocumentSnapshot.Empty with { Paragraphs = Enumerable.Range(0, 160).Select(i => Paragraph("b" + i, i)).ToArray() },
+            Current = DocumentSnapshot.Empty with { Paragraphs = Enumerable.Range(0, 160).Select(i => Paragraph("c" + i, i, "付款期限60日")).ToArray() },
+        };
+        var vm = new ComparisonResultsViewModel(outcome); var baseline = vm.Preview.Baseline; var current = vm.Preview.Current;
+        var watch = Stopwatch.StartNew();
+        for (var i = 0; i < 150; i++) vm.NextChangeCommand.Execute(null);
+        watch.Stop();
+        Assert.Equal("change-150", vm.SelectedChange?.ChangeId);
+        Assert.Equal("b150", vm.Preview.BaselineContext.TargetNodeId);
+        Assert.Equal("c150", vm.Preview.CurrentContext.TargetNodeId);
+        Assert.Same(baseline, vm.Preview.Baseline); Assert.Same(current, vm.Preview.Current);
+        Assert.InRange(watch.Elapsed.TotalSeconds, 0, 5);
+        output.WriteLine($"150 context transitions from cached snapshot projection: {watch.Elapsed.TotalMilliseconds:F1} ms.");
     }
 }

@@ -1,5 +1,6 @@
 using FinalCheck.App.ViewModels;
 using FinalCheck.Core.Comparisons;
+using FinalCheck.Core.Documents;
 
 namespace FinalCheck.App.Tests;
 
@@ -111,5 +112,29 @@ public sealed class ComparisonReviewTests
         vm.SearchText = "30"; Assert.Equal("two", vm.SelectedChange.ChangeId);
         vm.PreviousChangeCommand.Execute(null); Assert.Equal("one", vm.SelectedEntry!.Id);
         vm.SearchText = "missing"; Assert.False(vm.CanPrevious); Assert.False(vm.CanNext); Assert.Null(vm.SelectedChange);
+    }
+    [Fact] public async Task ReviewAndFilterKeepContextBoundToTheVisibleSelectedChange()
+    {
+        var first = ComparisonResultsTests.Change() with { BaselineNodeId = "p0", CurrentNodeId = "p0" };
+        var second = ComparisonResultsTests.Change("two") with { BaselineNodeId = "p1", CurrentNodeId = "p1" };
+        var result = ComparisonResultsTests.Result(first, second) with
+        {
+            Baseline = DocumentSnapshot.Empty with { Paragraphs = [ComparisonPreviewTests.Paragraph("p0", 0), ComparisonPreviewTests.Paragraph("p1", 1)] },
+            Current = DocumentSnapshot.Empty with { Paragraphs = [ComparisonPreviewTests.Paragraph("p0", 0, "付款期限60日"), ComparisonPreviewTests.Paragraph("p1", 1, "付款期限60日")] },
+        };
+        var vm = new ComparisonResultsViewModel(result, new Workflow(result));
+        Assert.Equal("p0", vm.Preview.BaselineContext.TargetNodeId);
+        await vm.ReviewSelectedCommand.ExecuteAsync("Ignored");
+        Assert.Equal("two", vm.SelectedChange?.ChangeId);
+        Assert.Equal("p1", vm.Preview.BaselineContext.TargetNodeId);
+        Assert.Equal("p1", vm.Preview.CurrentContext.TargetNodeId);
+        vm.StatusFilter = "已忽略";
+        Assert.Equal("one", vm.SelectedChange?.ChangeId);
+        Assert.Equal("p0", vm.Preview.BaselineContext.TargetNodeId);
+        await vm.UndoReviewCommand.ExecuteAsync(null);
+        Assert.Null(vm.SelectedChange);
+        Assert.Empty(vm.Preview.BaselineContext.Blocks);
+        vm.StatusFilter = "全部";
+        Assert.Equal("p0", vm.Preview.BaselineContext.TargetNodeId);
     }
 }

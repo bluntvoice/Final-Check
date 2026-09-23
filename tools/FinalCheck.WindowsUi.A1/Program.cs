@@ -82,8 +82,8 @@ internal static class Program
             controls = ReadTree(window);
             var stats = Stats(window);
             Require(stats.Contains("总变化 368", StringComparison.Ordinal), $"Unexpected workspace statistics: {stats}");
-            var baseline = Named(window, "基准文档预览").AsListBox();
-            var current = Named(window, "当前文档预览").AsListBox();
+            Require(Named(window, "基准版本上下文").BoundingRectangle.Width > 50, "Baseline context is not visible by default.");
+            Require(Named(window, "当前版本上下文").BoundingRectangle.Width > 50, "Current context is not visible by default.");
             checks.Add(new("workspace", $"{stats}; detail={DetailLocation(window)}"));
 
             stage = "list-click-location";
@@ -109,7 +109,7 @@ internal static class Program
             var after = DetailLocation(window);
             Require(before != after && after.Length > 0, "Next did not change the selected comparison item.");
             var previousEnabled = Named(window, "上一项").IsEnabled;
-            Named(window, "上一项").AsButton().Click();
+            Named(window, "上一项").AsButton().Invoke();
             Thread.Sleep(500);
             var returned = DetailLocation(window);
             if (returned != before) issues.Add($"Previous did not return to the original detail: enabled={previousEnabled}; before={before}; next={after}; previous={returned}.");
@@ -177,11 +177,23 @@ internal static class Program
             Thread.Sleep(400);
             checks.Add(new("grouping-search", $"grouped/individual switched; text={searchCount}; comment={commentCount}; text type={typeCount}; ignored-only=0"));
 
+            stage = "context-to-full";
+            var contextCapture = Path.Combine(dataRoot + ".fixtures", "context-compact-" + Guid.NewGuid().ToString("N") + ".png");
+            using (var capture = Capture.Element(window)) capture.ToFile(contextCapture);
+            Named(window, "查看完整文档 / 全文对照").AsButton().Invoke();
+            Thread.Sleep(250);
+            var baseline = Named(window, "基准文档预览").AsListBox();
+            var current = Named(window, "当前文档预览").AsListBox();
+            Require(baseline.BoundingRectangle.Width > 50 && current.BoundingRectangle.Width > 50,
+                "Full-document comparison did not open both previews.");
+            checks.Add(new("context-to-full", $"the selected change remained in the shared workspace; both full previews opened; context capture={contextCapture}"));
+
             stage = "responsive-layout";
             var compactPreview = baseline.BoundingRectangle;
             var compactCapture = Path.Combine(dataRoot + ".fixtures", "a1-compact-" + Guid.NewGuid().ToString("N") + ".png");
             using (var capture = Capture.Element(window)) capture.ToFile(compactCapture);
-            Named(window, "最大化").AsButton().Invoke();
+            var maximize = window.FindFirstDescendant(cf => cf.ByAutomationId("Maximize-Restore"))?.AsButton();
+            if (maximize is not null && maximize.Name == "最大化") maximize.Invoke();
             Thread.Sleep(400);
             var expandedPreview = baseline.BoundingRectangle;
             var expandedCapture = Path.Combine(dataRoot + ".fixtures", "a1-maximized-" + Guid.NewGuid().ToString("N") + ".png");
@@ -269,6 +281,16 @@ internal static class Program
             Thread.Sleep(350);
             Require(rightScroll.Value > switchBefore, "Current-side wheel input did not move the current preview.");
             checks.Add(new("switch-leader", $"current {switchBefore:F1}->{rightScroll.Value:F1}; baseline={leftScroll.Value:F1}"));
+
+            stage = "full-to-context";
+            var contextDetail = DetailLocation(window);
+            Named(window, "返回逐条审阅").AsButton().Invoke();
+            Thread.Sleep(250);
+            Require(Named(window, "基准版本上下文").BoundingRectangle.Width > 50 &&
+                Named(window, "当前版本上下文").BoundingRectangle.Width > 50,
+                "Returning from full-document mode did not restore both context panels.");
+            Require(DetailLocation(window) == contextDetail, "Returning to context changed the selected item.");
+            checks.Add(new("full-to-context", "both context panels returned with the same selected change"));
 
             stage = "persist-review";
             var reviewedDetail = DetailLocation(window);

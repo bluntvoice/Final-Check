@@ -46,7 +46,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Assert.Equal("two", model.SelectedChange?.ChangeId);
-            window.Close();
+            window.Close(); Dispatcher.UIThread.RunJobs();
         }, CancellationToken.None);
     }
 
@@ -74,7 +74,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             var members = window.GetVisualDescendants().OfType<ListBox>()
                 .Single(list => AutomationProperties.GetName(list) == "归并组内修改位置");
             Assert.Equal(2, members.ItemCount);
-            members.SelectedIndex = 1;
+            members.GetVisualDescendants().OfType<Button>().Last().Command!.Execute(null);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Assert.Equal("two", model.SelectedChange?.ChangeId);
@@ -84,7 +84,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             window.UpdateLayout();
             Assert.Equal("two", model.SelectedEntry?.Id);
             Assert.Equal("two", model.SelectedChange?.ChangeId);
-            window.Close();
+            window.Close(); Dispatcher.UIThread.RunJobs();
         }, CancellationToken.None);
     }
 
@@ -118,7 +118,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Assert.Equal("one", model.SelectedChange?.ChangeId);
-            window.Close();
+            window.Close(); Dispatcher.UIThread.RunJobs();
         }, CancellationToken.None);
     }
 
@@ -171,7 +171,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             window.UpdateLayout();
             Assert.Equal("change-0", model.SelectedChange?.ChangeId);
             Assert.Equal(firstLocation, location());
-            window.Close();
+            window.Close(); Dispatcher.UIThread.RunJobs();
         }, CancellationToken.None);
     }
 
@@ -207,6 +207,15 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             window.UpdateLayout();
             var lists = window.GetVisualDescendants().OfType<ListBox>().ToArray();
             var changeList = lists.Single(list => AutomationProperties.GetName(list) == "修改清单");
+            Assert.False(model.FullDocumentMode);
+            Assert.Equal(2, model.Preview.BaselineContext.Blocks.Count);
+            Assert.Equal(2, model.Preview.CurrentContext.Blocks.Count);
+            Assert.True(window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == "ContextBaselineArea").IsVisible);
+            Assert.False(window.GetVisualDescendants().OfType<ComparisonPreviewView>().Single().IsEffectivelyVisible);
+            model.ShowFullDocumentCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            lists = window.GetVisualDescendants().OfType<ListBox>().ToArray();
             var baselineList = lists.Single(list => AutomationProperties.GetName(list) == "基准文档预览");
             var currentList = lists.Single(list => AutomationProperties.GetName(list) == "当前文档预览");
             Assert.Equal(368, changeList.ItemCount);
@@ -215,9 +224,47 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             Assert.InRange(baselineList.GetRealizedContainers().Count(), 1, 100);
             Assert.InRange(currentList.GetRealizedContainers().Count(), 1, 100);
             Assert.Equal("change-0", model.SelectedChange?.ChangeId);
+            model.ShowContextCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.True(window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == "ContextBaselineArea").IsVisible);
+            Assert.Equal("change-0", model.SelectedChange?.ChangeId);
             watch.Stop();
             output.WriteLine($"368 changes / 400+508 paragraphs, real Headless layout: {watch.Elapsed.TotalMilliseconds:F1} ms.");
-            window.Close();
+            window.Close(); Dispatcher.UIThread.RunJobs();
+        }, CancellationToken.None);
+    }
+    [Fact]
+    public async Task ContextPanelsStackAtOrdinaryWidthAndReturnFromFullMode()
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        await session.Dispatch(() =>
+        {
+            var outcome = ComparisonResultsTests.Result(ComparisonResultsTests.Change()) with
+            {
+                Baseline = DocumentSnapshot.Empty with { Paragraphs = [ComparisonPreviewTests.Paragraph("p0", 0)] },
+                Current = DocumentSnapshot.Empty with { Paragraphs = [ComparisonPreviewTests.Paragraph("p0", 0, "付款期限60日")] },
+            };
+            var model = new ComparisonResultsViewModel(outcome);
+            var window = new Window { Width = 1080, Height = 680, Content = new ComparisonResultsView { DataContext = model } };
+            window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            var context = window.GetVisualDescendants().OfType<Grid>().Single(grid => grid.Name == "ContextWorkspace");
+            var current = window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == "ContextCurrentArea");
+            var details = window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == "DetailArea");
+            Assert.Equal(2, Grid.GetRow(current)); Assert.Equal(0, Grid.GetColumn(current));
+            Assert.Equal(0, Grid.GetRow(details)); Assert.Equal(2, Grid.GetColumn(details));
+            Assert.True(context.IsVisible);
+            model.ShowFullDocumentCommand.Execute(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.False(context.IsVisible);
+            Assert.Equal(2, Grid.GetRow(details));
+            model.ShowContextCommand.Execute(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.True(context.IsVisible); Assert.Equal("p0", model.Preview.CurrentContext.TargetNodeId);
+            Assert.Equal(0, Grid.GetRow(details));
+            window.Width = 1500; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.Equal(0, Grid.GetRow(current)); Assert.Equal(2, Grid.GetColumn(current));
+            window.Width = 760; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.Equal(2, Grid.GetRow(details)); Assert.Equal(0, Grid.GetColumn(details));
+            window.Close(); Dispatcher.UIThread.RunJobs();
         }, CancellationToken.None);
     }
 }

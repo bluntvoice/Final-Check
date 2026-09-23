@@ -101,7 +101,7 @@ dotnet test tests/FinalCheck.Documents.Tests/FinalCheck.Documents.Tests.csproj `
 
 ## Stage A 工作台验证
 
-先读当前 [Stage A task](../tasks/usability-workflow-correction-v0.md)、[校准 PRD](../PRD/PRD-v0.1.0.md) 和 [Comparison UI architecture](../architecture/comparison-ui.md)。A1 单元/集成测试覆盖审阅/忽略、原子 Undo 持久化、组内混合状态、筛选导航及逻辑 Anchor；App.Tests 的 Avalonia Headless 用例还会实例化真实工作台 View/XAML，验证选择同步及大预览虚拟化，并纳入常规 solution test。Headless 不模拟真实鼠标设备和窗口管理；实际滚轮/滚动条体验仍是单独的 GUI 门禁。
+先读当前 [Stage A task](../tasks/usability-workflow-correction-v0.md)、[校准 PRD](../PRD/PRD-v0.1.0.md) 和 [Comparison UI architecture](../architecture/comparison-ui.md)。A1 单元/集成测试覆盖审阅/忽略、原子 Undo 持久化、组内混合状态、筛选导航及逻辑 Anchor；App.Tests 的 Avalonia Headless 用例还会实例化真实工作台 View/XAML，验证选择同步、默认 Context View、窄窗布局、Context ↔ Full 往返及大预览虚拟化，并纳入常规 solution test。Headless 不模拟真实鼠标设备和窗口管理；全文模式的实际滚轮/滚动条体验仍是单独的 GUI 门禁。
 
 Debug-only `--comparison-workspace-fixture` 必须同时提供 `--developer-data-directory <GUID 隔离绝对路径>`，在独立目录生成 400 段基准、508 段当前（含集中新增/删除、格式变化和合成批注）的 DOCX，并调用真实 Comparison 流程保存冻结历史。随后用同一隔离目录启动 Debug 应用，首页“继续最近一次比对”进入工作台，验证慢/快鼠标滚轮、滚动条拖动、换侧 Leader、联动开关、连续上一/下一项与 Undo/重启。不要在用户正常 DataRoot 上生成夹具或试验数据库迁移；不要把 Debug 试用当作最终 HEAD 安装包验收。
 
@@ -112,7 +112,7 @@ dotnet build src/FinalCheck.Desktop -c Debug
 dotnet run --project tools/FinalCheck.WindowsUi.A1 -c Debug -- --app (Resolve-Path src/FinalCheck.Desktop/bin/Debug/net10.0/FinalCheck.Desktop.exe) --data-root $stageACheck
 ```
 
-最后一条 Windows-only CLI 启动真实 Debug 桌面进程，注入鼠标滚轮和滚动条输入，验证导航、审阅/Undo、筛选、联动开关和重启持久化，输出结构化 JSON；成功退出码 0，失败非 0。只接受 Temp 下已生成的 `FinalCheck-StageA1-*` 隔离夹具，不接受 Release 或用户 DataRoot。该 CLI 不在跨平台 solution 中，macOS Core CI 不运行；结果不能替代 Stage A 最终 HEAD 的 Test Build 安装验收。
+最后一条 Windows-only CLI 启动真实 Debug 桌面进程，验证默认两侧上下文、Context → Full → Context、导航、审阅/Undo、筛选、全文联动开关、滚轮/滚动条和重启持久化，输出结构化 JSON；成功退出码 0，失败非 0。只接受 Temp 下已生成的 `FinalCheck-StageA1-*` 隔离夹具，不接受 Release 或用户 DataRoot。该 CLI 不在跨平台 solution 中，macOS Core CI 不运行；结果不能替代 Stage A 最终 HEAD 的 Test Build 安装验收。
 
 ## Format Restore 开发验证
 

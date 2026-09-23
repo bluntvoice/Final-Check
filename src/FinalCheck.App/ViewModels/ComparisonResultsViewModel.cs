@@ -135,6 +135,15 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public static Task<ComparisonResultsViewModel> CreateAsync(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null) =>
         Task.Run(() => new ComparisonResultsViewModel(outcome, workflow));
     [ObservableProperty] private bool grouped = true;
+    [ObservableProperty] private bool fullDocumentMode;
+    public bool ContextMode => !FullDocumentMode;
+    partial void OnFullDocumentModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ContextMode));
+        if (value) Preview.Locate(SelectedChange?.Item);
+    }
+    [RelayCommand] private void ShowFullDocument() => FullDocumentMode = true;
+    [RelayCommand] private void ShowContext() => FullDocumentMode = false;
     [ObservableProperty] private ChangeListEntry? selectedEntry;
     [ObservableProperty] private ChangeItemViewModel? selectedChange;
     [ObservableProperty] private string statusFilter = "全部";

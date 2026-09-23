@@ -21,6 +21,8 @@
         <Button Content="仅看未处理" Command="{Binding OnlyUnresolvedCommand}" Margin="0,0,8,8" />
         <Button Content="上一项" Command="{Binding PreviousChangeCommand}" Margin="0,0,8,8" />
         <Button Content="下一项" Command="{Binding NextChangeCommand}" Margin="0,0,8,8" />
+        <Button Content="查看完整文档 / 全文对照" Command="{Binding ShowFullDocumentCommand}" IsVisible="{Binding ContextMode}" Margin="0,0,8,8" />
+        <Button Content="返回逐条审阅" Command="{Binding ShowContextCommand}" IsVisible="{Binding FullDocumentMode}" Margin="0,0,8,8" />
         <TextBlock Text="{Binding CountLabel}" VerticalAlignment="Center" />
       </WrapPanel>
     </StackPanel>
@@ -40,7 +42,31 @@
         </DataTemplate></ListBox.ItemTemplate>
       </ListBox>
       <Grid Grid.Column="2" Name="Workspace" RowDefinitions="*" ColumnDefinitions="*,12,290">
-        <views:ComparisonPreviewView Name="DocumentArea" DataContext="{Binding Preview}" />
+        <Grid>
+          <Grid Name="ContextWorkspace" RowDefinitions="*" ColumnDefinitions="*,8,*" IsVisible="{Binding ContextMode}">
+            <ScrollViewer Name="ContextBaselineArea" DataContext="{Binding Preview.BaselineContext}" AutomationProperties.Name="基准版本上下文">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Foreground="#64748B" FontSize="12" />
+                <ItemsControl ItemsSource="{Binding Blocks}">
+                  <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:PreviewBlock"><views:SnapshotPreviewBlock Block="{Binding}" Baseline="True" TargetNodeId="{ReflectionBinding $parent[ItemsControl].DataContext.TargetNodeId}" /></DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+            <ScrollViewer Name="ContextCurrentArea" Grid.Column="2" DataContext="{Binding Preview.CurrentContext}" AutomationProperties.Name="当前版本上下文">
+              <StackPanel Spacing="6">
+                <TextBlock Text="{Binding Label}" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Foreground="#64748B" FontSize="12" />
+                <ItemsControl ItemsSource="{Binding Blocks}">
+                  <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:PreviewBlock"><views:SnapshotPreviewBlock Block="{Binding}" TargetNodeId="{ReflectionBinding $parent[ItemsControl].DataContext.TargetNodeId}" /></DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Grid>
+          <Grid IsVisible="{Binding FullDocumentMode}">
+            <views:ComparisonPreviewView Name="DocumentArea" DataContext="{Binding Preview}" />
+          </Grid>
+        </Grid>
       <ScrollViewer Name="DetailArea" Grid.Column="2">
         <StackPanel Spacing="10">
           <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
@@ -53,9 +79,9 @@
             <Button Content="审阅当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Confirmed" Margin="0,0,8,8" ToolTip.Tip="仅标记当前显示修改为已审阅，不表示接受合同修改" />
             <Button Content="忽略当前显示组" Command="{Binding ReviewGroupCommand}" CommandParameter="Ignored" Margin="0,0,8,8" />
           </WrapPanel>
-          <ListBox ItemsSource="{Binding SelectedEntry.Members}" SelectedItem="{Binding SelectedChange, Mode=OneWay}" SelectionChanged="SelectMember" MaxHeight="140" AutomationProperties.Name="归并组内修改位置">
+          <ListBox ItemsSource="{Binding SelectedEntry.Members}" SelectedItem="{Binding SelectedChange, Mode=OneWay}" MaxHeight="140" AutomationProperties.Name="归并组内修改位置">
             <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
-            <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeItemViewModel"><TextBlock Text="{Binding Location}" TextWrapping="Wrap" /></DataTemplate></ListBox.ItemTemplate>
+            <ListBox.ItemTemplate><DataTemplate x:DataType="vm:ChangeItemViewModel"><Button Command="{Binding SelectCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"><TextBlock Text="{Binding Location}" TextWrapping="Wrap" /></Button></DataTemplate></ListBox.ItemTemplate>
           </ListBox>
           <StackPanel DataContext="{Binding SelectedChange}" x:DataType="vm:ChangeItemViewModel" Spacing="12">
             <TextBlock Text="{Binding TypeLabel}" FontSize="18" FontWeight="SemiBold" />
