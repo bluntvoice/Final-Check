@@ -34,6 +34,16 @@
 - 已知推荐限制：没有条款标题和表格的五段合成 move-baseline，即使正文相同，缺失特征的固定权重也使得分低于唯一预选阈值；当前保守要求手动选择。没有在验收中临时调低阈值或重写算法。
 - **剩余工作：** 本文档检查点正常 commit / push 后，从新的 HEAD 触发 Windows Test Build，记录新 version / SHA / Run ID，下载、校验、实际安装并补充回归；确认该 HEAD Windows/macOS CI。最终收尾仍需明确记录未执行的人工矩阵，不用自动测试冒充通过。整体任务不因本检查点提交而自动变成 DONE；不创建 Tag / Release，不扩大业务范围。
 
+### 最终 HEAD 安装版补验（2026-09-30，c8c21c8）
+
+- [CI 36679065025](https://github.com/bluntvoice/Final-Check/actions/runs/36679065025) 与 [Test Build 36679119930](https://github.com/bluntvoice/Final-Check/actions/runs/36679119930) 均 success，SHA `c8c21c89660babb100d5cfad15ec2bdda31132f1`，Artifact version `0.1.0-dev.12.1`。Actions ZIP SHA-256 `eb4955a9559143dabbef84e9ca2b58dd7aa631995315d33c10d9610710d534fc` 与下载文件一致；package verifier PASS。
+- 14:44 实际安装成功，Setup exit 0、安装 exe / 侧栏版本一致。安装前 SQLite consistent backup 保存在 `artifacts/stage-a-c8c21c8/preinstall-consistent.db`；安装后 15 张业务/迁移表的行数与逻辑 SHA-256 均不变，integrity_check=ok、foreign_key_check 无错误，bootstrap 未重置；原 DataRoot 与历史保留。
+- 新包重开历史，默认 Context 真实显示 30 → 60、上一/下一项更新相应段落，审阅当前项 → Undo 后只读回读仍为 41 项未处理；表格第 1 行第 2 列保留结构及 100 → 200 高亮。Context 展开 Full 后，实际鼠标滚轮使两侧分别定位第 6 段（offset 不等但逻辑对应），不以像素比例当作对齐。
+- 用户了解整机资源压力后要求继续测试；本轮不重复全量构建，复用已安装包和已编译 CLI。环境故障的已核实事件、与 .NET 后台 manifest/MSI 的关联及未定性边界见 [排查记录](../development/incidents/2026-09-30-memory-pressure.md)，原始日志已本地复制保留。
+- 项目内选择 V2，显示绑定模板 `1.0.0（当前）`，默认无需重新选择；明确点击开始后追加 RecordId `0e69344e-a145-4e42-8242-d9448e4012ed`，41 项差异。项目数 12、版本数 27 不增，Comparison 14 → 15，旧历史未覆盖。
+- 同一 V2 再次选择“忽略全部格式变化”并明确开始，追加 RecordId `716ab923-578e-4c07-9742-4b751939817d`，显示 21 / 41 项（文字 21 / raw 格式 20）；“显示完整差异”恢复 41 / 41。正常关闭重启后仍显示保存的全部格式规则及 21 / 41，临时显示完整未改写原配置，审阅状态仍 41 项未处理。Comparison 共 16，历史各自独立；本轮未构建/安装任何新业务代码。
+- 当前约 1082×712 普通桌面窗口可连续审阅；自动边框拖动未实际缩窄到 850–900 px，不能把这次尝试记为通过。已请用户手动缩窄后回读。触控板无设备、Top 3 人工选择等尚未逐项补验的矩阵不得以自动测试冒充；整体仍 `IN PROGRESS`。本次诊断/验收文档 checkpoint 若改变 HEAD，最终收尾仍须从最终 HEAD 构建并实际安装复核，不追写 Run ID 制造新的滞后 HEAD。
+
 ### A1 安全检查点（2026-09-19，仍为 IN PROGRESS）
 
 - 已实现但未完成 GUI 验收：同屏 Comparison Workspace（清单、双栏、详情/批注/审阅）、分组/逐项选择保持与上一项/下一项、动态审阅统计、inline 撤销；SQLite 对每个 ChangeId 的混合原状态进行原子条件恢复，拒绝覆盖较新外部审阅，冻结 Snapshot/ComparisonResult 不变。

@@ -101,6 +101,8 @@ dotnet test tests/FinalCheck.Documents.Tests/FinalCheck.Documents.Tests.csproj `
 
 ## Stage A 工作台验证
 
+开发主机的 2026-09-30 资源耗尽事件、.NET 后台 manifest / MSI 时间线及证据边界见 [只读排查记录](incidents/2026-09-30-memory-pressure.md)。原始机器日志仅保存在本机 Git 忽略的 artifacts，不提交合同、数据库或转储；该环境事件不是已经定性的业务缺陷。
+
 先读当前 [Stage A task](../tasks/usability-workflow-correction-v0.md)、[校准 PRD](../PRD/PRD-v0.1.0.md) 和 [Comparison UI architecture](../architecture/comparison-ui.md)。A1 单元/集成测试覆盖审阅/忽略、原子 Undo 持久化、组内混合状态、筛选导航及逻辑 Anchor；App.Tests 的 Avalonia Headless 用例还会实例化真实工作台 View/XAML，验证选择同步、默认 Context View、窄窗布局、Context ↔ Full 往返及大预览虚拟化，并纳入常规 solution test。Headless 不模拟真实鼠标设备和窗口管理；全文模式的实际滚轮/滚动条体验仍是单独的 GUI 门禁。
 
 Debug-only `--comparison-workspace-fixture` 必须同时提供 `--developer-data-directory <GUID 隔离绝对路径>`，在独立目录生成 400 段基准、508 段当前（含集中新增/删除、格式变化和合成批注）的 DOCX，并调用真实 Comparison 流程保存冻结历史。随后用同一隔离目录启动 Debug 应用，首页“继续最近一次比对”进入工作台，验证慢/快鼠标滚轮、滚动条拖动、换侧 Leader、联动开关、连续上一/下一项与 Undo/重启。不要在用户正常 DataRoot 上生成夹具或试验数据库迁移；不要把 Debug 试用当作最终 HEAD 安装包验收。
