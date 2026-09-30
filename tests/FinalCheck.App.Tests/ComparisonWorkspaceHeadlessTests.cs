@@ -19,6 +19,48 @@ public sealed class AvaloniaHeadlessTestGroup { }
 [Collection("AvaloniaHeadless")]
 public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
 {
+    private static readonly string[] ContextAreaNames = ["ContextBaselineArea", "ContextCurrentArea"];
+    [Theory]
+    [InlineData(840, 600)]
+    [InlineData(840, 520)]
+    public async Task ShortNarrowMainWindowKeepsContextBodiesReadable(int width, int height)
+    {
+        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        await session.Dispatch(() =>
+        {
+            var outcome = ComparisonResultsTests.Result(ComparisonResultsTests.Change(), ComparisonResultsTests.Change("two")) with
+            {
+                Baseline = DocumentSnapshot.Empty with { Paragraphs = [ComparisonPreviewTests.Paragraph("p0", 0)] },
+                Current = DocumentSnapshot.Empty with { Paragraphs = [ComparisonPreviewTests.Paragraph("p0", 0, "付款期限60日")] },
+            };
+            outcome = outcome with { Record = outcome.Record with { IgnoreRules = new(AllFormatting: true) } };
+            var model = new ComparisonResultsViewModel(outcome);
+            var main = new MainViewModel { Results = model };
+            main.NavigateCommand.Execute("results");
+            var window = new MainWindow { Width = width, Height = height, DataContext = main };
+            window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            foreach (var name in ContextAreaNames)
+            {
+                var panel = window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == name);
+                output.WriteLine($"{width}x{height}: {name} height={panel.Bounds.Height:F1}");
+                Assert.True(panel.IsEffectivelyVisible);
+                // Include room for the label, notice and actual paragraph, not just a positive panel rectangle.
+                Assert.True(panel.Bounds.Height >= 140, $"{name} has no readable body space: {panel.Bounds.Height}");
+                Assert.Contains(panel.GetVisualDescendants().OfType<SnapshotPreviewBlock>(), block => block.Bounds.Height > 0);
+            }
+            var viewport = window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == "WorkspaceViewport");
+            viewport.Offset = new Avalonia.Vector(0, 140);
+            model.NextChangeCommand.Execute(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.Equal("two", model.SelectedChange?.ChangeId);
+            Assert.Equal(0, viewport.Offset.Y);
+            model.ShowFullDocumentCommand.Execute(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.True(window.GetVisualDescendants().OfType<ComparisonPreviewView>().Single().Bounds.Height >= 300);
+            model.ShowContextCommand.Execute(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Assert.Equal("p0", model.Preview.CurrentContext.TargetNodeId);
+            window.Close(); Dispatcher.UIThread.RunJobs();
+        }, CancellationToken.None);
+    }
+
     [Fact]
     public async Task QuickCompareSetupRendersTemplateRecommendationWithoutAutoStarting()
     {
@@ -241,6 +283,10 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
             Assert.Equal(368, changeList.ItemCount);
             Assert.Equal(400, baselineList.ItemCount);
             Assert.Equal(508, currentList.ItemCount);
+            Assert.InRange(baselineList.GetRealizedContainers().Count(), 1, 100);
+            Assert.InRange(currentList.GetRealizedContainers().Count(), 1, 100);
+            window.Width = 760; window.Height = 520;
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
             Assert.InRange(baselineList.GetRealizedContainers().Count(), 1, 100);
             Assert.InRange(currentList.GetRealizedContainers().Count(), 1, 100);
             Assert.Equal("change-0", model.SelectedChange?.ChangeId);

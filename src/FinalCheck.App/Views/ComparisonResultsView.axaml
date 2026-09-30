@@ -2,6 +2,7 @@
  xmlns:vm="using:FinalCheck.App.ViewModels" xmlns:views="using:FinalCheck.App.Views"
  x:Class="FinalCheck.App.Views.ComparisonResultsView" x:DataType="vm:ComparisonResultsViewModel">
   <Grid RowDefinitions="Auto,12,*">
+    <ScrollViewer Name="SummaryViewport" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="4">
       <WrapPanel VerticalAlignment="Center">
         <TextBlock Text="{Binding Heading}" TextWrapping="Wrap" FontWeight="SemiBold" FontSize="18" Margin="0,0,12,0" />
@@ -30,6 +31,7 @@
         <TextBlock Text="{Binding CountLabel}" VerticalAlignment="Center" />
       </WrapPanel>
     </StackPanel>
+    </ScrollViewer>
     <Grid Grid.Row="2" ColumnDefinitions="240,12,*">
       <ListBox ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}" AutomationProperties.Name="修改清单">
         <ListBox.Styles><Style Selector="ListBoxItem:selected /template/ Border#PART_LayoutRoot"><Setter Property="Background" Value="#E8F1FF" /></Style></ListBox.Styles>
@@ -45,7 +47,8 @@
           </StackPanel>
         </DataTemplate></ListBox.ItemTemplate>
       </ListBox>
-      <Grid Grid.Column="2" Name="Workspace" RowDefinitions="*" ColumnDefinitions="*,12,290">
+      <ScrollViewer Grid.Column="2" Name="WorkspaceViewport" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled">
+      <Grid Name="Workspace" RowDefinitions="*" ColumnDefinitions="*,12,290">
         <Grid>
           <Grid Name="ContextWorkspace" RowDefinitions="*" ColumnDefinitions="*,8,*" IsVisible="{Binding ContextMode}">
             <ScrollViewer Name="ContextBaselineArea" DataContext="{Binding Preview.BaselineContext}" AutomationProperties.Name="基准版本上下文">
@@ -104,6 +107,7 @@
         </StackPanel>
       </ScrollViewer>
       </Grid>
+      </ScrollViewer>
     </Grid>
   </Grid>
 </UserControl>

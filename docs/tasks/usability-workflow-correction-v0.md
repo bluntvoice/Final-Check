@@ -44,6 +44,13 @@
 - 同一 V2 再次选择“忽略全部格式变化”并明确开始，追加 RecordId `716ab923-578e-4c07-9742-4b751939817d`，显示 21 / 41 项（文字 21 / raw 格式 20）；“显示完整差异”恢复 41 / 41。正常关闭重启后仍显示保存的全部格式规则及 21 / 41，临时显示完整未改写原配置，审阅状态仍 41 项未处理。Comparison 共 16，历史各自独立；本轮未构建/安装任何新业务代码。
 - 当前约 1082×712 普通桌面窗口可连续审阅；自动边框拖动未实际缩窄到 850–900 px，不能把这次尝试记为通过。已请用户手动缩窄后回读。触控板无设备、Top 3 人工选择等尚未逐项补验的矩阵不得以自动测试冒充；整体仍 `IN PROGRESS`。本次诊断/验收文档 checkpoint 若改变 HEAD，最终收尾仍须从最终 HEAD 构建并实际安装复核，不追写 Run ID 制造新的滞后 HEAD。
 
+### Stage A 收尾：短窄窗口修正（2026-09-30）
+
+- 用户选择 A：保留最大化为主要使用场景，但仍修复窄窗问题并补齐剩余验收；没有豁免 PRD 的窄窗兼容要求。
+- `0.1.0-dev.12.1` 实际 842×625 窗口观察到正文被工具区和星号行高挤出；选择仍更新模型，但不能以 accessibility 文本当作视觉通过。真实 MainWindow 新回归用例在修改前复现：840×600 ContextBaselineArea 42 px，840×520 18 px，均 FAIL。
+- 修正只涉及 View 布局：短窗概要区有界滚动、窄窗上下文/详情有最小有限布局高度和局部纵向滚动；下一项、Context/Full 往返复位外层位置。宽窗并列、Engine、Snapshot、schema 和 Velopack workflow 不改。补充正文可读高度与短窄全文虚拟化检查。
+- 已执行串行 Release build（0 warning / 0 error）与 327/327 回归测试（Core 5 / Documents 45 / Comparison 52 / Data 148 / App 77），最终 App 重编译复跑 77/77；TRX 保存在 `artifacts/stage-a-layout-fix/tests/`。安装包验证尚待含此修复的新 HEAD。Top 3、可靠页码等未完成安装矩阵继续保留，整体仍 `IN PROGRESS`。不因自动测试通过提前标为最终验收通过；不创建 Tag / Release。
+
 ### A1 安全检查点（2026-09-19，仍为 IN PROGRESS）
 
 - 已实现但未完成 GUI 验收：同屏 Comparison Workspace（清单、双栏、详情/批注/审阅）、分组/逐项选择保持与上一项/下一项、动态审阅统计、inline 撤销；SQLite 对每个 ChangeId 的混合原状态进行原子条件恢复，拒绝覆盖较新外部审阅，冻结 Snapshot/ComparisonResult 不变。

@@ -30,6 +30,8 @@ Context Projection 从已投影的 `PreviewBlock`、Snapshot 节点索引及 Eng
 
 ### Stage A1 工作台与状态撤销（已完成阶段验收）
 
+短窗口额外限制顶部概要/选项区为可滚动的 150 px 高视口；窄窗详情置下时，内容区保留至少 560 px 的有限布局高度并允许本工作区纵向滚动，两个 Context 各有正文空间，不能把标签可见当作正文可读。内容高度随可用视口增长；不让外层无限测量破坏全文 ListBox 虚拟化。选择下一项或 Context/Full 切换时复位工作区外层滚动，避免新上下文仍藏在上一项详情位置；宽窗并列布局不变。840×600 / 840×520 的真实 MainWindow Headless 测试检查上下文正文空间及导航，长文档额外检查窄窗全文 realized containers 有界；仍须安装包人工回读。
+
 当前 A1 将结果页改为同屏清单、两侧冻结 Snapshot 预览和详情/批注/审阅区；窄窗口把详情移到预览下方，仍无需切页。清单保留 Engine 原 Group/ChangeId，筛选及归并切换尽量保持当前成员选择；上一项/下一项沿当前可见修改顺序导航，不生成第二套 Diff。概览增加基于实际 review states 的未处理/已审阅/忽略计数，未来 Format Restore 可在详情状态动作区扩展，不在 A1 实现恢复按钮。
 
 Review/Undo 只改 `ComparisonRecord.ReviewStates`，不改 Snapshot / 原始 ComparisonResult。每次成功操作记录每个 ChangeId 的原状态、目标状态（组内允许混合），Undo 在单条 SQLite payload compare-and-swap 中原子恢复这些原状态；先核对目标状态，若被其他窗口改动则拒绝撤销并提示重新加载，不能覆盖较新审阅。界面在数据库成功后才更新，并提供 inline 撤销反馈；Undo 完成后的最终状态随历史 record 持久化，重启可重读。Undo 栈是当前会话交互历史，不伪称跨重启可撤销所有旧操作。
