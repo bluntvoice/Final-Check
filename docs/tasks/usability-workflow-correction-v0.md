@@ -51,6 +51,17 @@
 - 修正只涉及 View 布局：短窗概要区有界滚动、窄窗上下文/详情有最小有限布局高度和局部纵向滚动；下一项、Context/Full 往返复位外层位置。宽窗并列、Engine、Snapshot、schema 和 Velopack workflow 不改。补充正文可读高度与短窄全文虚拟化检查。
 - 已执行串行 Release build（0 warning / 0 error）与 327/327 回归测试（Core 5 / Documents 45 / Comparison 52 / Data 148 / App 77），最终 App 重编译复跑 77/77；TRX 保存在 `artifacts/stage-a-layout-fix/tests/`。安装包验证尚待含此修复的新 HEAD。Top 3、可靠页码等未完成安装矩阵继续保留，整体仍 `IN PROGRESS`。不因自动测试通过提前标为最终验收通过；不创建 Tag / Release。
 
+### 跨设备验收检查点（2026-09-30，用户要求暂停并换电脑继续）
+
+- **当前状态：IN PROGRESS。** A1–A4 的阶段实现已完成并推送；短窄窗口修复 commit `1c29b04bc4f1f0a119dc9193a1b089aff8380535` 已正常推送 `main`。本检查点仅保存交接文档，不增加业务功能，不将剩余安装验收标记 DONE。用户用物理 Esc 停止 Computer Use 后，已停止全部界面输入，随后明确要求先提交推送。
+- **已验证：** 修复后的串行 Release build 为 0 warning / 0 error；Release 全量测试 327/327 PASS（Core 5 / Documents 45 / Comparison 52 / Data 148 / App 77），最终 App 重编译复跑 77/77。真实 MainWindow Headless 新用例覆盖 840×600、840×520 的正文可读空间、上一/下一项与模式切换复位；长文档短窄全文预览继续虚拟化。Headless 不替代安装版人工验收。
+- **远程证据：** [CI 36692571210](https://github.com/bluntvoice/Final-Check/actions/runs/36692571210) 的 Windows build/test 与 macOS core compatibility 均 completed / success；[Windows Test Build 36692641521](https://github.com/bluntvoice/Final-Check/actions/runs/36692641521) completed / success。两者实际 head_sha 均为上述 `1c29b04`。Artifact `final-check-v0.1.0-dev.13.1-windows-test`，版本 `0.1.0-dev.13.1`，Artifact ID `11086048796`；API ZIP digest 为 `sha256:06e76ecf6b03ac534047494520a7d5a9c0dab7de76223446ba08c6d1cb26135c`，本轮尚未下载、校验或安装该包，不能声称已完成其试用。本机仍运行旧包 `0.1.0-dev.12.1`。
+- **未完成的真实试用：** 含修复的新安装包短窄窗口正文、连续导航与 Context / Full 往返；Top 3 候选及历史模板的实际选择/显式开始比对/持久化引用；可靠匹配的页码忽略与正文金额、日期不误隐藏；最终 HEAD 安装版回归及重启。此前已通过的人工矩阵见本节前面的历史记录，不需重新开始 Phase。触控板无设备，仍明确未测试。
+- **Top 3 现场：** 只在本机测试 DataRoot 中，通过现有模板 UI 添加了纯合成 `Stage A Top3 候选验收模板` 的 1.0.0（current）和 1.0.1（非 current）版本，均来自合成 small-baseline；原 `Stage A 条款表格验收模板` 保留。TemplateId `324d8f05-ccbe-4a95-aa0d-4c637c4d69eb`，版本 ID 分别为 `ff172de1-7968-4796-9ebc-a87754b7aa2b` / `dd42fc88-2bb0-47ab-a157-2336ce9b7500`。截至停止输入时，Quick Compare 的“选择当前版本”文件对话框仍打开；small-current 的选择、Top 3 展示与后续比对尚未确认完成，不从尝试的输入推断成功。换电脑可重新生成等价合成模板，不要求这些本机 ID 必须存在。
+- **本地资料边界：** `artifacts/stage-a-layout-fix/tests/`、`artifacts/stage-a-layout-fix/page-fixtures/` 和 `artifacts/comparison-ui-validation/FixtureTool/` 均是 Git 忽略的本机验收资料，不会随 clone / pull 同步。页码补验样本使用 `Page 100 → Page 101`，并保留正文金额 `300 → 400`、期限 `30 → 60`、日期 `2026 → 2027`；这些仅是待验证样本，未声称通过。正常数据仍在本机已有 DataRoot，Git 不同步 SQLite、Snapshot 或用户合同；禁止在新电脑清空/覆盖已有数据来复刻本机现场。
+- **下一台电脑恢复顺序：** 先检查目标仓库和 `git status`，安全 fetch / pull；重读 AGENTS、本 task、PRD、相关 architecture、recent commits、当前布局代码与测试。确认本检查点及 `1c29b04` 已在远程历史，当前整体仍 IN PROGRESS；从剩余验收继续，而不是重做已完成 Phase。先查看当前 CI / Artifact 状态，后续真正完成收尾时从当时最终 HEAD 构建、下载校验、备份既有数据、实际安装并验证，报告 version / SHA / Run ID；本检查点改变了 HEAD，dev.13.1 仅覆盖修复提交，不代表未来最终 HEAD 已验收。不要为本次交接重复触发 Test Build，不创建 Tag / Release。
+- 环境资源故障记录已提交于 `docs/development/incidents/2026-09-30-memory-pressure.md`；本次交接不修改系统、不重跑重型构建、不删除测试数据或日志。
+
 ### A1 安全检查点（2026-09-19，仍为 IN PROGRESS）
 
 - 已实现但未完成 GUI 验收：同屏 Comparison Workspace（清单、双栏、详情/批注/审阅）、分组/逐项选择保持与上一项/下一项、动态审阅统计、inline 撤销；SQLite 对每个 ChangeId 的混合原状态进行原子条件恢复，拒绝覆盖较新外部审阅，冻结 Snapshot/ComparisonResult 不变。
