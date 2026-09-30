@@ -20,7 +20,7 @@ Comparison Workspace 使用统一 selected ChangeId / group member，将清单�
 
 模板基准执行先重新解析所选当前文件并校验 SHA-256；模板侧直接载入不可变 Snapshot，原模板 DOCX 移走仍可比。Engine 不在 View 实现。保存事务一次写入独立 record/result/Snapshots、自动 Project、V1/V2、逻辑模板绑定和 TemplateVersion 历史链接；失败不留下空项目。成功历史记录实际 TemplateVersionId 和冻结快照，模板 current 后续变化不重算旧结果。显式选择的历史模板版本也可执行，但不会被误当作新的 current。项目内绑定模板默认规则详见 [project-template-version-management.md](project-template-version-management.md)。
 
-### 默认 Context View 与按需 Full Document（Stage A 展示修正，自动测试已覆盖，安装包人工验收待执行）
+### 默认 Context View 与按需 Full Document（Stage A 展示修正，自动测试与安装版补充验收已执行，最终收尾见 task）
 
 默认 Workspace 由修改清单、当前 ChangeItem 的 Baseline/Current Context Panel、详情/批注/状态操作组成；原 A1 完整双栏 `ComparisonPreviewView` 保留为按需 Full Document Mode，不改写冻结 Snapshot、ComparisonResult 或 `LogicalScrollCoordinator`。模式是同一结果 VM 上的展示状态，切换时保持 selected ChangeId、筛选、review 和 Undo；进入全文时定位当前 item，返回 Context 时重建同一 item 的两侧上下文，不创建第二份比对结果。
 
@@ -37,6 +37,12 @@ Review/Undo 只改 `ComparisonRecord.ReviewStates`，不改 Snapshot / 原始 Co
 滚动核心 `LogicalScrollCoordinator` 使用 `WorkspaceDocumentPanel` 列表及 NodeId link，核心不限定两栏；当前 UI 仅绑定 Baseline/Current 两栏。只有鼠标/滚动条/导航键显式输入可提升 Leader；Follower 的程序滚动不提升 Leader，也不会反向触发。视口实际 realized 元素中选最接近中心的 block 作为逻辑 anchor，33 ms 合并高频事件，anchor 未改变不重复定位。只使用高可信、分数 ≥0.8 且唯一的 Engine NodeMapping；附近最多两行无可靠链接就保持另一侧并提示，不用像素比例猜测。目标端先 `ScrollIntoView` 再只用本地像素把对应逻辑 block 尽量居中；跨文档仍以节点映射为唯一对应依据。解除联动保留各自位置，重开从当前 Leader 的最近 anchor 对齐。A1 已用 Debug 隔离不等长文档在真实窗口复核慢/快滚轮、滚动条、换侧及关闭/重开联动；触控板设备未测。后续仍须从最终 HEAD 安装 Test Build 做 Stage A 总验收。
 
 Comparison Ignore Rules 使用独立的每次比对 policy，不复用人工 Ignored 状态；Stage A4 的只读投影策略如下。
+
+### Stage A 安装验收检查点
+
+实现 HEAD `4d7d7b6` 的 `0.1.0-dev.11.1` 已实际安装；2026-09-30 补验资源管理器拖放、唯一模板推荐（预选不自动执行）、自动创建绑定项目/V1/V2/独立历史，以及项目内绑定模板当前版本默认。此前 Context/Full、状态 Undo、表格/移动/批注和长文档滚动证据及尚未完成的最终 HEAD 门禁统一见 [Stage A task](../tasks/usability-workflow-correction-v0.md)，不能将部分验收描述为整体 DONE。
+
+模板评分当前使用固定权重，缺少条款标题和表格的短文档，即使正文相同，也可能达不到高可信唯一阈值；这种情况下诚实回退人工选择，不为通过测试静默调整产品阈值。页码/序号的低可信插入/删除同样保留原始事实，不等于规则失去可恢复性。
 
 ### Stage A4 — 可逆的比对忽略规则
 

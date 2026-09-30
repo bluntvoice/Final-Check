@@ -12,7 +12,7 @@
 
 # 1. 任务目标
 
-## 实际执行状态（截至 2026-09-23；起始基线 2026-09-14）
+## 实际执行状态（截至 2026-09-30；起始基线 2026-09-14）
 
 - Phase A1：DONE；统一工作台、持久化状态撤销与逻辑滚动协调已实现并完成阶段验收。
 - Phase A2：DONE；无项目上下文的正式比对自动形成项目、稳定 Vn 和独立历史；角色/轮次默认交互简化且旧模型保留。
@@ -20,7 +20,19 @@
 - Phase A4：DONE；本次规则、可逆展示投影、历史回读和阶段测试已完成，阶段 commit / push 见下方实际验收记录。
 - 起始基线：`b8986e2`，main 与 origin/main 一致，工作区原本干净；数据库 schema 9。
 - 起始 Release 测试：288/288 PASS（Core 2 / Documents 45 / Comparison 52 / Data 139 / App 50）。
-- 尚未完成：Stage A 最终 HEAD Windows/macOS CI、Test Build / 实际安装验收；早期 Debug 隔离数据试用不得替代最终安装包验收。
+- 实现 HEAD `4d7d7b695db59dea9a8d1bcb552283dfd436db24` 的 Windows/macOS CI、Windows Test Build 与安装版部分/补充验收已经完成，证据和剩余门禁见下节；最终文档检查点后的 HEAD 仍须构建并安装验证，整体保持 `IN PROGRESS`。早期 Debug 隔离数据试用不得替代安装包验收。
+
+### Stage A 安装验收检查点（2026-09-30，整体仍为 IN PROGRESS）
+
+- 本机安全 fetch 后 `main` 与 `origin/main` 均为 `4d7d7b6`，开始本轮时工作区干净。阶段提交依次为 `c576c85`（A1）、`0ac333c`（默认 Context 修正）、`b22232d`（A2）、`8edbef0`（A3）、`4d7d7b6`（A4），均已正常推送。
+- 2026-09-30 GitHub API 回读：[CI 35838138373](https://github.com/bluntvoice/Final-Check/actions/runs/35838138373) 与 [Test Build 35838301494](https://github.com/bluntvoice/Final-Check/actions/runs/35838301494) 均 completed / success，SHA 为上述实现 HEAD。已下载/安装 Artifact version `0.1.0-dev.11.1`；本轮包校验再次 PASS，安装程序实际 ProductVersion 与窗口版本一致。产物、安装前数据备份和合成 DOCX 保存在 Git 忽略的 `artifacts/stage-a-4d7d7b6/`，不提交用户数据。
+- 本轮 Release build 0 warning / 0 error；Release 全量测试 325/325 PASS（Core 5 / Documents 45 / Comparison 52 / Data 148 / App 75），TRX 位于 `artifacts/stage-a-4d7d7b6/tests-20260930/`。数据库只读检查能读取现有 schema 10 和历史记录，未重建/清空数据库。
+- 此前安装版试用已观察 Context / Full 往返、审阅/忽略及 Undo、搜索/筛选、重启、自动项目 V1/V2/V3，以及 400/508 段、368 项差异的慢/快滚轮、滚动条拖动、换侧和联动关闭/重开。普通约 1082×712 与最大化窗口试用通过；未将失败的约 850 px 缩窗尝试或无设备的触控板记录为通过。合成样本的批注、字体/字号、表格单元格、移动并修改（原第 2 段 → 当前第 4 段，30 → 60）可查看；整段重写保守显示插入/删除及 Partial，而非猜测对应关系。
+- 此前格式规则试用：忽略全部格式时长样本由 368 项展示为 322 项，52 项文字事实保留；显示完整差异恢复 368，重开历史仍使用原配置。只忽略加粗不隐藏 small 样本的字体/字号，原始 41 项仍可查看。内容样本的标点/自定义字符可隐藏并恢复，段首编号隐藏时 30 → 60 保留，金额 300 → 400 和日期 2026 → 2027 保留。低可信短页码被匹配为插入/删除时保守保留并提示，不把这种情形声称为页码隐藏通过。
+- 2026-09-30 真实跨窗口拖放：用户从资源管理器拖入 `small-current.docx`，随后 Agent 回读安装版窗口确认“当前版本”显示对应路径、1421 bytes 和 SHA-256 已校验。无可靠模板时保持手动选择基准、没有自动执行；此证据不是调用 ViewModel 或适配器模拟 Drop。
+- 本轮新增纯合成模板用于安装验收：`Stage A 条款表格验收模板` / `1.0.0`，使用 `artifacts/comparison-ui-validation/fixtures/small-baseline.docx`。选择 small-current 后显示约 90% 高可信唯一推荐、预选而不自动执行；明确点击开始后得到 41 项（文字 21 / 格式 20），自动创建项目、V1/V2、模板绑定与独立历史。只读数据库回读 RecordId `5b8d3349-5bb2-453b-9bb1-68b936a48423`、ProjectId `7a56b364-0883-498b-8ee5-e0f94b98f820`、实际 TemplateVersionId `a3ade0dc-5ebd-40db-a1b3-54d90013d04b`。项目内选择 V2 显示绑定模板 `1.0.0（当前）`，默认不展开基准选择器，角色仍为暂未指定。
+- 已知推荐限制：没有条款标题和表格的五段合成 move-baseline，即使正文相同，缺失特征的固定权重也使得分低于唯一预选阈值；当前保守要求手动选择。没有在验收中临时调低阈值或重写算法。
+- **剩余工作：** 本文档检查点正常 commit / push 后，从新的 HEAD 触发 Windows Test Build，记录新 version / SHA / Run ID，下载、校验、实际安装并补充回归；确认该 HEAD Windows/macOS CI。最终收尾仍需明确记录未执行的人工矩阵，不用自动测试冒充通过。整体任务不因本检查点提交而自动变成 DONE；不创建 Tag / Release，不扩大业务范围。
 
 ### A1 安全检查点（2026-09-19，仍为 IN PROGRESS）
 
