@@ -11,6 +11,9 @@ using FinalCheck.Core.Documents;
 using FinalCheck.Core.Management;
 using Xunit.Abstractions;
 
+[assembly: AvaloniaTestApplication(typeof(FinalCheck.App.App))]
+[assembly: AvaloniaTestIsolation(AvaloniaTestIsolationLevel.PerTest)]
+
 namespace FinalCheck.App.Tests;
 
 [CollectionDefinition("AvaloniaHeadless", DisableParallelization = true)]
@@ -20,12 +23,15 @@ public sealed class AvaloniaHeadlessTestGroup { }
 public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
 {
     private static readonly string[] ContextAreaNames = ["ContextBaselineArea", "ContextCurrentArea"];
+    // Avalonia owns this assembly session; Dispatch still creates and cleans up an isolated app per test.
+    // Per-test StartNew/Dispose races with the dispatch-task assignment in Avalonia 12.1.2.
+    private static HeadlessUnitTestSession Session => HeadlessUnitTestSession.GetOrStartForAssembly(typeof(ComparisonWorkspaceHeadlessTests).Assembly);
     [Theory]
     [InlineData(840, 600)]
     [InlineData(840, 520)]
     public async Task ShortNarrowMainWindowKeepsContextBodiesReadable(int width, int height)
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var outcome = ComparisonResultsTests.Result(ComparisonResultsTests.Change(), ComparisonResultsTests.Change("two")) with
@@ -64,7 +70,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task QuickCompareSetupRendersTemplateRecommendationWithoutAutoStarting()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             using var model = new ComparisonSetupViewModel();
@@ -83,7 +89,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task SelectingAnotherChangeInRealViewKeepsTheSharedSelection()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var model = new ComparisonResultsViewModel(ComparisonResultsTests.Result(
@@ -115,7 +121,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task SelectingGroupedMemberAndChangingViewKeepsTheSameChange()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var first = ComparisonResultsTests.Change();
@@ -153,7 +159,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task GroupedPreviousAndNextKeepTheActualMemberSelection()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var result = ComparisonResultsTests.Result(
@@ -187,7 +193,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task LongGroupedListKeepsPreviousNavigationAfterVirtualizedMemberRefresh()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var changes = Enumerable.Range(0, 52).Select(i => ComparisonResultsTests.Change($"change-{i}") with
@@ -240,7 +246,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task LargeWorkspaceUsesVirtualizedPreviewControls()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var changes = Enumerable.Range(0, 368).Select(i => ComparisonResultsTests.Change($"change-{i}") with
@@ -303,7 +309,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task ContextPanelsStackAtOrdinaryWidthAndReturnFromFullMode()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var outcome = ComparisonResultsTests.Result(ComparisonResultsTests.Change()) with

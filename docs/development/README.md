@@ -58,6 +58,8 @@ dotnet publish src/FinalCheck.Desktop/FinalCheck.Desktop.csproj `
 
 当前 Release publish 会排除用户运行不需要的 `.pdb` 调试符号，但不启用 trimming 或 NativeAOT。
 
+App 的真实 View / XAML Headless 测试使用 Avalonia 管理的程序集会话（`GetOrStartForAssembly`），显式声明应用入口和 `PerTest` 隔离；每个 Dispatch 仍创建并清理独立 Application，测试集合禁止并行。不要逐测试 `StartNew` / `Dispose`，Avalonia 12.1.2 的后台任务赋值存在会话销毁竞态，会在布局断言通过后导致测试包构建偶发失败。不得通过吞掉异常或移除正文、导航、虚拟化断言使测试通过。真实安装版交互门禁仍须单独执行，详见 [Stage A task](../tasks/usability-workflow-correction-v0.md)。
+
 ## 版本与 Windows 包
 
 ```powershell

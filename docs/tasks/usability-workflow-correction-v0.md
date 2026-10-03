@@ -12,7 +12,7 @@
 
 # 1. 任务目标
 
-## 实际执行状态（截至 2026-09-30；起始基线 2026-09-14）
+## 实际执行状态（截至 2026-10-04；起始基线 2026-09-14）
 
 - Phase A1：DONE；统一工作台、持久化状态撤销与逻辑滚动协调已实现并完成阶段验收。
 - Phase A2：DONE；无项目上下文的正式比对自动形成项目、稳定 Vn 和独立历史；角色/轮次默认交互简化且旧模型保留。
@@ -61,6 +61,14 @@
 - **本地资料边界：** `artifacts/stage-a-layout-fix/tests/`、`artifacts/stage-a-layout-fix/page-fixtures/` 和 `artifacts/comparison-ui-validation/FixtureTool/` 均是 Git 忽略的本机验收资料，不会随 clone / pull 同步。页码补验样本使用 `Page 100 → Page 101`，并保留正文金额 `300 → 400`、期限 `30 → 60`、日期 `2026 → 2027`；这些仅是待验证样本，未声称通过。正常数据仍在本机已有 DataRoot，Git 不同步 SQLite、Snapshot 或用户合同；禁止在新电脑清空/覆盖已有数据来复刻本机现场。
 - **下一台电脑恢复顺序：** 先检查目标仓库和 `git status`，安全 fetch / pull；重读 AGENTS、本 task、PRD、相关 architecture、recent commits、当前布局代码与测试。确认本检查点及 `1c29b04` 已在远程历史，当前整体仍 IN PROGRESS；从剩余验收继续，而不是重做已完成 Phase。先查看当前 CI / Artifact 状态，后续真正完成收尾时从当时最终 HEAD 构建、下载校验、备份既有数据、实际安装并验证，报告 version / SHA / Run ID；本检查点改变了 HEAD，dev.13.1 仅覆盖修复提交，不代表未来最终 HEAD 已验收。不要为本次交接重复触发 Test Build，不创建 Tag / Release。
 - 环境资源故障记录已提交于 `docs/development/incidents/2026-09-30-memory-pressure.md`；本次交接不修改系统、不重跑重型构建、不删除测试数据或日志。
+
+### 跨设备恢复与验收基础设施修复（2026-10-04，仍为 IN PROGRESS）
+
+- 从 `3c6fbe4` 安全快进 52 个提交到 `bf786f47e989b307f0be6367bfeeed941475bcb8`，恢复时工作区干净。回读 [CI 36694035304](https://github.com/bluntvoice/Final-Check/actions/runs/36694035304)，Windows / macOS 均 success。A1–A4 不重新实施，从剩余安装版矩阵继续。
+- 此电脑没有 .NET SDK，已从 Microsoft 官方 release metadata 下载稳定 10.0.401 Windows x64 ZIP，验证 SHA-512 后解压到独立 SDK 目录；未改系统 PATH 或仓库技术栈。当前会话关闭 workload advertising manifest 下载，串行构建/测试。恢复前本机安装版为 `0.1.0-dev.8.1`，正常 DataRoot 有 3 条既有比对、1 个模板版本；已通过 SQLite backup API 保存一致性备份，integrity_check=ok、foreign_key_check 无错误，未清空或替换正常数据。
+- 当前 HEAD 的 [Test Build 37136558983](https://github.com/bluntvoice/Final-Check/actions/runs/37136558983) 在 App 测试失败，未生成安装包：短窄窗口测试的正文断言已经通过（840×520 双侧高度 162 / 161 px），但 `HeadlessUnitTestSession.Dispose()` 抛出 NullReferenceException。核对 Avalonia 12.1.2 源码发现 `StartNew` 在后台任务赋值前可能发布会话，逐测试 Dispose 存在竞态；改用框架管理的 `GetOrStartForAssembly`，显式指定应用入口和 PerTest 隔离，保持真实布局、导航与虚拟化断言，不捕获或忽略测试异常，不修改业务布局/Engine/schema/依赖版本。
+- 修复后串行 Release build 为 0 warning / 0 error；9 个 Headless 用例连续 5 个独立运行全部 PASS；Release 全量 327/327 PASS（Core 5 / Documents 45 / Comparison 52 / Data 148 / App 77）。本机首轮 Data 测试主机在完成 136 项后退出；开启 crash/诊断收集的单独重试 148/148 PASS，随后正常全量运行也为 148/148 PASS。首轮退出原因没有确证，不记录为已经修复的产品 Bug。初次失败、诊断与复验日志/TRX 保存在 Git 忽略的 `artifacts/stage-a-bf786f4-20261004/`。
+- 本修复是可构建验收检查点，整体仍 `IN PROGRESS`。正常 commit / push 后须从该最终 HEAD 构建新 Windows Test Build，核对 Windows/macOS CI、version / SHA / Run ID，下载验包、实际安装并复核数据/重启与剩余真实试用。后续 Run ID 和现场结果在交付报告/本地验收资料记录，不为了补写编号再次改变已构建 HEAD。短窄窗口、Top 3 历史模板选择与可靠页码等安装矩阵仍不能以 Headless 测试替代；不进入 Stage B、不创建 Tag / Release。
 
 ### A1 安全检查点（2026-09-19，仍为 IN PROGRESS）
 
