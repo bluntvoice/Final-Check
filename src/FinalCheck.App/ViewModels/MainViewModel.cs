@@ -50,6 +50,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void Navigate(string? page)
     {
+        if (Storage.RecoveryRequired) { Storage.Message = "迁移结果需要恢复核验，请正常关闭并重启。核验前不能进入其他数据页面。"; return; }
         if (Storage.IsMigrating) { Storage.Message = "数据位置正在更改，请等待完成或请求取消后再离开。"; return; }
         if (Comparison.IsExecuting || Projects.Versions.IsComparing) { pendingPage = page ?? "home"; LeavePrompt = true; return; }
         SelectedPage = page ?? "home";
@@ -84,7 +85,7 @@ public partial class MainViewModel : ViewModelBase
     }
     [RelayCommand] private async Task LoadRecentAsync()
     {
-        if (workflow is null || Comparison.IsExecuting) return;
+        if (workflow is null || Comparison.IsExecuting || Storage.IsMigrating || Storage.RecoveryRequired) return;
         var sourceRevision = navigationRevision;
         try
         {

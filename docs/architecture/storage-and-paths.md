@@ -171,7 +171,7 @@ Storage Foundation Phase 3 已实现 `IDataRootValidator`：由 Infrastructure �
 
 Stage B 已接入正式“设置 → 存储”View/ViewModel，复用 usage/validator/migration，不改变 bootstrap/layout 或数据库 schema。Desktop 注入存储服务与平台文件夹打开接口。扫描/验证/迁移在后台执行，UI continuation 更新当前路径和统计；迁移后重新取得 generation，不重启应用。显式源/目标确认随目标或 generation 改变失效；Foundation 重验空目标、空间并获取维护屏障。
 
-迁移期间暂缓导航/普通关闭，可在提交前请求取消；需要恢复核验时禁止进一步路径更改，正常重启由现有 recovery 处理。成功切换与后续统计失败分别报告，不回滚已提交 root。Snapshot/Comparison/restore 显示逻辑占用且明确包含于 Database；partial/失败显示诊断而非 0 成功。原始 DOCX/导出不迁移、不计入总占用。具体实现和安装验收状态见 [Stage B task](../tasks/installer-and-storage-settings-v0.md)。
+迁移期间暂缓导航/普通关闭，可在提交前请求取消；需要恢复核验时禁止进一步路径更改、进入其他数据页面和读取最近比对，正常关闭重启由现有 recovery 处理。成功切换与后续统计失败分别报告，不回滚已提交 root。Snapshot/Comparison/restore 显示逻辑占用且明确包含于 Database；partial/失败显示诊断而非 0 成功。原始 DOCX/导出不迁移、不计入总占用。具体实现和安装验收状态见 [Stage B task](../tasks/installer-and-storage-settings-v0.md)。
 
 ### 剩余现场矩阵
 

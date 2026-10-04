@@ -76,6 +76,18 @@ public sealed class StorageSettingsTests
     }
 
     [Fact]
+    public async Task AmbiguousResultKeepsDataNavigationBlockedUntilRestart()
+    {
+        var services = new FakeStorage { ThrowMigration = true }; var vm = services.Model(); vm.TargetPath = services.Target;
+        var main = new MainViewModel(new(), storage: vm) { SelectedPage = "storage" };
+        await vm.ValidateTargetCommand.ExecuteAsync(null);
+        await vm.MigrateCommand.ExecuteAsync(null);
+        main.NavigateCommand.Execute("projects");
+        Assert.True(main.IsStorage); Assert.Contains("重启", vm.Message);
+        Assert.False(vm.ValidateTargetCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task MigrationSuccessAndStatisticsFailureRemainDifferentResults()
     {
         var services = new FakeStorage(); var vm = services.Model(); vm.TargetPath = services.Target;

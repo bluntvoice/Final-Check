@@ -27,7 +27,9 @@
 - 用户验证后明确看到源/目标和空间预算，再确认复制；目标改变或 generation 改变使确认失效。提交前取消由 Foundation 处理，提交后的取消不退回旧库。未知结果要求正常关闭后启动恢复，不推断提交状态。
 - 迁移执行时导航/普通关闭暂缓，等待完成或取消完成后再关闭；没有百分比服务时显示不确定进度，不制造进度数值。Foundation 负责全局/跨进程屏障，UI 按钮不是数据锁。
 - 现有安装/打包/版本基线保持；安装器门禁仍未完成，不能宣称 Beta 合格。
-- 最终本地 Release build：0 warning / 0 error；完整 Release 测试 340/340 PASS（Core 5 / Documents 45 / Comparison 52 / Data 149 / App 89）。新增覆盖关闭屏障及最小窗口确认区自动滚入。Data 测试 link 同一平台无关 ViewModel，以真实 SQLite/Working Copy/restore history 验证明确确认与即时重开；没有引入 Avalonia 或 Windows API 到 Data。
+- 本地实现检查点 Release build：0 warning / 0 error；完整 Release 测试 340/340 PASS（Core 5 / Documents 45 / Comparison 52 / Data 149 / App 89）。新增覆盖关闭屏障及最小窗口确认区自动滚入。Data 测试 link 同一平台无关 ViewModel，以真实 SQLite/Working Copy/restore history 验证明确确认与即时重开；没有引入 Avalonia 或 Windows API 到 Data。
+- 补充安全检查：服务抛出无法核实提交状态的异常时，UI 保持在存储页并阻止进入其他数据页面/读取最近比对，要求正常关闭重启；与 Foundation `NeedsReview` 写屏障配合。新增导航回归，最终 HEAD 须包含此检查。
+- 含补充安全检查的最终本地 Release build：0 warning / 0 error；全量 341/341 PASS（Core 5 / Documents 45 / Comparison 52 / Data 149 / App 90）。此前实现 HEAD 的 Windows/macOS CI 和 Test Build 也通过，但它们不代替本安全修正 HEAD 的新包与安装补验。
 - 真实 Debug 隔离窗口：生成 400/508 段 DOCX，真实自动项目/V1/V2/独立比对历史，共 368 项差异；GUI 点击验证、暂不更改、重新确认与实际迁移。热切换后全表逻辑摘要和原始 DOCX SHA 相同，旧数据保留，bootstrap generation 1→2，新路径立即生效。打开目录经 Explorer 实际路径回读，正常关闭/重启保持新位置并实际重新显示 368 项历史；总占用包含完整迁移数据库备份，不重复加逻辑 payload。
 - 隔离启动脚本一度漏传私有 .NET SDK 的 DOTNET_ROOT，framework-dependent Debug apphost 未加载 coreclr，没有业务窗口；补齐环境后重启通过。未将其记录为自包含安装包或数据恢复失败。UI Automation 对“继续最近一次比对”等待结果导航控件后再取证，避免把读取中的首页当成历史回读成功。
 - 最终 HEAD CI / 安装包补验：待本检查点正常 commit/push 后执行。原始证据位于 `artifacts/stage-b-20261004/`，不提交 DOCX、数据库或个人路径材料。
