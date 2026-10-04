@@ -15,6 +15,38 @@ public sealed class StorageRuntimeTests
 {
     private static readonly string[] DatabaseFiles = ["finalcheck.db", "finalcheck.db-wal", "finalcheck.db-shm"];
     [Fact]
+    public async Task StorageSettingsUsesRealMigrationAndReopensPreservedHistoryImmediately()
+    {
+        await using var env = await MigrationEnvironment.CreateAsync();
+        await using var runtime = await RuntimeAsync(env.Fixture);
+        await DesktopStorageServices.InitializeAsync(runtime);
+        var original = File.ReadAllBytes(env.WorkingPath);
+        var model = new App.ViewModels.StorageSettingsViewModel(runtime.GetRequiredService<IDataRootProvider>(),
+            runtime.GetRequiredService<IStorageUsageService>(), runtime.GetRequiredService<IDataRootValidator>(),
+            runtime.GetRequiredService<IDataRootMigrationService>(), new UnusedFolderOpener());
+        model.TargetPath = env.Target;
+        await model.ValidateTargetCommand.ExecuteAsync(null);
+        Assert.True(model.ShowConfirmation);
+        Assert.Equal(env.Source, runtime.GetRequiredService<IDataRootProvider>().CurrentDataRoot);
+        await model.MigrateCommand.ExecuteAsync(null);
+        Assert.Equal(env.Target, model.CurrentPath);
+        Assert.False(model.IsBusy); Assert.False(model.RecoveryRequired);
+        Assert.Contains("无需重启", model.Message); Assert.Contains(env.Source, model.Message);
+        Assert.Equal(3, model.DatabasePayloads.Count);
+        await using var scope = runtime.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetRequiredService<FinalCheckDbContext>();
+        Assert.Equal(env.Target, context.ManagedPaths.CurrentDataRoot);
+        Assert.Equal(2, await context.DocumentSnapshots.CountAsync());
+        Assert.Equal(1, await context.ComparisonResults.CountAsync());
+        Assert.Equal(2, await context.FormatRestoreOperations.CountAsync());
+        var working = await context.RestoredWorkingCopies.SingleAsync();
+        Assert.Equal(original, File.ReadAllBytes(Path.Combine(env.Target, "WorkingCopies", working.ContractVersionId.ToString("N"), "restored.docx")));
+        Assert.Equal(original, File.ReadAllBytes(env.WorkingPath));
+        Assert.Equal(env.Target, env.Fixture.Bootstrap.Load()!.Current.Path);
+    }
+    private sealed class UnusedFolderOpener : IStorageFolderOpener
+    { public void Open(string absoluteDirectory) => throw new NotSupportedException(); }
+    [Fact]
     public async Task FreshStartupResolvesBeforeCreatingAnEmptyDatabase()
     {
         using var fixture = new StorageFixture();

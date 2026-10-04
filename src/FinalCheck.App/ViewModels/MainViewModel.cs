@@ -9,15 +9,17 @@ public partial class MainViewModel : ViewModelBase
 {
     public MainViewModel() : this(new ComparisonSetupViewModel()) { }
     private readonly IComparisonWorkflowService? workflow;
-    public MainViewModel(ComparisonSetupViewModel comparison, IComparisonWorkflowService? workflow = null, TemplateCenterViewModel? templates = null, ProjectsViewModel? projects = null)
+    public MainViewModel(ComparisonSetupViewModel comparison, IComparisonWorkflowService? workflow = null, TemplateCenterViewModel? templates = null, ProjectsViewModel? projects = null, StorageSettingsViewModel? storage = null)
     {
-        Comparison = comparison; this.workflow = workflow; Templates = templates ?? new(); Projects = projects ?? new();
+        Comparison = comparison; this.workflow = workflow; Templates = templates ?? new(); Projects = projects ?? new(); Storage = storage ?? new();
         Comparison.Completed += async result => { if (IsSetup) await ShowResultAsync(result); };
         Projects.Versions.Completed += async result => { if (IsProjects) await ShowResultAsync(result); };
     }
     public ComparisonSetupViewModel Comparison { get; }
     public TemplateCenterViewModel Templates { get; }
     public ProjectsViewModel Projects { get; }
+    public StorageSettingsViewModel Storage { get; }
+    public bool IsStorage => SelectedPage == "storage";
     public bool IsProjects => SelectedPage is "projects" or "archive" or "recycle";
     public bool IsTemplates => SelectedPage == "templates";
     [ObservableProperty] private ComparisonResultsViewModel? results;
@@ -29,9 +31,9 @@ public partial class MainViewModel : ViewModelBase
     public bool IsHome => SelectedPage == "home";
     public bool IsSetup => SelectedPage == "compare";
     public bool IsResults => SelectedPage == "results";
-    public bool IsOther => !IsHome && !IsSetup && !IsResults && !IsTemplates && !IsProjects;
+    public bool IsOther => !IsHome && !IsSetup && !IsResults && !IsTemplates && !IsProjects && !IsStorage;
     partial void OnSelectedPageChanged(string value)
-    { navigationRevision++; OnPropertyChanged(nameof(IsHome)); OnPropertyChanged(nameof(IsSetup)); OnPropertyChanged(nameof(IsOther)); OnPropertyChanged(nameof(IsResults)); OnPropertyChanged(nameof(IsTemplates)); OnPropertyChanged(nameof(IsProjects)); }
+    { navigationRevision++; OnPropertyChanged(nameof(IsHome)); OnPropertyChanged(nameof(IsSetup)); OnPropertyChanged(nameof(IsOther)); OnPropertyChanged(nameof(IsResults)); OnPropertyChanged(nameof(IsTemplates)); OnPropertyChanged(nameof(IsProjects)); OnPropertyChanged(nameof(IsStorage)); }
     public string AppVersion { get; } = GetAppVersion();
 
     public string AppVersionLabel => $"v{AppVersion}";
@@ -48,6 +50,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void Navigate(string? page)
     {
+        if (Storage.IsMigrating) { Storage.Message = "数据位置正在更改，请等待完成或请求取消后再离开。"; return; }
         if (Comparison.IsExecuting || Projects.Versions.IsComparing) { pendingPage = page ?? "home"; LeavePrompt = true; return; }
         SelectedPage = page ?? "home";
         (CurrentPageTitle, CurrentPageDescription) = SelectedPage switch
@@ -59,9 +62,11 @@ public partial class MainViewModel : ViewModelBase
             "projects" => ("合同项目", "管理项目与模板绑定 · 既有历史保持不变"),
             "archive" => ("归档项目", "数据保留 · 可恢复到活跃项目"),
             "recycle" => ("项目回收站", "可恢复 · 永久删除需要二次确认"),
+            "storage" => ("设置 · 存储", "数据位置与占用 · 更改位置后立即生效"),
             _ => ("Final Check", "选择两份 DOCX，查看文字、格式、修订与批注变化。"),
         };
         if (IsTemplates) Templates.RefreshCommand.Execute(null);
+        if (IsStorage) Storage.RefreshCommand.Execute(null);
         if (IsProjects) { Projects.StatusFilter = SelectedPage switch { "archive" => "归档", "recycle" => "回收站", _ => "活跃项目" }; Projects.RefreshCommand.Execute(null); }
     }
     private async Task ShowResultAsync(ComparisonWorkflowResult result)
@@ -99,8 +104,9 @@ public partial class MainViewModel : ViewModelBase
         var destination = pendingPage ?? "home"; pendingPage = null;
         SelectedPage = destination;
         (CurrentPageTitle, CurrentPageDescription) = destination switch
-        { "about" => ("关于 Final Check", $".NET 10 + Avalonia 12 · {AppVersionLabel}"), "templates" => ("模板中心", "维护标准模板及历史版本 · 原始 DOCX 保持不变"), "projects" => ("合同项目", "管理项目与模板绑定 · 既有历史保持不变"), _ => ("Final Check", "比对已请求取消。") };
+        { "about" => ("关于 Final Check", $".NET 10 + Avalonia 12 · {AppVersionLabel}"), "templates" => ("模板中心", "维护标准模板及历史版本 · 原始 DOCX 保持不变"), "projects" => ("合同项目", "管理项目与模板绑定 · 既有历史保持不变"), "storage" => ("设置 · 存储", "数据位置与占用 · 更改位置后立即生效"), _ => ("Final Check", "比对已请求取消。") };
         if (IsTemplates) Templates.RefreshCommand.Execute(null);
+        if (IsStorage) Storage.RefreshCommand.Execute(null);
         if (IsProjects) { Projects.StatusFilter = destination switch { "archive" => "归档", "recycle" => "回收站", _ => "活跃项目" }; Projects.RefreshCommand.Execute(null); }
     }
 

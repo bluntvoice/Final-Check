@@ -104,6 +104,8 @@ internal static class Program
         services.AddSingleton<IProjectLifecycleService, ProjectLifecycleService>();
         services.AddSingleton<VersionManagementViewModel>();
         services.AddSingleton<ProjectsViewModel>();
+        services.AddSingleton<IStorageFolderOpener, StorageFolderOpener>();
+        services.AddSingleton<StorageSettingsViewModel>();
         services.AddSingleton<MainViewModel>();
 
         services.AddScoped<DocumentSnapshotStore>();

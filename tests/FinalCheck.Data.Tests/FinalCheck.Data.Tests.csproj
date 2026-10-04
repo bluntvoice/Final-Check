@@ -19,6 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <Compile Include="..\..\src\FinalCheck.App\ViewModels\ViewModelBase.cs" Link="ViewModelBase.cs" />
+    <Compile Include="..\..\src\FinalCheck.App\ViewModels\StorageSettingsViewModel.cs" Link="StorageSettingsViewModel.cs" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <Compile Include="..\..\src\FinalCheck.Desktop\DesktopStorageServices.cs" Link="DesktopStorageServices.cs" />

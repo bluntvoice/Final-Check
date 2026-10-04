@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -26,6 +27,70 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     // Avalonia owns this assembly session; Dispatch still creates and cleans up an isolated app per test.
     // Per-test StartNew/Dispose races with the dispatch-task assignment in Avalonia 12.1.2.
     private static HeadlessUnitTestSession Session => HeadlessUnitTestSession.GetOrStartForAssembly(typeof(ComparisonWorkspaceHeadlessTests).Assembly);
+    [Fact]
+    public async Task StorageSettingsAtMinimumWindowKeepsLocationAndScrollableConfirmationReachable()
+    {
+        await Session.Dispatch(async () =>
+        {
+            var storage = new StorageSettingsTests.FakeStorage(); var model = storage.Model();
+            await model.RefreshCommand.ExecuteAsync(null);
+            model.TargetPath = storage.Target;
+            var main = new MainViewModel(new(), storage: model) { SelectedPage = "storage" };
+            var window = new MainWindow { Width = 840, Height = 520, DataContext = main };
+            try
+            {
+                window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                await model.ValidateTargetCommand.ExecuteAsync(null);
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var viewport = window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == "StorageViewport");
+                Assert.True(viewport.IsEffectivelyVisible); Assert.True(viewport.Bounds.Height > 250);
+                Assert.True(viewport.Extent.Height > viewport.Viewport.Height);
+                var target = window.GetVisualDescendants().OfType<TextBox>().Single(view => AutomationProperties.GetAutomationId(view) == "StorageTargetPath");
+                Assert.True(target.Bounds.Width > 250);
+                Assert.True(viewport.Offset.Y > 0); // Validation makes the confirmation reachable without manual scrolling.
+                var confirm = window.GetVisualDescendants().OfType<Button>().Single(view => Equals(view.Content, "确认更改位置"));
+                Assert.True(confirm.IsEffectivelyVisible); Assert.True(confirm.IsEnabled);
+                var point = confirm.TranslatePoint(default, viewport);
+                Assert.NotNull(point); Assert.InRange(point.Value.Y, 0, viewport.Viewport.Height);
+                Assert.Equal(storage.Source, model.CurrentPath);
+            }
+            finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
+        }, CancellationToken.None);
+    }
+    [Fact]
+    public async Task MainWindowDefersCloseWhileStorageMigrationIsRunning()
+    {
+        await Session.Dispatch(async () =>
+        {
+            var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var storage = new StorageSettingsTests.FakeStorage
+            {
+                PauseMigration = new(TaskCreationOptions.RunContinuationsAsynchronously),
+                DuringMigration = () => started.TrySetResult(),
+            };
+            var model = storage.Model(); model.TargetPath = storage.Target;
+            await model.ValidateTargetCommand.ExecuteAsync(null);
+            var main = new MainViewModel(new(), storage: model) { SelectedPage = "storage" };
+            var window = new MainWindow { DataContext = main };
+            Task? operation = null;
+            try
+            {
+                window.Show(); operation = model.MigrateCommand.ExecuteAsync(null);
+                await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                window.Close(); Dispatcher.UIThread.RunJobs();
+                Assert.True(window.IsVisible); Assert.Contains("关闭", model.Message);
+                main.NavigateCommand.Execute("home"); Assert.True(main.IsStorage);
+                storage.PauseMigration.TrySetResult(); await operation;
+                window.Close(); Dispatcher.UIThread.RunJobs(); Assert.False(window.IsVisible);
+            }
+            finally
+            {
+                storage.PauseMigration.TrySetResult();
+                if (operation is not null) await operation;
+                window.Close(); Dispatcher.UIThread.RunJobs();
+            }
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(840, 600)]
     [InlineData(840, 520)]

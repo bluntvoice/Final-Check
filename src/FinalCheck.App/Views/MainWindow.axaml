@@ -37,6 +37,7 @@
           <Button Content="归档" Command="{Binding NavigateCommand}" CommandParameter="archive" />
           <Button Content="回收站" Command="{Binding NavigateCommand}" CommandParameter="recycle" />
           <Button Content="比对结果" Command="{Binding NavigateCommand}" CommandParameter="results" IsVisible="{Binding HasResults}" />
+          <Button Content="设置" Command="{Binding NavigateCommand}" CommandParameter="storage" ToolTip.Tip="存储占用与数据位置" />
           <Button Content="关于" Command="{Binding NavigateCommand}" CommandParameter="about" />
         </StackPanel>
 
@@ -61,6 +62,7 @@
           <Grid IsVisible="{Binding IsResults}"><views:ComparisonResultsView DataContext="{Binding Results}" /></Grid>
           <Grid IsVisible="{Binding IsTemplates}"><views:TemplateCenterView DataContext="{Binding Templates}" /></Grid>
           <Grid IsVisible="{Binding IsProjects}"><views:ProjectsView DataContext="{Binding Projects}" /></Grid>
+          <Grid IsVisible="{Binding IsStorage}"><views:StorageSettingsView DataContext="{Binding Storage}" /></Grid>
           <TextBlock IsVisible="{Binding IsOther}" Text="{Binding CurrentPageDescription}" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center" />
         </Grid>
       </Border>

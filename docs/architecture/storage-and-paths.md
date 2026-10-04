@@ -7,7 +7,7 @@ Schema 8 adds immutable ProjectComparisons context alongside existing frozen Com
 Project management schema 7 adds ContractVersions / NegotiationRounds incrementally. Storage migration verifies version Snapshot/hash, original-source and duplicate identities plus row digests; both relinked paths and immutable original source paths are excluded from managed-data copying/usage. Original DOCX is never moved, copied or deleted by DataRoot migration.
 
 - 日期：2026-09-13
-- 状态：Storage Foundation Phase 1–5、Release build/test、Windows/macOS CI 和一次 Test Build / 实际 Release payload 隔离启动已验证，证据见 task。正式 Storage Settings UI 尚未实现。
+- 状态：Storage Foundation Phase 1–5、Release build/test、Windows/macOS CI 和一次 Test Build / 实际 Release payload 隔离启动已验证，证据见 task。2026-10-04 Stage B 已接入正式 Storage Settings UI，其独立验收状态见 Stage B task。
 - 决策：[ADR-0006](ADR-0006-install-location-and-data-root.md)。
 
 ## 两种位置、四类路径
@@ -167,7 +167,13 @@ Storage Foundation Phase 3 已实现 `IDataRootValidator`：由 Infrastructure �
 - 权限不足、剩余空间不足、未知文件系统/无法验证路径能力显示明确阻断原因；不自动提升权限、修改 ACL 或切换到另一目录。
 - 后续 NAS/SMB/同步/可移动支持需要单独可靠性 Spike（SQLite locking/WAL、断线、重连、文件原子操作、同步冲突和恢复），不随普通 folder picker 上线而宣布支持。
 
-## 后续 Storage Settings 验收（未执行）
+## Storage Settings 接入与验收（2026-10-04）
+
+Stage B 已接入正式“设置 → 存储”View/ViewModel，复用 usage/validator/migration，不改变 bootstrap/layout 或数据库 schema。Desktop 注入存储服务与平台文件夹打开接口。扫描/验证/迁移在后台执行，UI continuation 更新当前路径和统计；迁移后重新取得 generation，不重启应用。显式源/目标确认随目标或 generation 改变失效；Foundation 重验空目标、空间并获取维护屏障。
+
+迁移期间暂缓导航/普通关闭，可在提交前请求取消；需要恢复核验时禁止进一步路径更改，正常重启由现有 recovery 处理。成功切换与后续统计失败分别报告，不回滚已提交 root。Snapshot/Comparison/restore 显示逻辑占用且明确包含于 Database；partial/失败显示诊断而非 0 成功。原始 DOCX/导出不迁移、不计入总占用。具体实现和安装验收状态见 [Stage B task](../tasks/installer-and-storage-settings-v0.md)。
+
+### 剩余现场矩阵
 
 [校准 PRD](../PRD/PRD-v0.1.0.md) 第 45、64 章将正式“设置 → 存储”安排在 Stage B：显示当前 DataRoot/占用分类、打开文件夹、更改位置并立即刷新。下述基础服务和兼容规则继续沿用；Foundation DONE 不等于 UI 或用户数据备份/恢复（Stage D）完成。Installer Wizard 同属 Stage B 且为 Beta 前阻断项，安装位置与数据位置仍彻底解耦。
 

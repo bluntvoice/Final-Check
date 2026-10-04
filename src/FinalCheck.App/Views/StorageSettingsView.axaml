@@ -1,0 +1,87 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:FinalCheck.App.ViewModels"
+             x:Class="FinalCheck.App.Views.StorageSettingsView"
+             x:DataType="vm:StorageSettingsViewModel">
+  <ScrollViewer x:Name="StorageViewport" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="16" Margin="0,0,12,0">
+      <TextBlock Text="数据位置" FontSize="20" FontWeight="SemiBold" />
+      <TextBox Text="{Binding CurrentPath, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+               AutomationProperties.Name="当前数据位置" />
+      <WrapPanel Orientation="Horizontal">
+        <Button Content="打开数据文件夹" Command="{Binding OpenFolderCommand}" Margin="0,0,8,8" />
+        <Button Content="刷新占用" Command="{Binding RefreshCommand}" Margin="0,0,8,8" />
+      </WrapPanel>
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="数据总占用" FontSize="20" FontWeight="SemiBold" />
+        <TextBlock Grid.Column="1" Text="{Binding TotalSize}" FontSize="20" FontWeight="SemiBold" />
+      </Grid>
+      <TextBlock Text="{Binding SampledAt}" Foreground="#5C6773" />
+      <TextBlock Text="{Binding UsageMessage}" TextWrapping="Wrap" Foreground="#5C6773" />
+      <TextBlock Text="项目数据与历史" FontSize="16" FontWeight="SemiBold" />
+      <ItemsControl ItemsSource="{Binding PhysicalUsage}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:StorageUsageRow">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+              <StackPanel Spacing="3">
+                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#5C6773" TextWrapping="Wrap" />
+              </StackPanel>
+              <TextBlock Grid.Column="1" Text="{Binding Size}" Margin="12,0,0,0" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Expander Header="数据库内的快照、比对与恢复记录" IsExpanded="True" HorizontalAlignment="Stretch">
+        <ItemsControl ItemsSource="{Binding DatabasePayloads}" Margin="0,8,0,0">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:StorageUsageRow">
+              <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+                <StackPanel Spacing="3">
+                  <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#5C6773" TextWrapping="Wrap" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding Size}" Margin="12,0,0,0" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Expander>
+      <Border BorderBrush="#DDE2E8" BorderThickness="1" CornerRadius="8" Padding="16">
+        <StackPanel Spacing="12">
+          <TextBlock Text="更改数据位置" FontSize="18" FontWeight="SemiBold" />
+          <TextBlock Text="选择本机固定磁盘上的空目录。完整数据将复制并校验，成功后立即生效，旧数据默认保留。原始 DOCX 和手动导出文件的位置不会改变。"
+                     TextWrapping="Wrap" />
+          <TextBlock Text="请先关闭其他 Final Check 实例和正在编辑工作副本的 Word/WPS。暂不支持网络盘、移动盘、同步目录或链接。" TextWrapping="Wrap" Foreground="#5C6773" />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBox Text="{Binding TargetPath}" PlaceholderText="例如 D:\FinalCheckData" IsEnabled="{Binding CanEdit}"
+                     AutomationProperties.Name="新的数据位置" AutomationProperties.AutomationId="StorageTargetPath" />
+            <Button Grid.Column="1" Content="浏览" Click="PickFolder" IsEnabled="{Binding CanEdit}" Margin="8,0,0,0" />
+          </Grid>
+          <Button Content="验证新位置" Command="{Binding ValidateTargetCommand}" HorizontalAlignment="Left" />
+          <Border x:Name="MigrationConfirmation" IsVisible="{Binding ShowConfirmation}" Background="#F1F5FA" CornerRadius="6" Padding="12">
+            <StackPanel Spacing="8">
+              <TextBlock Text="确认更改数据位置" FontWeight="SemiBold" />
+              <TextBlock Text="从：" />
+              <TextBlock Text="{Binding ConfirmationSource}" TextWrapping="Wrap" />
+              <TextBlock Text="复制到：" />
+              <TextBlock Text="{Binding ConfirmationTarget}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding SpaceMessage}" TextWrapping="Wrap" />
+              <TextBlock Text="旧数据将保留，目标已有数据不会被覆盖。提交前可取消，提交时将完成安全切换。" TextWrapping="Wrap" />
+              <WrapPanel>
+                <Button Content="确认更改位置" Command="{Binding MigrateCommand}" Margin="0,0,8,8" />
+                <Button Content="暂不更改" Command="{Binding DismissConfirmationCommand}" Margin="0,0,8,8" />
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+          <StackPanel IsVisible="{Binding IsBusy}" Spacing="8">
+            <ProgressBar IsIndeterminate="True" />
+            <TextBlock Text="{Binding BusyLabel}" TextWrapping="Wrap" />
+          </StackPanel>
+          <Button Content="取消更改" Command="{Binding MigrateCancelCommand}" IsVisible="{Binding IsMigrating}" HorizontalAlignment="Left" />
+          <TextBlock x:Name="MigrationMessage" Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.Name="存储操作结果" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

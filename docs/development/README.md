@@ -4,7 +4,7 @@
 
 Final Check v0.1.0 的基础工程、Document / Comparison / Format Restore Engine、Comparison UI 与 Project / Template / Version Management 已按各任务实施，验收状态以 task 为准。项目管理 schema 9 由增量迁移建立模板、项目、明确角色/轮次的批量版本、当前我方基准、独立比对历史和可恢复归档/回收站。Quick Compare 共用 Engine/result/review UI，已审阅不表示接受。新我方导入默认保留基准，冻结 Snapshot 不随源文件或模板修改重算。永久删除二次确认、引用保护与持久清理日志详见 [架构](../architecture/project-template-version-management.md)。Windows Test Build / 正式发布基础设施见 [Release process](release-process.md)；未创建 Stable Release，updater UI 尚未实现。
 
-可选安装目录已完成架构落档，Installer Wizard 尚未实现。Storage Foundation v0 Phase 1–5 基础实现完成：bootstrap / 旧库识别、路径政策、非破坏迁移 / session rebind、启动 recovery 和 usage；验收证据以 [storage task](../tasks/storage-foundation-v0.md) 为准。正式 Storage Settings UI 未实现，Velopack workflow 未改变。
+可选安装目录已完成架构落档，Installer Wizard 尚未实现。Storage Foundation v0 Phase 1–5 基础实现完成：bootstrap / 旧库识别、路径政策、非破坏迁移 / session rebind、启动 recovery 和 usage；验收证据以 [storage task](../tasks/storage-foundation-v0.md) 为准。Stage B 已接入正式 Storage Settings UI，实际状态见 [Stage B task](../tasks/installer-and-storage-settings-v0.md)；Velopack workflow 未改变。
 
 ## 后续开发顺序与验收边界
 
@@ -189,6 +189,10 @@ dotnet tool run dotnet-ef migrations add <MigrationName> `
 - Windows fixed-disk 路径、权限/空间、同步目录/网络/可移动/链接阻断属于 Infrastructure/Desktop；Core/Documents/Comparison/Data 不引入 Registry、Shell 等 API。安装器 Spike 未通过前不改发布流水线或升级 Velopack 依赖。
 
 ## Storage Foundation 开发验证
+
+正式存储页从侧栏“设置”进入。显示当前数据位置/采样时间/唯一物理总计，数据库内 payload 独立列出并注明包含于 Database；选择或输入空目标、验证、明确确认后调用 Foundation 迁移，完成立即刷新。失败显示阶段与诊断，旧数据保留；恢复核验不能当作普通重试。迁移中等待操作或取消结束后才能离开/普通关闭。
+
+Stage B App.Tests 覆盖确认失效、partial、取消/提交、失败/NeedsReview、统计失败和导航；真实 Data.Tests link 同一 ViewModel 并复用 DesktopStorageServices，验证有数据 SQLite、Working Copy、restore history 和同进程新 scope。Headless 在 840×520 下检查可滚动设置页与确认按钮；这些测试不代表文件夹 Browse、实际安装版或物理磁盘迁移矩阵已经通过。
 
 ```powershell
 dotnet test -c Release --filter FullyQualifiedName~Storage

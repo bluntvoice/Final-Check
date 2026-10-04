@@ -14,6 +14,8 @@
 
 ## 实际执行状态（截至 2026-10-04；起始基线 2026-09-14）
 
+2026-10-04 用户明确要求进入 Stage B，后续工作转入 [Installer Wizard + Storage Settings task](installer-and-storage-settings-v0.md)。本任务保持 `IN PROGRESS`，触控板等剩余现场门禁没有因此通过。下方历史检查点中的“不进入 Stage B”描述的是当时范围，以本次明确授权为后续推进依据。
+
 - Phase A1：DONE；统一工作台、持久化状态撤销与逻辑滚动协调已实现并完成阶段验收。
 - Phase A2：DONE；无项目上下文的正式比对自动形成项目、稳定 Vn 和独立历史；角色/轮次默认交互简化且旧模型保留。
 - Phase A3：DONE；已绑定模板默认 current、无项目模板推荐与快照比对、显式重新匹配/更换基准均已实现并通过阶段测试；独立 commit/push 见本节验收记录。
