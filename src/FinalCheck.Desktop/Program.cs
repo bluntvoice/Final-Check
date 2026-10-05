@@ -90,6 +90,7 @@ internal static class Program
         services.AddSingleton<IComparisonResultSerializer, JsonComparisonResultSerializer>();
         services.AddSingleton<IComparisonEngine, BasicComparisonEngine>();
         services.AddSingleton<IFormatRestorePlanner, SnapshotFormatRestorePlanner>();
+        services.AddSingleton<Core.Formatting.IFormatRestoreWorkspaceService, FormatRestoreWorkspaceService>();
         services.AddSingleton<IFormatRestoreRenderer, OpenXmlFormatRestoreRenderer>();
         services.AddSingleton<IWorkingCopyComparisonService, WorkingCopyComparisonService>();
         services.AddSingleton<IComparisonFileInspector, ComparisonFileInspector>();

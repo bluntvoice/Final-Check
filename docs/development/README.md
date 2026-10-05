@@ -8,6 +8,8 @@ Final Check v0.1.0 的基础工程、Document / Comparison / Format Restore Engi
 
 ## 后续开发顺序与验收边界
 
+用户于 2026-10-05 选择先进入 Stage C，保留 Stage B 安装器待验项。[Format Restore UI task](../tasks/format-restore-ui-v0.md) 是当前恢复 UI 工作入口；C1 为正式工作台只读计划/属性预览与选择，后续确认执行、Undo/外部编辑/导出和最终测试包验收分别记录，不能把预览等同于完整恢复 UI 已交付。
+
 [当前 PRD](../PRD/PRD-v0.1.0.md) 已按 2026-09-14 试用反馈校准，第 64 章是后续顺序：Stage A 易用性/自动项目化/版本轮次简化/模板推荐及绑定默认/一体工作台/Undo/逻辑滚动/Ignore Rules → Stage B Installer Wizard + Storage Settings → Stage C Format Restore UI → Stage D 导出/全局搜索/备份恢复 → Stage E 三文件比对评估 → Stage F updater 与经授权的 Beta/Prerelease/Stable。
 
 已完成 task 保存原阶段实现和验收证据，旧强制角色/轮次、独立 Quick Compare、页签布局或 Own 优先推荐不是后续产品约束，也不证明新需求完成。角色暂未指定、自动编号和自动项目保存的兼容方案需在新实现任务中验证，现有模型/迁移保留。Three-way 在 Beta 前评估 Spike，过大可明确延后 v0.1.x；PDF/OCR 仅未来规划。

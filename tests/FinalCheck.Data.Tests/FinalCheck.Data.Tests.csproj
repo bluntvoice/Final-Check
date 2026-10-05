@@ -26,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <Compile Include="..\..\src\FinalCheck.Desktop\DesktopStorageServices.cs" Link="DesktopStorageServices.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\ComparisonWorkflowService.cs" Link="ComparisonWorkflowService.cs" />
+    <Compile Include="..\..\src\FinalCheck.Desktop\FormatRestoreWorkspaceService.cs" Link="FormatRestoreWorkspaceService.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\TemplateService.cs" Link="TemplateService.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\TemplateRecommendationService.cs" Link="TemplateRecommendationService.cs" />
     <Compile Include="..\..\src\FinalCheck.Desktop\ProjectService.cs" Link="ProjectService.cs" />

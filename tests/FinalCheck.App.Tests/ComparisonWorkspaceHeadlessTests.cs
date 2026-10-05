@@ -28,6 +28,31 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     // Per-test StartNew/Dispose races with the dispatch-task assignment in Avalonia 12.1.2.
     private static HeadlessUnitTestSession Session => HeadlessUnitTestSession.GetOrStartForAssembly(typeof(ComparisonWorkspaceHeadlessTests).Assembly);
     [Fact]
+    public async Task RestorePreviewAtMinimumWindowKeepsVirtualizedPlanAndReturnReachable()
+    {
+        await Session.Dispatch(async () =>
+        {
+            var model = new ComparisonResultsViewModel(ComparisonResultsTests.Result(ComparisonResultsTests.Change()), restore: new FormatRestorePreviewTests.Service());
+            var main = new MainViewModel(new()) { Results = model, SelectedPage = "results" };
+            var window = new MainWindow { Width = 840, Height = 520, DataContext = main };
+            try
+            {
+                window.Show(); await model.OpenFormatRestoreCommand.ExecuteAsync(null);
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var list = window.GetVisualDescendants().OfType<ListBox>().Single(view => view.Name == "RestorePlanList");
+                Assert.True(list.IsEffectivelyVisible); Assert.True(list.Bounds.Height > 50);
+                Assert.IsType<VirtualizingStackPanel>(list.ItemsPanelRoot);
+                var properties = window.GetVisualDescendants().OfType<TextBlock>().Where(view => view.IsEffectivelyVisible).Select(view => view.Text).ToArray();
+                Assert.Contains("10 磅", properties); Assert.Contains("12 磅", properties);
+                var back = window.GetVisualDescendants().OfType<Button>().Single(view => Equals(view.Content, "返回修改审阅"));
+                Assert.True(back.IsEffectivelyVisible); back.Command!.Execute(null);
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.False(list.IsEffectivelyVisible); Assert.True(model.ComparisonMode);
+            }
+            finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
+        }, CancellationToken.None);
+    }
+    [Fact]
     public async Task StorageSettingsAtMinimumWindowKeepsLocationAndScrollableConfirmationReachable()
     {
         await Session.Dispatch(async () =>

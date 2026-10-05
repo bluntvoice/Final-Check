@@ -2,7 +2,11 @@
 
 ## 产品 UI 与阶段边界
 
-本页记录已完成恢复引擎，正式 UI 尚未实现。根据 [校准 PRD](../PRD/PRD-v0.1.0.md) 第 31–40、64 章，Stage C 优先在 Comparison Workspace 接入当前/目标格式、All/Category/SelectedItems、Plan 确认、已恢复标记、Working Copy、Undo Last Restore、导出 DOCX 与外部编辑选择；复用现有服务，不将 Developer 工具视为产品 UI。映射不足宁可跳过，所有写入仍须保留当前文字/Insert/Delete/批注、禁止 Accept All Revisions、正式重解析验证，不修改原 DOCX。
+本页记录已完成恢复引擎。Stage C 的首个 Phase 已在正式工作台接入只读恢复计划预览与全部/类型/单项选择；确认执行、已恢复标记、Undo、外部编辑选择与 DOCX 导出尚待后续 Phase，实际状态见 [Format Restore UI task](../tasks/format-restore-ui-v0.md)。根据 [校准 PRD](../PRD/PRD-v0.1.0.md) 第 31–40、64 章复用现有服务，不将 Developer 工具视为产品 UI。映射不足宁可跳过，所有写入仍须保留当前文字/Insert/Delete/批注、禁止 Accept All Revisions、正式重解析验证，不修改原 DOCX。
+
+`IFormatRestoreWorkspaceService` 在 Desktop composition 中从 ComparisonRecord/ProjectComparison 解析真实 ContractVersion 身份，使用当前存储 session 读取版本与 working metadata。分析不创建工作目录、不执行 journal recovery 或写入恢复记录；待恢复操作明确阻断。源文件只读计算 SHA，缺失/外部变化/重解析路径不生成可用计划；有效 Working Copy 使用同一历史基准重新比对、生成新 Plan，不替换原 ComparisonRecord。已重新关联且哈希相同的原文件从版本实际路径读取，历史记录仍冻结；无版本关联的旧记录不能猜测 working identity。解析不完整同样阻断。
+
+工作台预览真实当前/目标属性、位置、类型、可信度和诊断，选择默认为空；只允许 Eligible 项目勾选，表格类型包含 Cell。忽略规则与审阅状态不裁剪恢复计划，切换恢复预览与审阅不改历史事实。列表虚拟化、短窗头部可滚动，已选统计保持可见；属性预览不冒充 Word/WPS 视觉排版。当前入口只分析/选择，没有执行 DOCX 写入。
 
 ## Pipeline 与分层
 

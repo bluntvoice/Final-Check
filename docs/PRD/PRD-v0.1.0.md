@@ -1243,7 +1243,7 @@ Workspace 的 Context Panel / Document Source / Change Mapping 不应硬编码�
 
 # 31. 格式一键还原
 
-底层 Format Restore Engine v0 已完成不等于正式格式恢复 UI 已完成。Stage C 将在工作台内接入第 35–40 章的预览、执行、撤销、Working Copy 和 DOCX 导出流程，不另实现一套恢复算法。
+底层 Format Restore Engine v0 已完成不等于正式格式恢复 UI 已完成。Stage C 已在工作台接入只读计划/属性预览及全部/类型/单项选择；第 35–40 章的确认执行、撤销、Working Copy 管理和 DOCX 导出仍按 [Format Restore UI task](../tasks/format-restore-ui-v0.md) 分阶段推进，不另实现一套恢复算法。
 
 ## 31.1 核心目标
 

@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:vm="using:FinalCheck.App.ViewModels" x:Class="FinalCheck.App.Views.FormatRestoreView" x:DataType="vm:FormatRestoreViewModel">
+  <Grid RowDefinitions="Auto,Auto,10,*">
+    <ScrollViewer Name="RestoreHeader" MaxHeight="190" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel Spacing="6" Margin="0,0,12,0">
+        <TextBlock Text="格式恢复计划" FontSize="18" FontWeight="SemiBold" />
+        <TextBlock Text="只恢复格式，保留当前文字、修订和批注。原始 DOCX 保持不变。" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding SourceLabel}" />
+        <TextBlock Text="{Binding SourcePath}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.AutomationId="RestoreAnalysisMessage" />
+        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsAnalyzing}" Height="4" />
+        <WrapPanel>
+          <Button Content="重新分析格式" Command="{Binding AnalyzeCommand}" Margin="0,0,8,8" />
+          <Button Content="选择全部可恢复项" Command="{Binding SelectAllCommand}" IsEnabled="{Binding CanSelect}" Margin="0,0,8,8" />
+          <ComboBox ItemsSource="{Binding Categories}" SelectedItem="{Binding Category}" Width="110" Margin="0,0,8,8" AutomationProperties.Name="恢复类型" />
+          <Button Content="按类型选择" Command="{Binding SelectCategoryCommand}" IsEnabled="{Binding CanSelect}" Margin="0,0,8,8" />
+          <Button Content="清空选择" Command="{Binding ClearSelectionCommand}" IsEnabled="{Binding CanSelect}" Margin="0,0,8,8" />
+        </WrapPanel>
+        <Expander Header="恢复提示"><TextBlock Text="{Binding Diagnostics}" TextWrapping="Wrap" /></Expander>
+      </StackPanel>
+    </ScrollViewer>
+    <TextBlock Grid.Row="1" Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,6,0,0" AutomationProperties.AutomationId="RestorePlanSummary" />
+    <ListBox Grid.Row="3" ItemsSource="{Binding Items}" Name="RestorePlanList" AutomationProperties.Name="格式恢复项目">
+      <ListBox.ItemsPanel><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+      <ListBox.ItemTemplate><DataTemplate x:DataType="vm:RestoreItemViewModel">
+        <StackPanel Spacing="6" Margin="6" HorizontalAlignment="Stretch">
+          <WrapPanel>
+            <CheckBox IsChecked="{Binding Selected}" IsEnabled="{Binding CanSelect}" Content="{Binding Location}" Margin="0,0,10,0" />
+            <TextBlock Text="{Binding CategoryLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBlock Text="{Binding EligibilityLabel}" VerticalAlignment="Center" Margin="0,0,10,0" />
+            <TextBlock Text="{Binding ConfidenceLabel}" VerticalAlignment="Center" />
+          </WrapPanel>
+          <ItemsControl ItemsSource="{Binding Properties}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:RestorePropertyPreview">
+              <Grid ColumnDefinitions="140,*,*" Margin="0,2">
+                <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                <StackPanel Grid.Column="1" Margin="8,0"><TextBlock Text="当前格式" Foreground="#64748B" FontSize="12" /><TextBlock Text="{Binding Current}" TextWrapping="Wrap" /></StackPanel>
+                <StackPanel Grid.Column="2" Margin="8,0"><TextBlock Text="目标格式" Foreground="#64748B" FontSize="12" /><TextBlock Text="{Binding Target}" TextWrapping="Wrap" /></StackPanel>
+              </Grid>
+            </DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{Binding Diagnostics}" TextWrapping="Wrap" Foreground="#9A5B00" />
+        </StackPanel>
+      </DataTemplate></ListBox.ItemTemplate>
+    </ListBox>
+  </Grid>
+</UserControl>

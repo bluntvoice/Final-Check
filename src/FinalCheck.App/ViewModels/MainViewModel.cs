@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Reflection;
 using FinalCheck.Core.Comparisons;
+using FinalCheck.Core.Formatting;
 
 namespace FinalCheck.App.ViewModels;
 
@@ -9,9 +10,11 @@ public partial class MainViewModel : ViewModelBase
 {
     public MainViewModel() : this(new ComparisonSetupViewModel()) { }
     private readonly IComparisonWorkflowService? workflow;
-    public MainViewModel(ComparisonSetupViewModel comparison, IComparisonWorkflowService? workflow = null, TemplateCenterViewModel? templates = null, ProjectsViewModel? projects = null, StorageSettingsViewModel? storage = null)
+    private readonly IFormatRestoreWorkspaceService? restore;
+    public MainViewModel(ComparisonSetupViewModel comparison, IComparisonWorkflowService? workflow = null, TemplateCenterViewModel? templates = null, ProjectsViewModel? projects = null, StorageSettingsViewModel? storage = null, IFormatRestoreWorkspaceService? restore = null)
     {
         Comparison = comparison; this.workflow = workflow; Templates = templates ?? new(); Projects = projects ?? new(); Storage = storage ?? new();
+        this.restore = restore;
         Comparison.Completed += async result => { if (IsSetup) await ShowResultAsync(result); };
         Projects.Versions.Completed += async result => { if (IsProjects) await ShowResultAsync(result); };
     }
@@ -76,7 +79,7 @@ public partial class MainViewModel : ViewModelBase
         try
         {
             CurrentPageDescription = "正在准备文档预览…";
-            var prepared = await ComparisonResultsViewModel.CreateAsync(result, workflow);
+            var prepared = await ComparisonResultsViewModel.CreateAsync(result, workflow, restore);
             if (navigationRevision != sourceRevision) return;
             Results = prepared; SelectedPage = "results";
             CurrentPageTitle = "比对结果"; CurrentPageDescription = "查看修改事实 · 原始文件保持不变";
