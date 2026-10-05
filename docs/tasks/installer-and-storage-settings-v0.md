@@ -14,7 +14,7 @@
 
 ## Phase 与完成条件
 
-1. **B1 — Storage Settings：IN PROGRESS**。正式设置入口、当前路径与分类统计、打开目录、选择/输入目标、验证与明确确认、取消/失败/恢复提示；复用真实 Foundation 复制/验证/热切换。完成 Release build/test、隔离有数据 UI 迁移、原始文件/历史/旧位置保留及重启验证后 commit/push；从最终 HEAD 构建测试包并实际安装补验。
+1. **B1 — Storage Settings：DONE**。正式设置入口、当前路径与分类统计、打开目录、选择/输入目标、验证与明确确认、取消/失败/恢复提示；复用真实 Foundation 复制/验证/热切换。Release build/test、隔离有数据 UI 迁移、原始文件/历史/旧位置保留及重启验证已通过，实现已 commit/push；最终实现 HEAD 的测试包与本机安装补验已完成，见下方证据。
 2. **B2 — Installer Spike：PENDING**。在独立 Windows 用户或 VM 中验证原生 Setup 包装方案，覆盖可见目录/Browse/取消、C/D/E/中文空格、危险路径、单实例、维护、两次官方 UpdateManager 原地更新、快捷方式/Registry/卸载和独立 DataRoot/历史保留。开发环境和 Spike 原型可先准备，但缺失现场结果不能标为通过。
 3. **B3 — Installer integration：PENDING / gated by B2**。仅完整 Spike 通过后落地生产向导、verifier 与 Test/Prerelease/Stable 共用打包入口；保留包 ID/channel/feed/nupkg/Portable 契约。最终 HEAD 的 CI、Test Build 和安装矩阵仍需验证。
 
@@ -32,7 +32,10 @@
 - 含补充安全检查的最终本地 Release build：0 warning / 0 error；全量 341/341 PASS（Core 5 / Documents 45 / Comparison 52 / Data 149 / App 90）。此前实现 HEAD 的 Windows/macOS CI 和 Test Build 也通过，但它们不代替本安全修正 HEAD 的新包与安装补验。
 - 真实 Debug 隔离窗口：生成 400/508 段 DOCX，真实自动项目/V1/V2/独立比对历史，共 368 项差异；GUI 点击验证、暂不更改、重新确认与实际迁移。热切换后全表逻辑摘要和原始 DOCX SHA 相同，旧数据保留，bootstrap generation 1→2，新路径立即生效。打开目录经 Explorer 实际路径回读，正常关闭/重启保持新位置并实际重新显示 368 项历史；总占用包含完整迁移数据库备份，不重复加逻辑 payload。
 - 隔离启动脚本一度漏传私有 .NET SDK 的 DOTNET_ROOT，framework-dependent Debug apphost 未加载 coreclr，没有业务窗口；补齐环境后重启通过。未将其记录为自包含安装包或数据恢复失败。UI Automation 对“继续最近一次比对”等待结果导航控件后再取证，避免把读取中的首页当成历史回读成功。
-- 最终 HEAD CI / 安装包补验：待本检查点正常 commit/push 后执行。原始证据位于 `artifacts/stage-b-20261004/`，不提交 DOCX、数据库或个人路径材料。
+- 最终实现 HEAD `17d0549a066c1fe7fb5fcd6a98db0b3daa4273a4` 的 [CI 37174527316](https://github.com/bluntvoice/Final-Check/actions/runs/37174527316) 与 [Test Build 37174529299](https://github.com/bluntvoice/Final-Check/actions/runs/37174529299) 均 success，2026-10-05 回读确认 head_sha 一致。内部测试版 `0.1.0-dev.17.1`（Artifact `11292074391`）下载摘要与 Actions digest 一致，逐文件/version/metadata/layout verifier PASS。
+- 本机正常用户现有实例的原生 Setup 覆盖维护退出码 0，已安装程序集版本为 dev.17.1。安装前、启动试用与正常重启后的 bootstrap 摘要及 SQLite 全表逻辑摘要不变，integrity_check=ok，foreign_key_check 无错误，原有历史与原始文件保留。实际设置页、打开目录、Browse/取消、非空目录/源重叠阻断及窄窗已验证；没有试迁移正常用户合同数据。
+- 最终包私有副本中的实际产品程序集 SHA 保持不变，以隔离生成数据完成 D 盘热切换及 D→F 固定盘中文/空格目录迁移，generation 1→2→3；每次正常重启后重新显示 368 项历史，全表逻辑摘要与原始 DOCX SHA 不变，旧位置保留。该验证程序不替代安装器生命周期验收；非空 Working Copy/restore history 另由真实 Data.Tests 集成用例验证。
+- 2026-10-05 进入后续工作前补齐 B1 完成记录；此文档检查点不改变已验收二进制的源 HEAD。原始证据与完整报告位于 `artifacts/stage-b-20261004/acceptance-report.md`，不提交 DOCX、数据库或个人路径材料。
 
 ## 未完成门禁
 
