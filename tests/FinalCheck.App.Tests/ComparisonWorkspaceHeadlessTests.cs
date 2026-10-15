@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -11,6 +12,9 @@ using FinalCheck.Core.Documents;
 using FinalCheck.Core.Management;
 using Xunit.Abstractions;
 
+[assembly: AvaloniaTestApplication(typeof(FinalCheck.App.App))]
+[assembly: AvaloniaTestIsolation(AvaloniaTestIsolationLevel.PerTest)]
+
 namespace FinalCheck.App.Tests;
 
 [CollectionDefinition("AvaloniaHeadless", DisableParallelization = true)]
@@ -20,12 +24,104 @@ public sealed class AvaloniaHeadlessTestGroup { }
 public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
 {
     private static readonly string[] ContextAreaNames = ["ContextBaselineArea", "ContextCurrentArea"];
+    // Avalonia owns this assembly session; Dispatch still creates and cleans up an isolated app per test.
+    // Per-test StartNew/Dispose races with the dispatch-task assignment in Avalonia 12.1.2.
+    private static HeadlessUnitTestSession Session => HeadlessUnitTestSession.GetOrStartForAssembly(typeof(ComparisonWorkspaceHeadlessTests).Assembly);
+    [Fact]
+    public async Task RestorePreviewAtMinimumWindowKeepsVirtualizedPlanAndReturnReachable()
+    {
+        await Session.Dispatch(async () =>
+        {
+            var model = new ComparisonResultsViewModel(ComparisonResultsTests.Result(ComparisonResultsTests.Change()), restore: new FormatRestorePreviewTests.Service());
+            var main = new MainViewModel(new()) { Results = model, SelectedPage = "results" };
+            var window = new MainWindow { Width = 840, Height = 520, DataContext = main };
+            try
+            {
+                window.Show(); await model.OpenFormatRestoreCommand.ExecuteAsync(null);
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var list = window.GetVisualDescendants().OfType<ListBox>().Single(view => view.Name == "RestorePlanList");
+                Assert.True(list.IsEffectivelyVisible); Assert.True(list.Bounds.Height > 50);
+                Assert.IsType<VirtualizingStackPanel>(list.ItemsPanelRoot);
+                var properties = window.GetVisualDescendants().OfType<TextBlock>().Where(view => view.IsEffectivelyVisible).Select(view => view.Text).ToArray();
+                Assert.Contains("10 磅", properties); Assert.Contains("12 磅", properties);
+                var back = window.GetVisualDescendants().OfType<Button>().Single(view => Equals(view.Content, "返回修改审阅"));
+                Assert.True(back.IsEffectivelyVisible); back.Command!.Execute(null);
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.False(list.IsEffectivelyVisible); Assert.True(model.ComparisonMode);
+            }
+            finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
+        }, CancellationToken.None);
+    }
+    [Fact]
+    public async Task StorageSettingsAtMinimumWindowKeepsLocationAndScrollableConfirmationReachable()
+    {
+        await Session.Dispatch(async () =>
+        {
+            var storage = new StorageSettingsTests.FakeStorage(); var model = storage.Model();
+            await model.RefreshCommand.ExecuteAsync(null);
+            model.TargetPath = storage.Target;
+            var main = new MainViewModel(new(), storage: model) { SelectedPage = "storage" };
+            var window = new MainWindow { Width = 840, Height = 520, DataContext = main };
+            try
+            {
+                window.Show(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                await model.ValidateTargetCommand.ExecuteAsync(null);
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var viewport = window.GetVisualDescendants().OfType<ScrollViewer>().Single(view => view.Name == "StorageViewport");
+                Assert.True(viewport.IsEffectivelyVisible); Assert.True(viewport.Bounds.Height > 250);
+                Assert.True(viewport.Extent.Height > viewport.Viewport.Height);
+                var target = window.GetVisualDescendants().OfType<TextBox>().Single(view => AutomationProperties.GetAutomationId(view) == "StorageTargetPath");
+                Assert.True(target.Bounds.Width > 250);
+                Assert.True(viewport.Offset.Y > 0); // Validation makes the confirmation reachable without manual scrolling.
+                var confirm = window.GetVisualDescendants().OfType<Button>().Single(view => Equals(view.Content, "确认更改位置"));
+                Assert.True(confirm.IsEffectivelyVisible); Assert.True(confirm.IsEnabled);
+                var point = confirm.TranslatePoint(default, viewport);
+                Assert.NotNull(point); Assert.InRange(point.Value.Y, 0, viewport.Viewport.Height);
+                Assert.Equal(storage.Source, model.CurrentPath);
+            }
+            finally { window.Close(); Dispatcher.UIThread.RunJobs(); }
+        }, CancellationToken.None);
+    }
+    [Fact]
+    public async Task MainWindowDefersCloseWhileStorageMigrationIsRunning()
+    {
+        await Session.Dispatch(async () =>
+        {
+            var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var storage = new StorageSettingsTests.FakeStorage
+            {
+                PauseMigration = new(TaskCreationOptions.RunContinuationsAsynchronously),
+                DuringMigration = () => started.TrySetResult(),
+            };
+            var model = storage.Model(); model.TargetPath = storage.Target;
+            await model.ValidateTargetCommand.ExecuteAsync(null);
+            var main = new MainViewModel(new(), storage: model) { SelectedPage = "storage" };
+            var window = new MainWindow { DataContext = main };
+            Task? operation = null;
+            try
+            {
+                window.Show(); operation = model.MigrateCommand.ExecuteAsync(null);
+                await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                window.Close(); Dispatcher.UIThread.RunJobs();
+                Assert.True(window.IsVisible); Assert.Contains("关闭", model.Message);
+                main.NavigateCommand.Execute("home"); Assert.True(main.IsStorage);
+                storage.PauseMigration.TrySetResult(); await operation;
+                window.Close(); Dispatcher.UIThread.RunJobs(); Assert.False(window.IsVisible);
+            }
+            finally
+            {
+                storage.PauseMigration.TrySetResult();
+                if (operation is not null) await operation;
+                window.Close(); Dispatcher.UIThread.RunJobs();
+            }
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(840, 600)]
     [InlineData(840, 520)]
     public async Task ShortNarrowMainWindowKeepsContextBodiesReadable(int width, int height)
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var outcome = ComparisonResultsTests.Result(ComparisonResultsTests.Change(), ComparisonResultsTests.Change("two")) with
@@ -64,7 +160,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task QuickCompareSetupRendersTemplateRecommendationWithoutAutoStarting()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             using var model = new ComparisonSetupViewModel();
@@ -83,7 +179,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task SelectingAnotherChangeInRealViewKeepsTheSharedSelection()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var model = new ComparisonResultsViewModel(ComparisonResultsTests.Result(
@@ -115,7 +211,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task SelectingGroupedMemberAndChangingViewKeepsTheSameChange()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var first = ComparisonResultsTests.Change();
@@ -153,7 +249,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task GroupedPreviousAndNextKeepTheActualMemberSelection()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var result = ComparisonResultsTests.Result(
@@ -187,7 +283,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task LongGroupedListKeepsPreviousNavigationAfterVirtualizedMemberRefresh()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var changes = Enumerable.Range(0, 52).Select(i => ComparisonResultsTests.Change($"change-{i}") with
@@ -240,7 +336,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task LargeWorkspaceUsesVirtualizedPreviewControls()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var changes = Enumerable.Range(0, 368).Select(i => ComparisonResultsTests.Change($"change-{i}") with
@@ -303,7 +399,7 @@ public sealed class ComparisonWorkspaceHeadlessTests(ITestOutputHelper output)
     [Fact]
     public async Task ContextPanelsStackAtOrdinaryWidthAndReturnFromFullMode()
     {
-        using var session = HeadlessUnitTestSession.StartNew(typeof(FinalCheck.App.App));
+        var session = Session;
         await session.Dispatch(() =>
         {
             var outcome = ComparisonResultsTests.Result(ComparisonResultsTests.Change()) with

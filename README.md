@@ -12,6 +12,8 @@ Final Check 是一款面向合同版本更迭、修订比对和格式整理场�
 Final Check v0.1.0 当前处于早期开发阶段，Document Engine v0、Comparison Engine v0 与 Format Restore Engine v0 已完成，尚未提供稳定发布版本或正式业务 UI。
 <!-- release-readme:summary:end -->
 
+当前开发进入 Stage C：工作台已接入只读格式恢复计划、当前/目标属性预览与安全选择。执行、撤销及 DOCX 导出仍在后续 Phase；安装器隔离验收继续保留待完成。进度见 [Format Restore UI task](docs/tasks/format-restore-ui-v0.md)。
+
 ## 技术栈
 
 - .NET 10 LTS / C#

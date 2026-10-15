@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FinalCheck.Core.Comparisons;
 using FinalCheck.Core.Documents;
+using FinalCheck.Core.Formatting;
 
 namespace FinalCheck.App.ViewModels;
 
@@ -100,7 +101,7 @@ public sealed partial class ChangeItemViewModel : ViewModelBase
         ComparisonChangeKind.TableChange => "表格变化", ComparisonChangeKind.TableCellChange => "单元格变化", ComparisonChangeKind.Comment => "批注", _ => "Word 原生修订",
     };
     private static string RevisionName(DocumentRevisionKind kind) => kind switch { DocumentRevisionKind.Insert => "插入修订", DocumentRevisionKind.Delete => "删除修订", _ => "格式修订" };
-    private static string PropertyName(string name) => name switch
+    internal static string PropertyName(string name) => name switch
     {
         "Font.Ascii" => "英文字体", "Font.HighAnsi" => "西文字体", "Font.EastAsia" => "中文字体", "Font.ComplexScript" => "复杂文字字体",
         "FontSizeHalfPoints" => "字号", "Color" => "颜色", "Bold" => "粗体", "Italic" => "斜体", "Underline" => "下划线", "Strike" => "删除线", "Highlight" => "高亮",
@@ -108,7 +109,7 @@ public sealed partial class ChangeItemViewModel : ViewModelBase
         "SpacingBefore" => "段前", "SpacingAfter" => "段后", "LineSpacing" => "行距", "LineRule" => "行距规则", "Width" => "宽度", "ShadingFill" => "底色",
         "VerticalAlignment" => "垂直对齐", "GridSpan" => "跨列数", "VerticalMerge" => "纵向合并", "TableStructureChanged" => "表格结构", _ => "其他格式（" + name + "）",
     };
-    private static string FormatValue(string property, string? value)
+    internal static string FormatValue(string property, string? value)
     {
         if (value is null or "<null>") return "未指定";
         if (property == "FontSizeHalfPoints" && int.TryParse(value, CultureInfo.InvariantCulture, out var half)) return (half / 2d).ToString(CultureInfo.InvariantCulture) + " 磅";
@@ -142,8 +143,14 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public IReadOnlyList<ChangeItemViewModel> Changes { get; }
     public ObservableCollection<ChangeListEntry> Entries { get; private set; } = [];
     public ComparisonPreviewViewModel Preview { get; private set; }
-    public static Task<ComparisonResultsViewModel> CreateAsync(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null) =>
-        Task.Run(() => new ComparisonResultsViewModel(outcome, workflow));
+    public FormatRestoreViewModel Restore { get; }
+    [ObservableProperty] private bool formatRestoreMode;
+    public bool ComparisonMode => !FormatRestoreMode;
+    partial void OnFormatRestoreModeChanged(bool value) => OnPropertyChanged(nameof(ComparisonMode));
+    [RelayCommand] private async Task OpenFormatRestoreAsync() { FormatRestoreMode = true; await Restore.AnalyzeCommand.ExecuteAsync(null); }
+    [RelayCommand] private void CloseFormatRestore() => FormatRestoreMode = false;
+    public static Task<ComparisonResultsViewModel> CreateAsync(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null, IFormatRestoreWorkspaceService? restore = null) =>
+        Task.Run(() => new ComparisonResultsViewModel(outcome, workflow, restore));
     [ObservableProperty] private bool grouped = true;
     [ObservableProperty] private bool fullDocumentMode;
     public bool ContextMode => !FullDocumentMode;
@@ -181,9 +188,10 @@ public sealed partial class ComparisonResultsViewModel : ViewModelBase
     public int VisibleCount { get; private set; }
     public string CountLabel => $"{VisibleCount} / {Changes.Count} 项";
     public bool NoVisibleEntries => Entries.Count == 0;
-    public ComparisonResultsViewModel(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null)
+    public ComparisonResultsViewModel(ComparisonWorkflowResult outcome, IComparisonWorkflowService? workflow = null, IFormatRestoreWorkspaceService? restore = null)
     {
         Outcome = outcome; this.workflow = workflow;
+        Restore = new(restore, outcome.Record.RecordId);
         var baselineLocations = ChangeItemViewModel.Locations(outcome.Baseline); var currentLocations = ChangeItemViewModel.Locations(outcome.Current);
         Changes = outcome.Result.Changes.Select(item => new ChangeItemViewModel(item, outcome.Current, Select, baselineLocations, currentLocations)
             { ReviewState = outcome.Record.ReviewStates.GetValueOrDefault(item.ChangeId) }).ToArray();

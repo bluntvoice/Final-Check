@@ -90,6 +90,7 @@ internal static class Program
         services.AddSingleton<IComparisonResultSerializer, JsonComparisonResultSerializer>();
         services.AddSingleton<IComparisonEngine, BasicComparisonEngine>();
         services.AddSingleton<IFormatRestorePlanner, SnapshotFormatRestorePlanner>();
+        services.AddSingleton<Core.Formatting.IFormatRestoreWorkspaceService, FormatRestoreWorkspaceService>();
         services.AddSingleton<IFormatRestoreRenderer, OpenXmlFormatRestoreRenderer>();
         services.AddSingleton<IWorkingCopyComparisonService, WorkingCopyComparisonService>();
         services.AddSingleton<IComparisonFileInspector, ComparisonFileInspector>();
@@ -104,6 +105,8 @@ internal static class Program
         services.AddSingleton<IProjectLifecycleService, ProjectLifecycleService>();
         services.AddSingleton<VersionManagementViewModel>();
         services.AddSingleton<ProjectsViewModel>();
+        services.AddSingleton<IStorageFolderOpener, StorageFolderOpener>();
+        services.AddSingleton<StorageSettingsViewModel>();
         services.AddSingleton<MainViewModel>();
 
         services.AddScoped<DocumentSnapshotStore>();

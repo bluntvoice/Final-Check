@@ -1243,7 +1243,7 @@ Workspace 的 Context Panel / Document Source / Change Mapping 不应硬编码�
 
 # 31. 格式一键还原
 
-底层 Format Restore Engine v0 已完成不等于正式格式恢复 UI 已完成。Stage C 将在工作台内接入第 35–40 章的预览、执行、撤销、Working Copy 和 DOCX 导出流程，不另实现一套恢复算法。
+底层 Format Restore Engine v0 已完成不等于正式格式恢复 UI 已完成。Stage C 已在工作台接入只读计划/属性预览及全部/类型/单项选择；第 35–40 章的确认执行、撤销、Working Copy 管理和 DOCX 导出仍按 [Format Restore UI task](../tasks/format-restore-ui-v0.md) 分阶段推进，不另实现一套恢复算法。
 
 ## 31.1 核心目标
 
@@ -1572,7 +1572,7 @@ MVP 支持：
 
 # 45. 存储空间管理
 
-在“设置 → 存储”统一提供占用统计和数据位置管理，可按需展开详细管理视图。以下为 v0.1.0 正式产品要求；Storage Foundation 的基础服务已实现，但正式设置页和安装向导尚未实现，属于 Stage B。
+在“设置 → 存储”统一提供占用统计和数据位置管理，可按需展开详细管理视图。以下为 v0.1.0 正式产品要求；Storage Foundation 的基础服务已实现，Stage B 正式存储设置页已接入，其实际验收状态见 [Stage B task](../tasks/installer-and-storage-settings-v0.md)。安装向导及其 Spike/发布门禁仍未完成。
 
 ## 45.1 存储统计与位置操作
 
