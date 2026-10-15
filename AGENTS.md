@@ -87,7 +87,7 @@ Final Check is developed across multiple computers. The remote Git repository is
 For every multi-phase task under `docs/tasks/`, complete this sequence for each Phase before starting the next one:
 
 1. Complete the Phase as a coherent unit of work.
-2. Run the tests and checks required by that Phase and confirm relevant existing behavior has not regressed.
+2. Run the tests and checks relevant to that Phase under the risk-based testing rules below; reuse applicable passing evidence rather than repeating unrelated checks.
 3. Update the active task file with the Phase status and an accurate description of what was completed and verified.
 4. Create a logically complete, understandable Phase commit whose message reflects the actual implementation.
 5. Push the Phase commit normally to the remote repository and confirm the push succeeded.
@@ -137,9 +137,16 @@ Multi-device synchronization does not permit destructive Git shortcuts. The proh
 
 ## 测试要求
 
-每次完成代码任务后，应根据项目实际情况执行相关的类型检查、lint、单元测试、构建检查和必要功能测试。
+按改动影响选择最小充分验证，不把所有测试层机械串成每次任务的必经流程：
 
-不得在没有任何验证的情况下直接宣称任务完成。无法运行某项检查时，必须明确说明未执行的项目及原因。
+- 纯文档、规范或文案修改：检查 diff、引用与格式；不要求 build、全量测试、打包或安装。
+- 局部代码修改：运行相关自动测试；缺陷修复优先补充能复现问题的回归用例。UI 行为或布局变化再做受影响流程的冒烟，不重跑无关页面。
+- 数据迁移、格式写回、历史兼容等高风险修改：保留相应真实集成与失败恢复验证，不以模型测试替代数据安全断言。
+- 全量测试、真实安装/升级/卸载分别用于跨模块影响、交付或对应生命周期改动；正常 Windows/macOS CI 与发布安全检查保留。不要求每个 Phase 重复完整安装矩阵。
+- 同一实现已有通过证据，且没有新变更、失败或未解决疑点时，不重复运行相同检查；已 build 后测试使用对应配置的 `--no-build`。只追记文档不使已验证二进制失效。
+- 不为追求少测试删除有效回归、放宽断言、吞掉异常或将未验证标为通过。记录实际检查、跳过原因及仍有的限制；人工交互与发布门禁不能由自动检查冒充。
+
+具体选择见 [开发文档的按风险验证标准](docs/development/README.md#按风险验证标准)。旧 task 的重复全量/逐次安装要求按本标准执行，历史结果仍保留；PRD 的数据安全和发布验收目标不变。
 
 ## 数据安全原则
 

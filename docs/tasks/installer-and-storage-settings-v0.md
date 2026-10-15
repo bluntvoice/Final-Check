@@ -8,6 +8,8 @@
 
 ## 授权与阶段边界
 
+2026-10-15 用户确认精简测试流程：执行频率遵循 [按风险验证标准](../development/README.md#按风险验证标准)，阶段仅运行相关检查，已有通过证据不为文档更新重复执行。B2/B3 的隔离安装/原地更新/卸载、DataRoot 保留及 Beta 门禁仍是必要验收，不因本调整或缺少环境而标记通过；不阻断无关功能开发。
+
 用户于 2026-10-04 明确要求进入 Stage B。Stage A 已实现部分及验收证据保留；真实触控板等剩余人工门禁仍按 [Stage A task](usability-workflow-correction-v0.md) 记录，不因为进入 Stage B 改写成通过。
 
 需求以 PRD 第 45、58.1、63.13、64 章为准；先阅读 Installer Architecture、ADR-0006、Storage and Paths、Release process 和现有 Storage Foundation 实现。复用非破坏迁移与已验证的 Velopack 1.2.0 链，不增加产品数据库/schema 迁移，不创建 Tag / Release。

@@ -30,6 +30,8 @@ Assembly/File Version 由 SDK 派生为数字核心 `x.y.z.0`；Informational Ve
 
 ## Internal Test Build
 
+Test Build 用于安装包交付或打包/运行时相关验证，不是每个 Phase、文档提交或局部修复的必跑步骤；日常范围见 [按风险验证标准](README.md#按风险验证标准)。已验证产物后的纯文档整理不要求重打包/重装，交付报告分别注明产物源码 SHA 与文档提交。新增可执行改动、失败或未解决疑点才要求更新对应证据；此规则不放宽版本、完整性、更新链、实际生命周期或发布确认门禁。
+
 在 GitHub Actions 选择 **Build Windows test installer → Run workflow**，从最新默认分支运行，`target_version` 输入不带 v 的 `x.y.z`（默认 `0.1.0`）。工作流在 runner 工作副本临时设为 `target_version-dev.<run_number>.<run_attempt>`，不写回 main。
 
 Restore tools → validate/version tests → restore/build/test Release → win-x64 self-contained publish → Velopack pack → 版本/metadata/SHA256 校验 → upload。成功后在 Run 页 **Artifacts** 下载 `final-check-v<version>-windows-test`。缺少文件会失败，不上传空 Artifact。重跑 Run 的 attempt 不同，版本也不同。

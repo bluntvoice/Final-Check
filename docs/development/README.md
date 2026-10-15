@@ -36,29 +36,42 @@ Installer Wizard 是 Beta 前阻断项；当前开发 Setup 安装成功不能�
 
 ## 常用命令
 
-在仓库根目录执行：
+以下命令按需选择，不是每次任务都顺序运行的清单。首次准备环境或依赖变化时 restore；局部开发通常只需相关项目的 test（自动完成所需 build）：
 
 ```powershell
 dotnet tool restore
 dotnet restore FinalCheck.sln
-dotnet build FinalCheck.sln
-dotnet test FinalCheck.sln
+dotnet test tests/FinalCheck.App.Tests/FinalCheck.App.Tests.csproj -c Release
 dotnet run --project src/FinalCheck.Desktop/FinalCheck.Desktop.csproj
 ```
 
-Release 验证：
+需要整库构建/回归时采用一轮 build + no-build test，避免重复构建。发布产物验证另按 [release process](release-process.md) 执行：
 
 ```powershell
 dotnet build FinalCheck.sln --configuration Release
-dotnet restore src/FinalCheck.Desktop/FinalCheck.Desktop.csproj --runtime win-x64
-dotnet publish src/FinalCheck.Desktop/FinalCheck.Desktop.csproj `
-  --configuration Release `
-  --runtime win-x64 `
-  --self-contained true `
-  --no-restore
+dotnet test FinalCheck.sln --configuration Release --no-build
 ```
 
 当前 Release publish 会排除用户运行不需要的 `.pdb` 调试符号，但不启用 trimming 或 NativeAOT。
+
+## 按风险验证标准
+
+2026-10-15 用户确认采用 Karpathy Guidelines 的最小充分验证方案。以下规定执行频率，不降低 PRD 的验收目标，也不将历史未执行项改成通过。
+
+| 本次改动 | 必要验证 | 不默认追加 |
+| --- | --- | --- |
+| 文档、开发规范或文案 | diff、相关链接/引用、必要格式或语法检查 | build、全量测试、Test Build、安装 |
+| 局部业务/算法代码 | 相关单元/集成测试；修复缺陷时覆盖复现条件 | 无关模块、重复 Debug/Release 全量 |
+| UI 行为、布局、导航 | 相关 VM/Headless 回归及受影响操作冒烟 | 所有页面、完整合同链、卸载重装 |
+| 持久化、迁移、格式写回 | 真实隔离数据集成、原文/历史保留、失败恢复及受影响 UI | 无关功能或未改变的安装流程 |
+| 跨模块改动或阶段交付 | 一轮适用的整库 build/test；UI 交付走相关用户路径 | 在同一实现上无理由重复同一轮检查 |
+| 打包/安装/更新/卸载改动或安装包交付 | 包身份/完整性检查与对应实际生命周期验收 | 每个开发 Phase 都执行完整安装矩阵 |
+
+优先复用现有自动测试、合成夹具和已通过证据，不另建通用验收框架。全量 Windows/macOS CI、版本脚本、包 verifier、发布确认与权限门禁保持现状；本规范不授权 Tag/Release，也不通过减少断言让失败通过。
+
+真实滚轮/拖放/文件夹选择等只在相关交互改动或对应交付验收时检查，CLI 或 Headless 不能冒充真实输入。记录有设备/无设备、已执行/未执行；不因没有触控板而阻断无关功能开发。原始 DOCX、修订/批注、独立历史、迁移失败恢复等安全测试继续保留。
+
+同一实现通过后，只有新增代码/配置影响、失败或未解决疑点才重跑相应检查。后续文档整理可复用此前二进制证据，注明构建 SHA 与文档提交；不因“最终 HEAD”包含纯文档而陷入重新打包/安装循环。交付仍应验证覆盖全部可执行改动的产物版本、SHA、Run ID；安全与安装器 Beta 门禁不得豁免。历史 task 的执行频率按本节解释，不删改历史证据或直接标记 DONE。
 
 App 的真实 View / XAML Headless 测试使用 Avalonia 管理的程序集会话（`GetOrStartForAssembly`），显式声明应用入口和 `PerTest` 隔离；每个 Dispatch 仍创建并清理独立 Application，测试集合禁止并行。不要逐测试 `StartNew` / `Dispose`，Avalonia 12.1.2 的后台任务赋值存在会话销毁竞态，会在布局断言通过后导致测试包构建偶发失败。不得通过吞掉异常或移除正文、导航、虚拟化断言使测试通过。真实安装版交互门禁仍须单独执行，详见 [Stage A task](../tasks/usability-workflow-correction-v0.md)。
 
@@ -80,7 +93,7 @@ OutputDirectory 必须为空；本地 Test 包只覆盖构建参数，不改源�
 
 Comparison UI v0 已按 [task](../tasks/comparison-ui-v0.md) 接入入口/文件会话、后台执行、独立历史、结果清单、搜索/筛选/持久处理状态及原生双栏预览。架构见 [comparison-ui.md](../architecture/comparison-ui.md)。App.Tests 包含 VM 状态/导航、精确高亮、映射联动与 4000 段后台预览投影；Data.Tests 直接 link 同一 Desktop 工作流，使用 GUID 隔离 DOCX / SQLite 检查真实引擎、取消、Partial、冻结历史、review 并发保存、记录迁移及 20/400 段完整工作流。Database schema 4 只新增 ComparisonRecords，不改旧领域 payload schema。
 
-完成本阶段后，从最终 commit dispatch 现有 Windows Test Build，核对 Actions head_sha / Artifact version / Run ID，下载验证 ZIP digest 与逐文件 SHA，再实际安装并走新建/选择两份生成式非敏感 DOCX/执行/结果/搜索/筛选/确认/正常关闭重启/恢复最近比对/确认状态仍在/卸载，以及完整 Portable layout 启动。安装前只读检查并一致性备份现有库，不重定向 Release 主入口到实验数据、不清空用户库；卸载保留 DataRoot 与原 DOCX。最终 HEAD dispatch 后不为了记录 Run ID 再制造滞后的文档 commit，外部验收以该 HEAD 的 Actions 和交付报告为证据；若代码需修正，则修正测试提交后重新构建最终 HEAD。
+交付 Comparison UI 时，使用覆盖全部可执行改动的 Windows Test Build，核对 Actions head_sha / Artifact version / Run ID、下载完整性并实际冒烟受影响的比较/审阅/重启路径；只追记文档不要求重打包。安装前保护既有数据；安装/升级/卸载与 Portable 启动矩阵用于相应打包生命周期改动或正式交付，不对每个 UI Phase 重复执行。代码修正影响已测路径时，才更新产物并复验。
 
 Document Engine 架构与已知限制见 [`document-engine.md`](../architecture/document-engine.md)。解析测试使用 `DocumentFixtureFactory` 在内存中生成小型 DOCX，不使用真实合同。夹具目录说明见 [`tests/fixtures/README.md`](../../tests/fixtures/README.md)。
 
@@ -109,18 +122,17 @@ dotnet test tests/FinalCheck.Documents.Tests/FinalCheck.Documents.Tests.csproj `
 
 开发主机的 2026-09-30 资源耗尽事件、.NET 后台 manifest / MSI 时间线及证据边界见 [只读排查记录](incidents/2026-09-30-memory-pressure.md)。原始机器日志仅保存在本机 Git 忽略的 artifacts，不提交合同、数据库或转储；该环境事件不是已经定性的业务缺陷。
 
-先读当前 [Stage A task](../tasks/usability-workflow-correction-v0.md)、[校准 PRD](../PRD/PRD-v0.1.0.md) 和 [Comparison UI architecture](../architecture/comparison-ui.md)。A1 单元/集成测试覆盖审阅/忽略、原子 Undo 持久化、组内混合状态、筛选导航及逻辑 Anchor；App.Tests 的 Avalonia Headless 用例还会实例化真实工作台 View/XAML，验证选择同步、默认 Context View、窄窗布局、Context ↔ Full 往返及大预览虚拟化，并纳入常规 solution test。Headless 不模拟真实鼠标设备和窗口管理；全文模式的实际滚轮/滚动条体验仍是单独的 GUI 门禁。
+先读当前 [Stage A task](../tasks/usability-workflow-correction-v0.md)、[校准 PRD](../PRD/PRD-v0.1.0.md) 和 [Comparison UI architecture](../architecture/comparison-ui.md)。复用已有审阅/Undo、筛选导航、逻辑 Anchor 和真实 View/XAML Headless 回归，按改动选择运行范围。只有改动滚动/拖放等交互或交付工作台时，再补对应真实输入检查，不把它作为无关任务的前置阻断。
 
 Debug-only `--comparison-workspace-fixture` 必须同时提供 `--developer-data-directory <GUID 隔离绝对路径>`，在独立目录生成 400 段基准、508 段当前（含集中新增/删除、格式变化和合成批注）的 DOCX，并调用真实 Comparison 流程保存冻结历史。随后用同一隔离目录启动 Debug 应用，首页“继续最近一次比对”进入工作台，验证慢/快鼠标滚轮、滚动条拖动、换侧 Leader、联动开关、连续上一/下一项与 Undo/重启。不要在用户正常 DataRoot 上生成夹具或试验数据库迁移；不要把 Debug 试用当作最终 HEAD 安装包验收。
 
 ```powershell
 $stageACheck = Join-Path $env:TEMP ('FinalCheck-StageA1-' + [guid]::NewGuid().ToString('N'))
 dotnet run --project src/FinalCheck.Desktop -c Debug -- --developer-data-directory $stageACheck --comparison-workspace-fixture
-dotnet build src/FinalCheck.Desktop -c Debug
-dotnet run --project tools/FinalCheck.WindowsUi.A1 -c Debug -- --app (Resolve-Path src/FinalCheck.Desktop/bin/Debug/net10.0/FinalCheck.Desktop.exe) --data-root $stageACheck
+dotnet run --project src/FinalCheck.Desktop -c Debug -- --developer-data-directory $stageACheck
 ```
 
-最后一条 Windows-only CLI 启动真实 Debug 桌面进程，验证默认两侧上下文、Context → Full → Context、导航、审阅/Undo、筛选、全文联动开关、滚轮/滚动条和重启持久化，输出结构化 JSON；成功退出码 0，失败非 0。已含自动项目重启后的可见性检查；若只排查该检查，可在命令末尾加 `--project-only`。只接受 Temp 下已生成的 `FinalCheck-StageA1-*` 隔离夹具，不接受 Release 或用户 DataRoot。该 CLI 不在跨平台 solution 中，macOS Core CI 不运行；结果不能替代 Stage A 最终 HEAD 的 Test Build 安装验收。
+第二条命令打开同一隔离 Debug 数据，用于按需检查受影响操作，不是每次任务的整套验收。一次性 Stage A FlaUI runner 已于 2026-10-15 移除；历史使用结果仍是当时证据，源码可从 Git 历史恢复，不再维护独立的全流程 GUI 脚本。合成 DOCX CLI 和正常 Headless/集成测试保留，开发窗口仍不冒充安装器生命周期验证。
 
 ## Format Restore 开发验证
 
@@ -162,7 +174,7 @@ tests/
 
 管理 Phase 2 schema 6 新增项目及一级文件夹，模板 FK/标签/筛选分页与编辑身份保护由 ProjectTests / ProjectsTests 验证；100 项目性能测试只读取 20 行 metadata。迁移检查包含项目 bindings、标签及 metadata digest，既有 Snapshot / Comparison / restore 不重建。
 
-Project / Template / Version Management 的当前范围及 Phase 状态见 [task](../tasks/project-template-version-management-v0.md)、[architecture](../architecture/project-template-version-management.md)。Phase 1 数据库 schema 5 增量新增模板/版本，旧 Snapshot / Comparison / review payload 不变；模板导入/重关联、schema 升级和 Storage 原文排除使用 GUID 隔离夹具验证。每阶段 commit + push 后再继续；最终 HEAD 安装验收必须实际完成 Template / Contract Version Drag & Drop，不能仅用 VM 输入测试替代。
+Project / Template / Version Management 的当前范围及 Phase 状态见 [task](../tasks/project-template-version-management-v0.md)、[architecture](../architecture/project-template-version-management.md)。Phase 1 数据库 schema 5 增量新增模板/版本，旧 Snapshot / Comparison / review payload 不变；模板导入/重关联、schema 升级和 Storage 原文排除使用 GUID 隔离夹具验证。每阶段相关检查后 commit + push；导入交互变化或对应功能交付须实际完成 Template / Contract Version Drag & Drop，不能仅用 VM 输入测试替代，不为纯文档重跑。
 
 运行时先验证 bootstrap，再由 `IDataRootProvider` / `DataRootDbContextFactory` 定位 SQLite；`IAppDataPathProvider` 仅作兼容 adapter。Windows 新用户路径为：
 

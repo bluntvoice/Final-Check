@@ -10,7 +10,7 @@
 # 串行 restore/build；默认在 Git 忽略的 artifacts 下生成唯一新目录。
 ./scripts/acceptance-fixtures.ps1
 
-# 保存上一条 JSON 的 OutputDirectory 后复查；不会改写样本或清单。
+# 样本转移后或怀疑变动时按需复查；Generate 已自动校验，不必立即重复 Verify。
 ./scripts/acceptance-fixtures.ps1 -Action Verify -OutputDirectory '<上一条输出的绝对目录>' -NoBuild
 
 # 或指定一个尚不存在的绝对目录；不覆盖已有目录，即使已有目录为空。
@@ -50,9 +50,9 @@ dotnet test tests/FinalCheck.Documents.Tests -c Release --filter FullyQualifiedN
 
 ### Installed acceptance 与 CLI 边界
 
-沿用 [Stage A task](../tasks/usability-workflow-correction-v0.md) 的剩余验收矩阵：从最终 HEAD 的 Test Build 下载、包校验、先一致性备份已有数据，再安装，实际选择/Explorer Drag & Drop、开始、Context/Full、导航/Undo/忽略配置、正常关闭重启及历史检查。记录 artifact version、SHA、Run ID、各项 PASS/FAIL/未执行。真实滚轮、窄窗口、拖放和视觉体验不能由生成器、Open XML schema 或 Headless 冒充。
+按 [风险验证标准](README.md#按风险验证标准) 与 [Stage A task](../tasks/usability-workflow-correction-v0.md) 选择本次受影响路径；这些样本是可选工具箱，不是每次都运行全部场景。交付测试包时核验覆盖全部可执行改动的产物并保护既有数据，记录 version、SHA、Run ID 和实际结果；纯文档提交不重打包。真实滚轮、窄窗口、拖放和视觉体验不能由生成器、Open XML schema 或 Headless 冒充。
 
-已有 `tools/FinalCheck.WindowsUi.A1` 仅用于 Debug/Temp 隔离夹具的 UI 验证，命令和限制见 [development README](README.md#stage-a-工作台验证)；本轮不重写该工具、不把其结果作为最终 Setup 验收。Verification Infrastructure Spike 的独立分支尚未因此合入，不假设 main 已拥有完整 Verification Harness。
+不再维护一次性的 Stage A FlaUI 全流程 runner；按需使用现有 Debug 隔离入口和真实输入完成冒烟。合成夹具与正常自动测试保留，不额外搭建通用 Verification Harness，不将开发窗口冒烟等同于 Setup 生命周期验收。
 
 ## 数据与 Git 边界
 
