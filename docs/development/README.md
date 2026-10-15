@@ -101,6 +101,8 @@ dotnet test tests/FinalCheck.Documents.Tests/FinalCheck.Documents.Tests.csproj `
 
 ## Stage A 工作台验证
 
+跨设备人工验收样本可用已纳入 solution 的 `FinalCheck.AcceptanceFixtures` 重建：在仓库根目录运行 `./scripts/acceptance-fixtures.ps1`，输出纯合成 DOCX 与 hash 清单；使用 `-Action Verify -OutputDirectory '<绝对目录>' -NoBuild` 只读复核。样本目录、Top 3/版本链步骤、CLI 与真实安装验收的区别见 [跨设备合成验收夹具](acceptance-fixtures.md)。不复制本机数据库或用户合同，不将生成成功视作人工门禁通过。
+
 开发主机的 2026-09-30 资源耗尽事件、.NET 后台 manifest / MSI 时间线及证据边界见 [只读排查记录](incidents/2026-09-30-memory-pressure.md)。原始机器日志仅保存在本机 Git 忽略的 artifacts，不提交合同、数据库或转储；该环境事件不是已经定性的业务缺陷。
 
 先读当前 [Stage A task](../tasks/usability-workflow-correction-v0.md)、[校准 PRD](../PRD/PRD-v0.1.0.md) 和 [Comparison UI architecture](../architecture/comparison-ui.md)。A1 单元/集成测试覆盖审阅/忽略、原子 Undo 持久化、组内混合状态、筛选导航及逻辑 Anchor；App.Tests 的 Avalonia Headless 用例还会实例化真实工作台 View/XAML，验证选择同步、默认 Context View、窄窗布局、Context ↔ Full 往返及大预览虚拟化，并纳入常规 solution test。Headless 不模拟真实鼠标设备和窗口管理；全文模式的实际滚轮/滚动条体验仍是单独的 GUI 门禁。
